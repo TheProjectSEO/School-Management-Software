@@ -1,0 +1,19 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* MSU Design Tokens */
+:root {
+  --msu-maroon: #7B1113;
+  --msu-gold: #FDB913;
+  --msu-green: #006400;
+  --bg-light: #f6f7f8;
+  --bg-dark: #101822;
+}
+
+/* Lexend Font */
+@import url('https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&display=swap');
+
+body {
+  font-family: 'Lexend', sans-serif;
+}

@@ -1,0 +1,535 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { ColumnDef } from "@tanstack/react-table";
+import { DataTable, FilterBar, ChartCard, ExportButton, StatCard } from "@/components/ui";
+import type { FilterOption } from "@/components/ui/FilterBar";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
+  LineChart,
+  Line,
+} from "recharts";
+
+interface GradeRecord {
+  id: string;
+  student_name: string;
+  student_id: string;
+  section_name: string;
+  grade_level: string;
+  course_name: string;
+  course_code: string;
+  grading_period: string;
+  grade: number;
+  grade_letter: string;
+  status: "passing" | "failing" | "incomplete";
+}
+
+interface GradeSummary {
+  totalRecords: number;
+  averageGrade: number;
+  passRate: number;
+  failRate: number;
+  distribution: { grade: string; count: number; color: string }[];
+  byCourse: { name: string; average: number; passRate: number }[];
+  trend: { period: string; average: number; passRate: number }[];
+}
+
+interface PaginatedResult {
+  data: GradeRecord[];
+  summary: GradeSummary;
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+const GRADE_COLORS = {
+  A: "#22c55e",
+  B: "#84cc16",
+  C: "#eab308",
+  D: "#f97316",
+  F: "#ef4444",
+};
+
+export default function GradesReportPage() {
+  const [records, setRecords] = useState<GradeRecord[]>([]);
+  const [summary, setSummary] = useState<GradeSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    pageSize: 20,
+    total: 0,
+    totalPages: 0,
+  });
+
+  const [filters, setFilters] = useState({
+    search: "",
+    gradingPeriod: "Q2",
+    gradeLevel: "",
+    courseId: "",
+    status: "",
+  });
+
+  const fetchGradeData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({
+        page: pagination.page.toString(),
+        pageSize: pagination.pageSize.toString(),
+      });
+
+      if (filters.search) params.set("search", filters.search);
+      if (filters.gradingPeriod) params.set("gradingPeriod", filters.gradingPeriod);
+      if (filters.gradeLevel) params.set("gradeLevel", filters.gradeLevel);
+      if (filters.courseId) params.set("courseId", filters.courseId);
+      if (filters.status) params.set("status", filters.status);
+
+      const response = await fetch(`/api/admin/reports/grades?${params}`);
+      const result: PaginatedResult = await response.json();
+
+      setRecords(result.data);
+      setSummary(result.summary);
+      setPagination((prev) => ({
+        ...prev,
+        total: result.total,
+        totalPages: result.totalPages,
+      }));
+    } catch (error) {
+      console.error("Failed to fetch grade data:", error);
+      // Set mock data for demo
+      setMockData();
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.page, pagination.pageSize, filters]);
+
+  const setMockData = () => {
+    const mockRecords: GradeRecord[] = [
+      { id: "1", student_name: "Juan Dela Cruz", student_id: "STU-001", section_name: "Section A", grade_level: "10", course_name: "Mathematics", course_code: "MATH10", grading_period: "Q2", grade: 92, grade_letter: "A", status: "passing" },
+      { id: "2", student_name: "Maria Santos", student_id: "STU-002", section_name: "Section A", grade_level: "10", course_name: "Mathematics", course_code: "MATH10", grading_period: "Q2", grade: 85, grade_letter: "B", status: "passing" },
+      { id: "3", student_name: "Pedro Reyes", student_id: "STU-003", section_name: "Section B", grade_level: "10", course_name: "Science", course_code: "SCI10", grading_period: "Q2", grade: 78, grade_letter: "C", status: "passing" },
+      { id: "4", student_name: "Ana Garcia", student_id: "STU-004", section_name: "Section A", grade_level: "9", course_name: "English", course_code: "ENG9", grading_period: "Q2", grade: 71, grade_letter: "D", status: "passing" },
+      { id: "5", student_name: "Jose Lopez", student_id: "STU-005", section_name: "Section C", grade_level: "11", course_name: "Filipino", course_code: "FIL11", grading_period: "Q2", grade: 68, grade_letter: "F", status: "failing" },
+    ];
+
+    const mockSummary: GradeSummary = {
+      totalRecords: 1250,
+      averageGrade: 82.5,
+      passRate: 89.2,
+      failRate: 10.8,
+      distribution: [
+        { grade: "A (90-100)", count: 280, color: GRADE_COLORS.A },
+        { grade: "B (80-89)", count: 420, color: GRADE_COLORS.B },
+        { grade: "C (75-79)", count: 315, color: GRADE_COLORS.C },
+        { grade: "D (70-74)", count: 135, color: GRADE_COLORS.D },
+        { grade: "F (Below 70)", count: 100, color: GRADE_COLORS.F },
+      ],
+      byCourse: [
+        { name: "Mathematics", average: 84.2, passRate: 91.5 },
+        { name: "Science", average: 82.8, passRate: 88.3 },
+        { name: "English", average: 85.1, passRate: 92.1 },
+        { name: "Filipino", average: 83.5, passRate: 90.2 },
+        { name: "Social Studies", average: 81.2, passRate: 87.5 },
+        { name: "MAPEH", average: 88.5, passRate: 95.2 },
+      ],
+      trend: [
+        { period: "Q1 2023", average: 80.2, passRate: 86.5 },
+        { period: "Q2 2023", average: 81.5, passRate: 87.8 },
+        { period: "Q3 2023", average: 82.1, passRate: 88.2 },
+        { period: "Q4 2023", average: 83.0, passRate: 89.0 },
+        { period: "Q1 2024", average: 81.8, passRate: 88.5 },
+        { period: "Q2 2024", average: 82.5, passRate: 89.2 },
+      ],
+    };
+
+    setRecords(mockRecords);
+    setSummary(mockSummary);
+    setPagination((prev) => ({ ...prev, total: 5, totalPages: 1 }));
+  };
+
+  useEffect(() => {
+    fetchGradeData();
+  }, [fetchGradeData]);
+
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handleSearch = (query: string) => {
+    setFilters((prev) => ({ ...prev, search: query }));
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handleReset = () => {
+    setFilters({
+      search: "",
+      gradingPeriod: "Q2",
+      gradeLevel: "",
+      courseId: "",
+      status: "",
+    });
+    setPagination((prev) => ({ ...prev, page: 1 }));
+  };
+
+  const handleExport = async (exportFormat: "csv" | "excel" | "pdf") => {
+    const params = new URLSearchParams();
+    if (filters.gradingPeriod) params.set("gradingPeriod", filters.gradingPeriod);
+    if (filters.gradeLevel) params.set("gradeLevel", filters.gradeLevel);
+    if (filters.courseId) params.set("courseId", filters.courseId);
+    params.set("format", exportFormat);
+
+    const response = await fetch(`/api/admin/reports/grades/export?${params}`);
+    const blob = await response.blob();
+
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `grades-report-${filters.gradingPeriod}.${exportFormat === "excel" ? "xlsx" : exportFormat}`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const filterOptions: FilterOption[] = [
+    {
+      key: "gradingPeriod",
+      label: "Grading Period",
+      type: "select",
+      placeholder: "Select Period",
+      options: [
+        { value: "Q1", label: "1st Quarter" },
+        { value: "Q2", label: "2nd Quarter" },
+        { value: "Q3", label: "3rd Quarter" },
+        { value: "Q4", label: "4th Quarter" },
+        { value: "Final", label: "Final Grade" },
+      ],
+    },
+    {
+      key: "gradeLevel",
+      label: "Grade Level",
+      type: "select",
+      placeholder: "All Grades",
+      options: [
+        { value: "7", label: "Grade 7" },
+        { value: "8", label: "Grade 8" },
+        { value: "9", label: "Grade 9" },
+        { value: "10", label: "Grade 10" },
+        { value: "11", label: "Grade 11" },
+        { value: "12", label: "Grade 12" },
+      ],
+    },
+    {
+      key: "status",
+      label: "Status",
+      type: "select",
+      placeholder: "All Statuses",
+      options: [
+        { value: "passing", label: "Passing" },
+        { value: "failing", label: "Failing" },
+        { value: "incomplete", label: "Incomplete" },
+      ],
+    },
+  ];
+
+  const columns: ColumnDef<GradeRecord>[] = [
+    {
+      accessorKey: "student_name",
+      header: "Student",
+      cell: ({ row }) => (
+        <div>
+          <p className="font-medium text-gray-900">{row.original.student_name}</p>
+          <p className="text-xs text-gray-500">{row.original.student_id}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "section_name",
+      header: "Section",
+      cell: ({ row }) => (
+        <div>
+          <p className="font-medium text-gray-900">{row.original.section_name}</p>
+          <p className="text-xs text-gray-500">Grade {row.original.grade_level}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "course_name",
+      header: "Course",
+      cell: ({ row }) => (
+        <div>
+          <p className="font-medium text-gray-900">{row.original.course_name}</p>
+          <p className="text-xs text-gray-500">{row.original.course_code}</p>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "grading_period",
+      header: "Period",
+      cell: ({ row }) => (
+        <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full font-medium">
+          {row.original.grading_period}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "grade",
+      header: "Grade",
+      cell: ({ row }) => {
+        const grade = row.original.grade;
+        const letter = row.original.grade_letter;
+        const color = GRADE_COLORS[letter as keyof typeof GRADE_COLORS] || GRADE_COLORS.F;
+        return (
+          <div className="flex items-center gap-2">
+            <span className="text-lg font-bold" style={{ color }}>
+              {grade}
+            </span>
+            <span
+              className="px-2 py-0.5 text-xs font-medium rounded text-white"
+              style={{ backgroundColor: color }}
+            >
+              {letter}
+            </span>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "status",
+      header: "Status",
+      cell: ({ row }) => {
+        const status = row.original.status;
+        const styles = {
+          passing: "bg-green-100 text-green-700",
+          failing: "bg-red-100 text-red-700",
+          incomplete: "bg-yellow-100 text-yellow-700",
+        };
+        return (
+          <span className={`px-2 py-1 text-xs rounded-full font-medium capitalize ${styles[status]}`}>
+            {status}
+          </span>
+        );
+      },
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Grades Report</h1>
+          <p className="text-gray-500 mt-1">Analyze grade distribution and academic performance</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <ExportButton onExport={handleExport} />
+        </div>
+      </div>
+
+      {/* Summary Stats */}
+      {summary && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            label="Average Grade"
+            value={`${summary.averageGrade.toFixed(1)}%`}
+            icon="grade"
+            color="bg-primary"
+          />
+          <StatCard
+            label="Pass Rate"
+            value={`${summary.passRate.toFixed(1)}%`}
+            icon="check_circle"
+            color="bg-green-500"
+          />
+          <StatCard
+            label="Fail Rate"
+            value={`${summary.failRate.toFixed(1)}%`}
+            icon="cancel"
+            color="bg-red-500"
+          />
+          <StatCard
+            label="Total Records"
+            value={summary.totalRecords.toLocaleString()}
+            icon="assignment"
+            color="bg-blue-500"
+          />
+        </div>
+      )}
+
+      {/* Charts */}
+      {summary && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Grade Distribution Pie Chart */}
+          <ChartCard title="Grade Distribution" subtitle={`${filters.gradingPeriod} - All Sections`}>
+            <ResponsiveContainer width="100%" height={280}>
+              <PieChart>
+                <Pie
+                  data={summary.distribution}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={2}
+                  dataKey="count"
+                  nameKey="grade"
+                  label={({ grade, count }) => `${count}`}
+                  labelLine={false}
+                >
+                  {summary.distribution.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "white",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "8px",
+                  }}
+                  formatter={(value: number) => [`${value} students`, "Count"]}
+                />
+                <Legend verticalAlign="bottom" height={36} />
+              </PieChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* Average by Course */}
+          <ChartCard title="Average by Course" subtitle="Comparison across subjects">
+            <ResponsiveContainer width="100%" height={280}>
+              <BarChart data={summary.byCourse} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis type="number" domain={[70, 100]} tick={{ fontSize: 12 }} stroke="#9CA3AF" />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="#9CA3AF" width={90} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "white",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "8px",
+                  }}
+                />
+                <Bar dataKey="average" fill="#7B1113" name="Average Grade" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
+
+          {/* Grade Trend */}
+          <ChartCard title="Performance Trend" subtitle="Average grade over time">
+            <ResponsiveContainer width="100%" height={280}>
+              <LineChart data={summary.trend}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="period" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
+                <YAxis domain={[75, 95]} tick={{ fontSize: 12 }} stroke="#9CA3AF" />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "white",
+                    border: "1px solid #e5e7eb",
+                    borderRadius: "8px",
+                  }}
+                />
+                <Legend verticalAlign="bottom" height={36} />
+                <Line
+                  type="monotone"
+                  dataKey="average"
+                  stroke="#7B1113"
+                  strokeWidth={2}
+                  dot={{ fill: "#7B1113" }}
+                  name="Avg. Grade"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="passRate"
+                  stroke="#FDB913"
+                  strokeWidth={2}
+                  dot={{ fill: "#FDB913" }}
+                  name="Pass Rate %"
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </ChartCard>
+        </div>
+      )}
+
+      {/* Pass/Fail Summary Cards */}
+      {summary && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Pass Rate by Course</h3>
+            <div className="space-y-3">
+              {summary.byCourse.map((course) => (
+                <div key={course.name} className="flex items-center gap-3">
+                  <span className="text-sm text-gray-600 w-28 truncate">{course.name}</span>
+                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-green-500 rounded-full"
+                      style={{ width: `${course.passRate}%` }}
+                    />
+                  </div>
+                  <span className="text-sm font-medium text-gray-900 w-14 text-right">
+                    {course.passRate.toFixed(1)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Grading Scale Reference</h3>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { letter: "A", range: "90-100", desc: "Excellent", color: GRADE_COLORS.A },
+                { letter: "B", range: "80-89", desc: "Very Good", color: GRADE_COLORS.B },
+                { letter: "C", range: "75-79", desc: "Good", color: GRADE_COLORS.C },
+                { letter: "D", range: "70-74", desc: "Passing", color: GRADE_COLORS.D },
+                { letter: "F", range: "Below 70", desc: "Failing", color: GRADE_COLORS.F },
+              ].map((grade) => (
+                <div key={grade.letter} className="flex items-center gap-3 p-2 rounded-lg bg-gray-50">
+                  <div
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
+                    style={{ backgroundColor: grade.color }}
+                  >
+                    {grade.letter}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{grade.range}</p>
+                    <p className="text-xs text-gray-500">{grade.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <FilterBar
+        filters={filterOptions}
+        values={filters}
+        onChange={handleFilterChange}
+        onSearch={handleSearch}
+        onReset={handleReset}
+      />
+
+      {/* Data Table */}
+      <DataTable
+        columns={columns}
+        data={records}
+        pagination={pagination}
+        onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
+        loading={loading}
+        emptyMessage="No grade records found"
+        emptyIcon="assignment"
+        rowKey="id"
+      />
+    </div>
+  );
+}

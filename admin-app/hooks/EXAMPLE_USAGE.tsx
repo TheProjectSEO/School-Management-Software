@@ -1,0 +1,623 @@
+/**
+ * EXAMPLE: Admin Messaging with Real-time Updates
+ *
+ * This file demonstrates how to use the useAdminMessaging hook
+ * in different scenarios. Copy and adapt these examples for your use case.
+ */
+
+"use client";
+
+import { useState, useEffect } from "react";
+import { useAdminMessaging } from "./useAdminMessaging";
+import type { AdminMessage, ConversationUpdate } from "./useAdminMessaging";
+
+// ============================================================================
+// EXAMPLE 1: Simple Conversation View
+// ============================================================================
+
+interface SimpleConversationProps {
+  adminProfileId: string;
+  schoolId: string;
+  userProfileId: string;
+}
+
+export function SimpleConversation({
+  adminProfileId,
+  schoolId,
+  userProfileId,
+}: SimpleConversationProps) {
+  const [messages, setMessages] = useState<AdminMessage[]>([]);
+
+  const {
+    subscribeToConversation,
+    unsubscribeFromConversation,
+    newMessage,
+    isConversationSubscribed,
+    clearNewMessage,
+  } = useAdminMessaging(adminProfileId, schoolId);
+
+  // Subscribe to conversation on mount
+  useEffect(() => {
+    subscribeToConversation(userProfileId);
+
+    return () => {
+      unsubscribeFromConversation();
+    };
+  }, [userProfileId]);
+
+  // Handle new messages
+  useEffect(() => {
+    if (newMessage) {
+      setMessages((prev) => [...prev, newMessage]);
+      clearNewMessage();
+    }
+  }, [newMessage, clearNewMessage]);
+
+  return (
+    <div className="flex flex-col h-screen">
+      {/* Header with status indicator */}
+      <div className="p-4 border-b">
+        <h2 className="text-lg font-semibold">Conversation</h2>
+        {isConversationSubscribed && (
+          <span className="text-xs text-green-600">● Connected</span>
+        )}
+      </div>
+
+      {/* Message list */}
+      <div className="flex-1 overflow-y-auto p-4">
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`mb-4 ${
+              msg.sender_profile_id === adminProfileId
+                ? "text-right"
+                : "text-left"
+            }`}
+          >
+            <div
+              className={`inline-block max-w-md p-3 rounded-lg ${
+                msg.sender_profile_id === adminProfileId
+                  ? "bg-blue-500 text-white"
+                  : "bg-gray-200"
+              }`}
+            >
+              <p>{msg.message}</p>
+              <span className="text-xs opacity-70">
+                {new Date(msg.created_at).toLocaleTimeString()}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Message input (implementation omitted) */}
+      <div className="p-4 border-t">
+        <input
+          type="text"
+          placeholder="Type a message..."
+          className="w-full p-2 border rounded"
+        />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// EXAMPLE 2: Conversation List with Updates
+// ============================================================================
+
+interface Conversation {
+  profile_id: string;
+  full_name: string;
+  email: string;
+  avatar_url: string | null;
+  last_message: string;
+  last_message_time: string;
+  unread_count: number;
+  is_sender: boolean;
+}
+
+interface ConversationListProps {
+  adminProfileId: string;
+  schoolId: string;
+  initialConversations: Conversation[];
+}
+
+export function ConversationList({
+  adminProfileId,
+  schoolId,
+  initialConversations,
+}: ConversationListProps) {
+  const [conversations, setConversations] = useState(initialConversations);
+
+  const {
+    subscribeToConversations,
+    unsubscribeFromConversations,
+    conversationUpdates,
+    isConversationsSubscribed,
+    clearConversationUpdates,
+  } = useAdminMessaging(adminProfileId, schoolId, {
+    playSound: true,
+    onNewMessage: (message) => {
+      console.log("New message notification:", message);
+    },
+  });
+
+  // Subscribe to all conversations
+  useEffect(() => {
+    subscribeToConversations();
+
+    return () => {
+      unsubscribeFromConversations();
+    };
+  }, []);
+
+  // Handle conversation updates
+  useEffect(() => {
+    if (conversationUpdates.length === 0) return;
+
+    conversationUpdates.forEach((update) => {
+      if (update.type === "new_message") {
+        // Update or add conversation
+        setConversations((prev) => {
+          const existing = prev.find(
+            (c) => c.profile_id === update.profile_id
+          );
+
+          if (existing) {
+            // Update existing conversation
+            return prev.map((c) =>
+              c.profile_id === update.profile_id
+                ? {
+                    ...c,
+                    last_message: update.message.message,
+                    last_message_time: update.message.created_at,
+                    unread_count:
+                      update.message.receiver_profile_id === adminProfileId
+                        ? c.unread_count + 1
+                        : c.unread_count,
+                    is_sender:
+                      update.message.sender_profile_id === adminProfileId,
+                  }
+                : c
+            );
+          } else {
+            // Add new conversation
+            return [
+              {
+                profile_id: update.profile_id,
+                full_name:
+                  update.message.sender?.full_name ||
+                  update.message.receiver?.full_name ||
+                  "Unknown",
+                email:
+                  update.message.sender?.email ||
+                  update.message.receiver?.email ||
+                  "",
+                avatar_url:
+                  update.message.sender?.avatar_url ||
+                  update.message.receiver?.avatar_url ||
+                  null,
+                last_message: update.message.message,
+                last_message_time: update.message.created_at,
+                unread_count:
+                  update.message.receiver_profile_id === adminProfileId ? 1 : 0,
+                is_sender:
+                  update.message.sender_profile_id === adminProfileId,
+              },
+              ...prev,
+            ];
+          }
+        });
+      } else if (update.type === "message_read") {
+        // Update read status
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.profile_id === update.profile_id
+              ? { ...c, unread_count: 0 }
+              : c
+          )
+        );
+      }
+    });
+
+    clearConversationUpdates();
+  }, [conversationUpdates, adminProfileId, clearConversationUpdates]);
+
+  return (
+    <div className="h-screen flex flex-col">
+      {/* Header */}
+      <div className="p-4 border-b">
+        <h2 className="text-lg font-semibold">Messages</h2>
+        {isConversationsSubscribed && (
+          <span className="text-xs text-green-600">● Live updates</span>
+        )}
+      </div>
+
+      {/* Conversation list */}
+      <div className="flex-1 overflow-y-auto">
+        {conversations.map((conv) => (
+          <div
+            key={conv.profile_id}
+            className="p-4 border-b hover:bg-gray-50 cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              {/* Avatar */}
+              <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center">
+                {conv.avatar_url ? (
+                  <img
+                    src={conv.avatar_url}
+                    alt={conv.full_name}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <span className="text-lg font-semibold">
+                    {conv.full_name.charAt(0)}
+                  </span>
+                )}
+              </div>
+
+              {/* Content */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold truncate">{conv.full_name}</h3>
+                  <span className="text-xs text-gray-500">
+                    {new Date(conv.last_message_time).toLocaleTimeString()}
+                  </span>
+                </div>
+                <p className="text-sm text-gray-600 truncate">
+                  {conv.is_sender && "You: "}
+                  {conv.last_message}
+                </p>
+              </div>
+
+              {/* Unread badge */}
+              {conv.unread_count > 0 && (
+                <div className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center">
+                  {conv.unread_count}
+                </div>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// EXAMPLE 3: With Presence Indicators
+// ============================================================================
+
+interface UserWithPresenceProps {
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  adminProfileId: string;
+  schoolId: string;
+}
+
+export function UserWithPresence({
+  userId,
+  userName,
+  userAvatar,
+  adminProfileId,
+  schoolId,
+}: UserWithPresenceProps) {
+  const { isOnline, getLastSeen } = useAdminMessaging(
+    adminProfileId,
+    schoolId
+  );
+
+  const online = isOnline(userId);
+  const lastSeen = getLastSeen(userId);
+
+  return (
+    <div className="flex items-center gap-3 p-4">
+      {/* Avatar with presence indicator */}
+      <div className="relative">
+        <div className="w-12 h-12 rounded-full bg-gray-300 flex items-center justify-center">
+          {userAvatar ? (
+            <img
+              src={userAvatar}
+              alt={userName}
+              className="w-full h-full rounded-full object-cover"
+            />
+          ) : (
+            <span className="text-lg font-semibold">
+              {userName.charAt(0)}
+            </span>
+          )}
+        </div>
+
+        {/* Online indicator */}
+        {online && (
+          <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white" />
+        )}
+      </div>
+
+      {/* User info */}
+      <div className="flex-1">
+        <h3 className="font-semibold">{userName}</h3>
+        {online ? (
+          <span className="text-xs text-green-600">Online</span>
+        ) : (
+          <span className="text-xs text-gray-500">
+            Last seen:{" "}
+            {lastSeen
+              ? new Date(lastSeen).toLocaleString()
+              : "Unknown"}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// EXAMPLE 4: With Custom Notifications
+// ============================================================================
+
+interface MessagingWithNotificationsProps {
+  adminProfileId: string;
+  schoolId: string;
+}
+
+export function MessagingWithNotifications({
+  adminProfileId,
+  schoolId,
+}: MessagingWithNotificationsProps) {
+  const [toasts, setToasts] = useState<
+    Array<{ id: string; message: string; sender: string }>
+  >([]);
+
+  const { subscribeToConversations, unsubscribeFromConversations } =
+    useAdminMessaging(adminProfileId, schoolId, {
+      playSound: true,
+      onNewMessage: (message) => {
+        // Only show notification if message is TO admin
+        if (message.receiver_profile_id === adminProfileId) {
+          const toast = {
+            id: message.id,
+            message: message.message,
+            sender: message.sender?.full_name || "Unknown",
+          };
+
+          setToasts((prev) => [...prev, toast]);
+
+          // Auto-remove after 5 seconds
+          setTimeout(() => {
+            setToasts((prev) => prev.filter((t) => t.id !== toast.id));
+          }, 5000);
+        }
+      },
+      onConversationUpdate: (update) => {
+        console.log("Conversation updated:", update);
+      },
+    });
+
+  useEffect(() => {
+    subscribeToConversations();
+    return () => unsubscribeFromConversations();
+  }, []);
+
+  return (
+    <div className="relative">
+      {/* Your main content */}
+      <div>Main content here</div>
+
+      {/* Toast notifications */}
+      <div className="fixed top-4 right-4 space-y-2">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className="bg-white shadow-lg rounded-lg p-4 max-w-sm border-l-4 border-blue-500"
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex-1">
+                <p className="font-semibold text-sm">{toast.sender}</p>
+                <p className="text-sm text-gray-600 mt-1">
+                  {toast.message.substring(0, 50)}
+                  {toast.message.length > 50 ? "..." : ""}
+                </p>
+              </div>
+              <button
+                onClick={() =>
+                  setToasts((prev) => prev.filter((t) => t.id !== toast.id))
+                }
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// EXAMPLE 5: Complete Messaging Component
+// ============================================================================
+
+interface CompleteMessagingAppProps {
+  adminProfileId: string;
+  schoolId: string;
+}
+
+export function CompleteMessagingApp({
+  adminProfileId,
+  schoolId,
+}: CompleteMessagingAppProps) {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<AdminMessage[]>([]);
+
+  const {
+    // For conversation list
+    subscribeToConversations,
+    unsubscribeFromConversations,
+    conversationUpdates,
+    isConversationsSubscribed,
+
+    // For active conversation
+    subscribeToConversation,
+    unsubscribeFromConversation,
+    newMessage,
+    isConversationSubscribed,
+
+    // Presence
+    isOnline,
+    getLastSeen,
+
+    // Utilities
+    clearNewMessage,
+    clearConversationUpdates,
+  } = useAdminMessaging(adminProfileId, schoolId, {
+    playSound: true,
+  });
+
+  // Subscribe to all conversations
+  useEffect(() => {
+    subscribeToConversations();
+    return () => unsubscribeFromConversations();
+  }, []);
+
+  // Subscribe to selected conversation
+  useEffect(() => {
+    if (selectedUserId) {
+      subscribeToConversation(selectedUserId);
+    }
+
+    return () => {
+      unsubscribeFromConversation();
+    };
+  }, [selectedUserId]);
+
+  // Handle new message in active conversation
+  useEffect(() => {
+    if (newMessage) {
+      setMessages((prev) => [...prev, newMessage]);
+      clearNewMessage();
+    }
+  }, [newMessage, clearNewMessage]);
+
+  // Handle conversation list updates
+  useEffect(() => {
+    if (conversationUpdates.length > 0) {
+      conversationUpdates.forEach((update) => {
+        // Update conversation list
+        if (update.type === "new_message") {
+          setConversations((prev) => {
+            const updated = prev.map((c) =>
+              c.profile_id === update.profile_id
+                ? {
+                    ...c,
+                    last_message: update.message.message,
+                    last_message_time: update.message.created_at,
+                  }
+                : c
+            );
+            return updated;
+          });
+        }
+      });
+      clearConversationUpdates();
+    }
+  }, [conversationUpdates, clearConversationUpdates]);
+
+  return (
+    <div className="flex h-screen">
+      {/* Conversation List */}
+      <div className="w-80 border-r">
+        <div className="p-4 border-b">
+          <h2 className="text-lg font-semibold">Messages</h2>
+          {isConversationsSubscribed && (
+            <span className="text-xs text-green-600">● Live</span>
+          )}
+        </div>
+        <div className="overflow-y-auto">
+          {conversations.map((conv) => (
+            <div
+              key={conv.profile_id}
+              onClick={() => setSelectedUserId(conv.profile_id)}
+              className={`p-4 border-b cursor-pointer hover:bg-gray-50 ${
+                selectedUserId === conv.profile_id ? "bg-blue-50" : ""
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="w-10 h-10 rounded-full bg-gray-300 flex items-center justify-center">
+                    {conv.full_name.charAt(0)}
+                  </div>
+                  {isOnline(conv.profile_id) && (
+                    <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-white" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-sm truncate">
+                    {conv.full_name}
+                  </h3>
+                  <p className="text-xs text-gray-600 truncate">
+                    {conv.last_message}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Active Conversation */}
+      <div className="flex-1 flex flex-col">
+        {selectedUserId ? (
+          <>
+            <div className="p-4 border-b">
+              <h3 className="font-semibold">
+                {conversations.find((c) => c.profile_id === selectedUserId)
+                  ?.full_name || "User"}
+              </h3>
+              {isConversationSubscribed && (
+                <span className="text-xs text-green-600">● Connected</span>
+              )}
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {messages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`mb-4 ${
+                    msg.sender_profile_id === adminProfileId
+                      ? "text-right"
+                      : "text-left"
+                  }`}
+                >
+                  <div
+                    className={`inline-block p-3 rounded-lg ${
+                      msg.sender_profile_id === adminProfileId
+                        ? "bg-blue-500 text-white"
+                        : "bg-gray-200"
+                    }`}
+                  >
+                    <p>{msg.message}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="p-4 border-t">
+              <input
+                type="text"
+                placeholder="Type a message..."
+                className="w-full p-2 border rounded"
+              />
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-gray-500">
+            Select a conversation to start messaging
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

@@ -1,0 +1,112 @@
+================================================================================
+                    SCHEMA ACCESS DIAGNOSIS SUMMARY
+================================================================================
+
+PROBLEM
+--------
+The "school software" schema exists but returns PGRST106 error:
+"The schema must be one of the following: public, graphql_public, "school software""
+
+Notice: "school software" IS in the allowed list, yet it STILL rejects access!
+
+ROOT CAUSE DISCOVERED
+---------------------
+The authenticator role config has:
+    pgrst.db_schemas='public, graphql_public, "school software"'
+                                              ^^              ^^
+                                           These quotes are the problem!
+
+PostgREST reads this as: "Find a schema named: "school software" (with quotes)"
+But the actual schema is named: school software (without quotes)
+
+THE SMOKING GUN
+---------------
+When we tested with ""school software"" (doubled quotes), we got a DIFFERENT error:
+
+    PGRST205: Could not find the table '"school software".schools'
+
+This proves PostgREST is looking for a schema with quotes AS PART OF THE NAME!
+
+TEST RESULTS
+------------
+✅ PostgREST is running and responding
+✅ Schema exists with 45 tables
+✅ Permissions are correct (USAGE, SELECT, INSERT, UPDATE, DELETE granted)
+✅ authenticator config shows "school software" in allowed schemas
+❌ API access fails with PGRST106 for all quote variations (8/9 tests)
+❌ Only ""school software"" gave different error (PGRST205)
+
+SOLUTION 1 (QUICK FIX - TRY FIRST)
+-----------------------------------
+Time: 5 minutes + 60 second wait
+Risk: Low
+Downtime: None
+
+SQL:
+    ALTER ROLE authenticator SET pgrst.db_schemas = 'public, graphql_public, school software';
+    NOTIFY pgrst, 'reload config';
+
+Then wait 60 seconds and test:
+    node scripts/test-quote-variations.mjs
+
+SOLUTION 3 (PROPER FIX - IF SOLUTION 1 FAILS)
+----------------------------------------------
+Time: 15 minutes
+Risk: Medium (requires code changes)
+Downtime: 5 minutes during deployment
+
+SQL:
+    ALTER SCHEMA "school software" RENAME TO school_software;
+    ALTER ROLE authenticator SET pgrst.db_schemas = 'public, graphql_public, school_software';
+    NOTIFY pgrst, 'reload config';
+
+Code changes required in 3 files:
+    - lib/supabase/client.ts (line 17)
+    - lib/supabase/server.ts (line 18)
+    - scripts/verify-schema.mjs (line 19)
+
+Change: "school software" → school_software
+
+FILES CREATED
+-------------
+Quick Reference:
+    📄 SCHEMA_FIX_QUICK_REFERENCE.md       ← START HERE
+    📄 DIAGNOSIS_COMPLETE.md                ← Summary
+    📄 DIAGNOSIS_SUMMARY.txt                ← This file
+
+Detailed Docs:
+    📄 SCHEMA_FIX_ACTION_PLAN.md            ← Full action plan
+    📄 SCHEMA_ACCESS_DIAGNOSIS.md           ← Technical deep dive
+
+Diagnostic Scripts:
+    🔧 scripts/diagnose-schema-access.mjs   ← 7 comprehensive tests
+    🔧 scripts/test-quote-variations.mjs    ← 9 quote format tests
+    🔧 scripts/verify-schema.mjs            ← Schema verification
+
+Fix Scripts:
+    💊 scripts/fix-postgrest-config.sql     ← Solution 1 SQL
+    💊 scripts/rename-schema-to-underscore.sql ← Solution 3 SQL
+    💊 scripts/force-postgrest-reload.sql   ← Reload commands
+
+CONFIDENCE
+----------
+95% certain this is a quote handling issue in pgrst.db_schemas configuration
+
+NEXT STEP
+---------
+1. Open Supabase SQL Editor
+2. Run Solution 1 SQL (takes 30 seconds)
+3. Wait 60 seconds for PostgREST reload
+4. Run: node scripts/test-quote-variations.mjs
+5. If it works → DONE! ✅
+6. If not → Implement Solution 3
+
+REFERENCES
+----------
+• https://supabase.com/docs/guides/troubleshooting/pgrst106
+• https://docs.postgrest.org/en/v12/references/configuration.html
+• https://github.com/supabase/postgrest-js/issues/45
+
+================================================================================
+                    Diagnosis complete. Ready for fix.
+================================================================================

@@ -1,0 +1,51 @@
+{
+  "name": "msu-student-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "create-test-user": "node scripts/create-test-user.mjs",
+    "verify-and-fix": "node scripts/verify-and-fix.mjs",
+    "test-all-tabs": "node scripts/test-all-tabs.mjs",
+    "check-users": "node scripts/check-users.mjs",
+    "diagnose-login": "node scripts/diagnose-login.mjs"
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/sortable": "^10.0.0",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@react-pdf/renderer": "^4.3.2",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.1.0",
+    "groq-sdk": "^0.37.0",
+    "next": "^16.1.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
+    "sonner": "^2.0.7",
+    "tailwind-merge": "^3.4.0",
+    "youtube-transcript": "^1.2.1"
+  },
+  "devDependencies": {
+    "@supabase/ssr": "^0.8.0",
+    "@supabase/supabase-js": "^2.89.0",
+    "@tailwindcss/forms": "^0.5.11",
+    "@types/node": "^25.0.3",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "autoprefixer": "^10.4.23",
+    "dotenv": "^17.2.3",
+    "eslint": "^9.39.2",
+    "eslint-config-next": "^16.1.1",
+    "playwright": "^1.49.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

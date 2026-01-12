@@ -1,0 +1,321 @@
+# agent.md — Next.js + Tailwind + Supabase build plan (Student Web App)
+
+Owner: You (Orchestrator)
+Execution: Claude Code (multi-agent), MCPs for Supabase + filesystem + (optional) Playwright
+
+## Goal
+Turn the existing Tailwind CDN HTML screens into a production-grade Next.js web app using:
+- Latest stable Next.js (App Router)
+- Latest Tailwind (build-time, no CDN)
+- Supabase (your existing schema + Auth + RLS + Storage)
+- Pixel-close UI parity with your HTML screens
+- One consistent logo used everywhere with zero variation
+
+---
+
+## Non-negotiables
+### 1) Screen parity
+Every HTML screen that exists today must ship as a Next route/page with matching UI and flows. This includes Help and its “Support MSU” content inside Help.
+
+### 2) Logo consistency
+A single logo asset is used everywhere (sidebar, auth pages, headers). No resizing distortions, no recolors, no alternate versions. One source of truth.
+
+### 3) No Tailwind CDN
+Replace all CDN usage with Tailwind build config and compiled CSS.
+
+### 4) Supabase is the source of truth
+Auth + RLS + schema-backed reads/writes. UI checks help UX but DB rules enforce access.
+
+---
+
+## Inputs required in repo
+Place these in `/resources` or `/ui`:
+- `/resources/html/`  → all HTML screens folders you already have
+- `/resources/assets/logo/` → the exact logo file(s) you want used everywhere (svg/png)
+- `/resources/assets/icons/` → if you have any
+- `/resources/screenshots/` → reference screenshots per screen (recommended)
+
+---
+
+## Route map (students)
+Routes should mirror your screen set. Keep route names stable and predictable.
+
+Public routes:
+- `/login`
+- `/register`
+
+Authenticated routes (student shell):
+- `/` (student_home)
+- `/subjects` (subjects_home_(my_subjects))
+- `/subjects/[subjectId]` (subject_space_-_overview)
+- `/subjects/[subjectId]/modules/[moduleId]` (module_page_(learning_surface))
+- `/assessments` (assessments_(msu_branded))
+- `/progress` (progress_+_mastery_(msu_branded))
+- `/notes` (notes_)
+- `/downloads` (downloads_)
+- `/notifications` (notifications_)
+- `/profile` (profile_)
+- `/help` (help_)  → includes “Support MSU” section/content
+
+If any extra student screens exist in your HTML folders, add them here and implement them as routes too.
+
+---
+
+## Project structure
+Use a clean layout with shared shell and page routes.
+
+Suggested structure:
+- `/app`
+  - `/(auth)`
+    - `/login/page.tsx`
+    - `/register/page.tsx`
+    - `/layout.tsx` (auth layout includes logo)
+  - `/(student)`
+    - `/layout.tsx` (AppShell)
+    - `/page.tsx` (home)
+    - `/subjects/page.tsx`
+    - `/subjects/[subjectId]/page.tsx`
+    - `/subjects/[subjectId]/modules/[moduleId]/page.tsx`
+    - `/assessments/page.tsx`
+    - `/progress/page.tsx`
+    - `/notes/page.tsx`
+    - `/downloads/page.tsx`
+    - `/notifications/page.tsx`
+    - `/profile/page.tsx`
+    - `/help/page.tsx`
+- `/components`
+  - `/brand/BrandLogo.tsx`  ← ONLY source of logo rendering
+  - `/layout/AppShell.tsx`
+  - `/layout/Sidebar.tsx`
+  - `/layout/Topbar.tsx`
+  - `/layout/PageHeader.tsx`
+  - `/ui/*` (Card, Button, Badge, Tabs, Table, Modal, Skeleton, EmptyState)
+  - `/subjects/*` (SubjectCard, ModuleList, TranscriptViewer, AskAIPanel, AttachmentsList)
+- `/lib`
+  - `/supabase/server.ts`
+  - `/supabase/client.ts`
+  - `/auth/middleware.ts` (or middleware.ts at root)
+  - `/db/*` (typed queries)
+- `/types`
+  - `supabase.ts` (Database types generated)
+- `/public/brand/logo.svg` (or logo.png)  ← single official logo asset
+
+---
+
+## Logo rules (enforce everywhere)
+### Single asset
+- Official file lives at: `/public/brand/logo.svg` (preferred) or `/public/brand/logo.png`
+- Do not duplicate the logo under other names.
+
+### Single component
+Create `components/brand/BrandLogo.tsx` and use it everywhere.
+- Sidebar logo
+- Topbar logo (if used)
+- Login/register logo
+- Any loading/empty states that show brand
+
+### No mutations
+- No color overrides
+- No filters
+- No stretching
+- Only safe sizing via container height/width while preserving aspect ratio
+
+Example behavior:
+- Sidebar: fixed height (eg 28–32px)
+- Auth header: fixed height (eg 36–44px)
+- Use `priority` on Next Image if it is PNG and appears above the fold
+
+---
+
+## Tailwind migration rules
+- Remove CDN `<script>` and `<link>` usage from HTML conversions.
+- Use Tailwind config and `globals.css`.
+- Keep your existing class strings from HTML as-is at first.
+- Extract repeated patterns into components only after parity is confirmed.
+
+---
+
+## Supabase integration plan (App Router safe)
+### Environment variables
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+### Auth
+- Email/password for MVP (match whatever you already built in the HTML flow)
+- Session cookie handling via server client
+- Redirect unauthenticated users to `/login`
+
+### Authorization
+- DB RLS policies enforce access
+- App reads role/level to render the right nav/sections
+
+### Types
+Generate DB types and commit them:
+- `types/supabase.ts`
+
+### Data access layer
+Create query helpers:
+- `getStudentProfile()`
+- `getSubjectsForStudent(studentId)`
+- `getSubject(subjectId, studentId)`
+- `getModules(subjectId, studentId)`
+- `getModule(moduleId, studentId)`
+- `getTranscript(moduleId)`
+- `getAttachments(moduleId)`
+- `updateModuleProgress(studentId, moduleId, payload)`
+- `getDownloadsQueue(studentId)` (if applicable)
+- `getNotifications(studentId)`
+- `createSupportTicket(studentId, payload)` (Help → Support MSU)
+
+Map these to your schema tables/views.
+
+---
+
+## Multi-agent execution (Claude Code)
+All agents work on branches. Orchestrator merges in order.
+
+### Agent 0 — Orchestrator (you)
+Owns:
+- repo setup
+- branch naming
+- merge order
+- final QA and deploy checks
+Rules:
+- every agent PR must include screenshots or a quick screen recording per route changed
+- every PR must keep BrandLogo usage correct
+
+### Agent 1 — App shell + navigation
+Deliver:
+- `AppShell`, `Sidebar`, `Topbar`
+- route nav links for all student screens
+- responsive layout (desktop sidebar, mobile nav)
+- BrandLogo placed in shell exactly once in sidebar (and auth layout)
+Acceptance:
+- every screen shows the same logo
+- nav highlights active route
+- no layout shift
+
+### Agent 2 — Auth pages
+Deliver:
+- `/login`, `/register` pages migrated from HTML
+- Supabase auth wiring (sign in/up)
+- error states, loading states
+Acceptance:
+- can register → land in app
+- can login → land in app
+- logo matches brand asset, no variant
+
+### Agent 3 — Subjects + Module learning surface
+Deliver:
+- `/subjects`
+- `/subjects/[subjectId]`
+- `/subjects/[subjectId]/modules/[moduleId]`
+- transcript rendering
+- attachments list
+- Ask AI panel UI scaffolding (API wiring can be staged if needed)
+Acceptance:
+- same layout as HTML
+- navigation back works
+- module page loads transcript and attachments from Supabase
+
+### Agent 4 — Remaining student pages
+Deliver:
+- `/assessments`
+- `/progress`
+- `/notes`
+- `/downloads`
+- `/notifications`
+- `/profile`
+- `/help` (must include “Support MSU” and support flows if present in HTML)
+Acceptance:
+- parity with HTML screens
+- working links and states
+- BrandLogo present via shell/auth layouts
+
+### Agent 5 — Supabase data layer & policies alignment
+Deliver:
+- server/client Supabase utilities
+- typed queries per page needs
+- middleware route protection
+- confirm RLS assumptions and required indexes
+Acceptance:
+- pages render server-side data where appropriate
+- no direct table exposure without RLS
+- no hard-coded IDs
+
+### Agent 6 — QA + smoke tests (recommended)
+Deliver:
+- Playwright smoke tests:
+  - login
+  - open subjects
+  - open module page
+  - open help and verify Support MSU section exists
+- basic CI workflow that runs lint + tests
+Acceptance:
+- tests pass on PR and main
+
+### Agent 7 — Deploy
+Deliver:
+- Vercel project config
+- env var mapping
+- build checks
+Acceptance:
+- preview deploy per PR
+- production deploy from main
+
+---
+
+## Merge order (safe)
+1) Repo scaffold + Tailwind + BrandLogo + AppShell
+2) Supabase auth + middleware
+3) Subjects and module learning surface
+4) Remaining student routes (including Help → Support MSU)
+5) QA automation
+6) Deploy setup
+
+---
+
+## Page implementation checklist (apply to every screen)
+- [ ] Route created under `/(student)` or `/(auth)`
+- [ ] Uses shared layout (student shell or auth layout)
+- [ ] BrandLogo present (via layout), not re-implemented
+- [ ] UI matches HTML (spacing, typography, sections)
+- [ ] Responsive behavior matches expectations
+- [ ] Loading + empty states exist
+- [ ] Supabase data wired (or a clear stub with TODO if staged)
+- [ ] No Tailwind CDN references remain
+- [ ] No duplicated CSS hacks outside Tailwind
+- [ ] No inline script tags carried over from HTML
+
+---
+
+## “Support MSU” inside Help (must be included)
+Help route must contain:
+- Support MSU section exactly as designed in HTML
+- Support contact options (form, email link, ticket creation, whatever exists)
+- If there is a support form, create a Supabase-backed submit:
+  - table: `support_tickets` (or your schema equivalent)
+  - fields: student_id, category, subject, message, attachments(optional), created_at
+- Confirmation state + error state
+
+---
+
+## Definition of Done (student web app)
+- All student screens present as routes (matching your HTML folder set)
+- Pixel-close parity for each screen
+- Logo is identical everywhere, sourced only from `/public/brand/logo.*` via `BrandLogo`
+- Auth works (login/register) and routes are protected
+- Subjects → modules → module learning surface works end-to-end with Supabase data
+- Help includes Support MSU content and actions
+- Builds cleanly, deploys cleanly
+
+---
+
+## Notes for Claude Code execution
+- Treat `/resources/html/*` as the design source of truth.
+- Start by copying markup into `page.tsx` files, then refactor into components after parity.
+- Keep components small and reuse across screens only when stable.
+- Prefer server components for data reads; use client components for interactive widgets.
+- Never re-create the logo; always import `BrandLogo`.
+
+End.

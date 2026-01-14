@@ -7,6 +7,7 @@ import type { Student, Profile } from "./types";
 
 /**
  * Get current authenticated student
+ * Uses SECURITY DEFINER RPC to bypass RLS circular dependencies
  */
 export async function getCurrentStudent(): Promise<(Student & { profile: Profile }) | null> {
   const supabase = await createClient();
@@ -20,44 +21,52 @@ export async function getCurrentStudent(): Promise<(Student & { profile: Profile
     return null;
   }
 
-  // Get profile first
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
+  // Use RPC function that bypasses RLS circular dependencies
+  const { data, error } = await supabase.rpc("get_current_student_full", {
+    p_auth_user_id: user.id,
+  });
 
-  if (profileError) {
-    console.error("Error fetching profile:", profileError);
+  if (error) {
+    console.error("Error fetching student via RPC:", error);
     return null;
   }
 
-  if (!profile) {
-    console.warn("Profile not found for user:", user.id, "- User may need to complete onboarding");
-    return null;
-  }
-
-  // Get student linked to profile
-  const { data: student, error: studentError } = await supabase
-    .from("students")
-    .select("*")
-    .eq("profile_id", profile.id)
-    .maybeSingle();
-
-  if (studentError) {
-    console.error("Error fetching student:", studentError);
-    return null;
-  }
-
-  if (!student) {
+  if (!data || data.length === 0) {
     // Only log at debug level - this is expected for new users before student record is created
     if (process.env.NODE_ENV === "development") {
-      console.debug("Student record not found for profile:", profile.id);
+      console.debug("Student record not found for user:", user.id);
     }
     return null;
   }
 
-  return { ...student, profile };
+  const row = data[0];
+
+  // Reconstruct the profile object
+  const profile: Profile = {
+    id: row.profile_id,
+    auth_user_id: row.profile_auth_user_id,
+    full_name: row.full_name,
+    phone: row.phone,
+    avatar_url: row.avatar_url,
+    created_at: row.profile_created_at,
+    updated_at: row.profile_updated_at,
+  };
+
+  // Reconstruct the student object with profile
+  // Note: Using correct column names that match actual DB schema
+  const student: Student & { profile: Profile } = {
+    id: row.student_id,
+    profile_id: row.profile_id,
+    school_id: row.school_id,
+    section_id: row.section_id,
+    lrn: row.lrn,
+    grade_level: row.grade_level,
+    created_at: row.student_created_at,
+    updated_at: row.student_updated_at,
+    profile,
+  };
+
+  return student;
 }
 
 /**

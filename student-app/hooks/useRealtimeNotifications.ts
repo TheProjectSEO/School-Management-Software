@@ -189,7 +189,7 @@ export function useRealtimeNotifications(
         "postgres_changes",
         {
           event: "INSERT",
-          schema: "school software",
+          schema: "public",
           table: "student_notifications",
           filter: `student_id=eq.${studentId}`,
         },
@@ -217,7 +217,7 @@ export function useRealtimeNotifications(
         "postgres_changes",
         {
           event: "UPDATE",
-          schema: "school software",
+          schema: "public",
           table: "student_notifications",
           filter: `student_id=eq.${studentId}`,
         },

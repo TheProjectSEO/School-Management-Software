@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 /**
  * GET /api/admin/messages/search
  * Search for students and teachers to start new conversations
+ * Uses SECURITY DEFINER RPC function to bypass RLS
  */
 export async function GET(request: NextRequest) {
   try {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ users: [] });
     }
 
-    // Get current user
+    // Get current user (for auth verification)
     const {
       data: { user },
       error: authError,
@@ -25,129 +26,41 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get admin profile
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("auth_user_id", user.id)
-      .single();
+    // Use RPC function that bypasses RLS for admin search
+    const { data: searchResults, error: searchError } = await supabase
+      .rpc('admin_search_users', {
+        search_query: query.trim(),
+        search_limit: 20
+      });
 
-    if (!profile) {
+    if (searchError) {
+      console.error('Admin search RPC error:', searchError);
+      // Check if it's an access denied error
+      if (searchError.message?.includes('Access denied')) {
+        return NextResponse.json(
+          { error: "Access denied: Admin privileges required" },
+          { status: 403 }
+        );
+      }
       return NextResponse.json(
-        { error: "Profile not found" },
-        { status: 404 }
+        { error: "Search failed" },
+        { status: 500 }
       );
     }
 
-    const { data: adminProfile } = await supabase
-      .from("admin_profiles")
-      .select("school_id")
-      .eq("profile_id", profile.id)
-      .eq("is_active", true)
-      .single();
-
-    if (!adminProfile) {
-      return NextResponse.json(
-        { error: "Admin profile not found" },
-        { status: 404 }
-      );
-    }
-
-    const searchTerm = `%${query.trim()}%`;
-    const users: Array<{
-      profile_id: string;
-      full_name: string;
-      email: string;
-      avatar_url?: string;
-      role: "teacher" | "student";
-      grade_level?: string;
-      section_name?: string;
-    }> = [];
-
-    // Search students
-    const { data: students, error: studentsError } = await supabase
-      .from("students")
-      .select(
-        `
-        id,
-        profile_id,
-        grade_level,
-        profiles!inner (
-          id,
-          full_name,
-          avatar_url
-        ),
-        sections (
-          name
-        )
-      `
-      )
-      .ilike("profiles.full_name", searchTerm)
-      .eq("status", "active")
-      .limit(20);
-
-    if (!studentsError && students) {
-      students.forEach((student: any) => {
-        if (student.profiles) {
-          const profileData = Array.isArray(student.profiles)
-            ? student.profiles[0]
-            : student.profiles;
-          const sectionData = Array.isArray(student.sections)
-            ? student.sections[0]
-            : student.sections;
-
-          users.push({
-            profile_id: student.profile_id,
-            full_name: profileData?.full_name || "Unknown Student",
-            email: "", // Email not needed in search results
-            avatar_url: profileData?.avatar_url,
-            role: "student",
-            grade_level: student.grade_level,
-            section_name: sectionData?.name,
-          });
-        }
-      });
-    }
-
-    // Search teachers
-    const { data: teachers, error: teachersError } = await supabase
-      .from("teacher_profiles")
-      .select(
-        `
-        id,
-        profile_id,
-        department,
-        profiles!inner (
-          id,
-          full_name,
-          avatar_url
-        )
-      `
-      )
-      .ilike("profiles.full_name", searchTerm)
-      .eq("is_active", true)
-      .limit(20);
-
-    if (!teachersError && teachers) {
-      teachers.forEach((teacher: any) => {
-        if (teacher.profiles) {
-          const profileData = Array.isArray(teacher.profiles)
-            ? teacher.profiles[0]
-            : teacher.profiles;
-
-          users.push({
-            profile_id: teacher.profile_id,
-            full_name: profileData?.full_name || "Unknown Teacher",
-            email: "", // Email not needed in search results
-            avatar_url: profileData?.avatar_url,
-            role: "teacher",
-          });
-        }
-      });
-    }
+    // Transform RPC results to expected format
+    const users = (searchResults || []).map((result: any) => ({
+      profile_id: result.profile_id,
+      full_name: result.full_name || 'Unknown User',
+      email: '', // Email not needed in search results
+      avatar_url: result.avatar_url,
+      role: result.user_role as 'teacher' | 'student' | 'admin',
+      school_name: result.school_name,
+      extra_info: result.extra_info, // department for teachers, grade_level for students
+    }));
 
     // Sort by name
-    users.sort((a, b) => a.full_name.localeCompare(b.full_name));
+    users.sort((a: any, b: any) => a.full_name.localeCompare(b.full_name));
 
     return NextResponse.json({ users });
   } catch (error) {

@@ -35,44 +35,31 @@ export default function LoginPage() {
       if (authError) throw authError
       if (!authData.user) throw new Error('Login failed')
 
-      // 2. Get profile linked to auth user
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('auth_user_id', authData.user.id)
-        .single()
+      // 2. Use RPC function for role detection (bypasses RLS issues)
+      const { data: roleData, error: roleError } = await supabase
+        .rpc('get_user_role', { user_auth_id: authData.user.id })
 
-      if (profileError || !profile) {
-        throw new Error('Profile not found')
+      if (roleError) {
+        console.error('Role detection error:', roleError)
+        throw new Error('Unable to determine account role. Please contact support.')
       }
 
-      // 3. Check if user has teacher profile
-      const { data: teacherProfile, error: teacherError } = await supabase
-        .from('teacher_profiles')
-        .select('id')
-        .eq('profile_id', profile.id)
-        .eq('is_active', true)
-        .maybeSingle()
+      if (roleData && roleData.length > 0) {
+        const userRole = roleData[0]
 
-      if (!teacherError && teacherProfile) {
-        // User is a teacher - redirect to teacher dashboard
-        router.push('/teacher')
-        router.refresh()
-        return
-      }
+        if (userRole.role === 'teacher') {
+          // User is a teacher - redirect to teacher dashboard
+          router.push('/teacher')
+          router.refresh()
+          return
+        }
 
-      // 4. Check if user has student profile
-      const { data: studentProfile, error: studentError } = await supabase
-        .from('students')
-        .select('id')
-        .eq('profile_id', profile.id)
-        .maybeSingle()
-
-      if (!studentError && studentProfile) {
-        // User is a student - redirect to student dashboard
-        router.push('/')
-        router.refresh()
-        return
+        if (userRole.role === 'student') {
+          // User is a student - redirect to student dashboard
+          router.push('/')
+          router.refresh()
+          return
+        }
       }
 
       // User has no role assigned

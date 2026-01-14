@@ -26,17 +26,18 @@ export async function getStudentConversations(
 ): Promise<Conversation[]> {
   const supabase = await createClient();
 
-  // First get the student's profile_id
-  const { data: student, error: studentError } = await supabase
-    .from("students")
-    .select("profile_id, school_id")
-    .eq("id", studentId)
-    .single();
+  // First get the student's profile_id using RPC to bypass RLS
+  const { data: studentData, error: studentError } = await supabase.rpc(
+    "get_student_profile_by_id",
+    { p_student_id: studentId }
+  );
 
-  if (studentError || !student) {
-    console.error("Error fetching student:", studentError);
+  if (studentError || !studentData || studentData.length === 0) {
+    console.error("Error fetching student via RPC:", studentError);
     return [];
   }
+
+  const student = studentData[0];
 
   // Get conversations using the database function
   const { data: conversations, error } = await supabase.rpc(
@@ -97,14 +98,13 @@ export async function getConversationMessages(
   const { limit = 50, offset = 0 } = options;
   const supabase = await createClient();
 
-  // Get student's profile_id
-  const { data: student } = await supabase
-    .from("students")
-    .select("profile_id")
-    .eq("id", studentId)
-    .single();
+  // Get student's profile_id using RPC to bypass RLS
+  const { data: studentData } = await supabase.rpc("get_student_profile_by_id", {
+    p_student_id: studentId,
+  });
 
-  if (!student) return [];
+  if (!studentData || studentData.length === 0) return [];
+  const student = studentData[0];
 
   // Use database function to get conversation
   const { data: messages, error } = await supabase.rpc("get_conversation", {
@@ -231,14 +231,13 @@ export async function markMessagesAsRead(
 ): Promise<boolean> {
   const supabase = await createClient();
 
-  // Get student's profile_id
-  const { data: student } = await supabase
-    .from("students")
-    .select("profile_id")
-    .eq("id", studentId)
-    .single();
+  // Get student's profile_id using RPC to bypass RLS
+  const { data: studentData } = await supabase.rpc("get_student_profile_by_id", {
+    p_student_id: studentId,
+  });
 
-  if (!student) return false;
+  if (!studentData || studentData.length === 0) return false;
+  const student = studentData[0];
 
   // Mark all messages TO this student FROM the teacher as read
   const { error } = await supabase
@@ -266,14 +265,13 @@ export async function markMessagesAsRead(
 export async function getUnreadMessageCount(studentId: string): Promise<number> {
   const supabase = await createClient();
 
-  // Get student's profile_id
-  const { data: student } = await supabase
-    .from("students")
-    .select("profile_id")
-    .eq("id", studentId)
-    .single();
+  // Get student's profile_id using RPC to bypass RLS
+  const { data: studentData } = await supabase.rpc("get_student_profile_by_id", {
+    p_student_id: studentId,
+  });
 
-  if (!student) return 0;
+  if (!studentData || studentData.length === 0) return 0;
+  const student = studentData[0];
 
   const { data, error } = await supabase.rpc("get_unread_count", {
     p_profile_id: student.profile_id,

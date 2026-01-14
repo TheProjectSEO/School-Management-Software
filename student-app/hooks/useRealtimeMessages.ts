@@ -136,7 +136,7 @@ export function useRealtimeMessages(
         "postgres_changes",
         {
           event: "INSERT",
-          schema: "school software",
+          schema: "public",
           table: "teacher_direct_messages",
           filter: `to_profile_id=eq.${profileId}`,
         },
@@ -156,7 +156,7 @@ export function useRealtimeMessages(
         "postgres_changes",
         {
           event: "UPDATE",
-          schema: "school software",
+          schema: "public",
           table: "teacher_direct_messages",
           filter: `from_profile_id=eq.${profileId}`,
         },

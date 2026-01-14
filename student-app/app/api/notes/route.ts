@@ -1,6 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
+// Helper to get student ID from auth user
+// Uses SECURITY DEFINER RPC to bypass RLS circular dependencies
+async function getStudentId(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { studentId: null, error: "Unauthorized" };
+
+  // Use RPC function that bypasses RLS circular dependencies
+  const { data, error } = await supabase.rpc("get_student_profile", {
+    user_auth_id: user.id,
+  });
+
+  if (error) {
+    console.error("Error fetching student via RPC:", error);
+    return { studentId: null, error: "Failed to fetch profile" };
+  }
+
+  if (!data || data.length === 0) {
+    return { studentId: null, error: "Student not found" };
+  }
+
+  return { studentId: data[0].student_id, error: null };
+}
+
 // GET - List all notes for current student (with optional filters)
 export async function GET(request: NextRequest) {
   try {
@@ -9,44 +35,12 @@ export async function GET(request: NextRequest) {
     const courseId = searchParams.get("courseId");
     const lessonId = searchParams.get("lessonId");
 
-    // Get current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Get student ID using RPC
+    const { studentId, error: studentError } = await getStudentId(supabase);
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Get student ID
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      console.error("Error fetching profile:", profileError);
-      return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 });
-    }
-
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-    }
-
-    const { data: student, error: studentError } = await supabase
-      .from("students")
-      .select("id")
-      .eq("profile_id", profile.id)
-      .maybeSingle();
-
-    if (studentError) {
-      console.error("Error fetching student:", studentError);
-      return NextResponse.json({ error: "Failed to fetch student" }, { status: 500 });
-    }
-
-    if (!student) {
-      return NextResponse.json({ error: "Student not found" }, { status: 404 });
+    if (!studentId) {
+      const status = studentError === "Unauthorized" ? 401 : studentError === "Student not found" ? 404 : 500;
+      return NextResponse.json({ error: studentError }, { status });
     }
 
     // Build query with optional filters
@@ -57,7 +51,7 @@ export async function GET(request: NextRequest) {
         course:courses(id, name, subject_code),
         lesson:lessons(id, title)
       `)
-      .eq("student_id", student.id);
+      .eq("student_id", studentId);
 
     if (courseId) {
       query = query.eq("course_id", courseId);
@@ -86,44 +80,12 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // Get current user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // Get student ID using RPC
+    const { studentId, error: studentError } = await getStudentId(supabase);
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Get student ID
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("auth_user_id", user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      console.error("Error fetching profile:", profileError);
-      return NextResponse.json({ error: "Failed to fetch profile" }, { status: 500 });
-    }
-
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-    }
-
-    const { data: student, error: studentError } = await supabase
-      .from("students")
-      .select("id")
-      .eq("profile_id", profile.id)
-      .maybeSingle();
-
-    if (studentError) {
-      console.error("Error fetching student:", studentError);
-      return NextResponse.json({ error: "Failed to fetch student" }, { status: 500 });
-    }
-
-    if (!student) {
-      return NextResponse.json({ error: "Student not found" }, { status: 404 });
+    if (!studentId) {
+      const status = studentError === "Unauthorized" ? 401 : studentError === "Student not found" ? 404 : 500;
+      return NextResponse.json({ error: studentError }, { status });
     }
 
     // Get note data from request
@@ -138,7 +100,7 @@ export async function POST(request: NextRequest) {
     const { data: note, error } = await supabase
       .from("student_notes")
       .insert({
-        student_id: student.id,
+        student_id: studentId,
         title: title.trim(),
         content: content?.trim() || null,
         type: type || "note",

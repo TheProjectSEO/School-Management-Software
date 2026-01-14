@@ -16,9 +16,6 @@ export async function updateSession(request: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
-      db: {
-        schema: "school software", // Match server.ts schema
-      },
       cookies: {
         getAll() {
           return request.cookies.getAll();
@@ -63,6 +60,7 @@ export async function updateSession(request: NextRequest) {
 
   // ROLE-BASED ACCESS: Check if user is a teacher trying to access student app
   // Teachers should use the teacher app instead
+  // Uses SECURITY DEFINER RPC to bypass RLS circular dependencies
   if (user && !isAuthRoute) {
     const roleCheckKey = `role_${user.id}`;
     const lastRoleCheck = provisionAttemptCache.get(roleCheckKey);
@@ -73,33 +71,20 @@ export async function updateSession(request: NextRequest) {
       provisionAttemptCache.set(roleCheckKey, now);
 
       try {
-        // Get user's profile
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("id")
-          .eq("auth_user_id", user.id)
-          .maybeSingle();
+        // Use RPC function that bypasses RLS circular dependencies
+        const { data: roleData, error: roleError } = await supabase.rpc(
+          "check_student_role",
+          { user_auth_id: user.id }
+        );
 
-        if (profile) {
-          // Check if user is a teacher (has teacher_profiles record)
-          const { data: teacherProfile } = await supabase
-            .from("teacher_profiles")
-            .select("id")
-            .eq("profile_id", profile.id)
-            .maybeSingle();
-
-          // Check if user is a student (has students record)
-          const { data: studentRecord } = await supabase
-            .from("students")
-            .select("id")
-            .eq("profile_id", profile.id)
-            .maybeSingle();
+        if (roleError) {
+          console.error("[Middleware] Role check RPC error:", roleError);
+        } else if (roleData && roleData.length > 0) {
+          const role = roleData[0];
 
           // If user is a teacher but NOT a student, redirect to teacher app
-          if (teacherProfile && !studentRecord) {
+          if (role.is_teacher && !role.is_student) {
             console.log("[Middleware] Teacher detected, redirecting to teacher app");
-            // Redirect to teacher app (assuming it's on a different port or domain)
-            // For now, redirect to a "wrong app" page
             if (!request.nextUrl.pathname.startsWith("/wrong-app")) {
               const url = request.nextUrl.clone();
               url.pathname = "/wrong-app";
@@ -108,7 +93,7 @@ export async function updateSession(request: NextRequest) {
           }
 
           // If user is a student, clear the role check cache (they're valid)
-          if (studentRecord) {
+          if (role.is_student) {
             provisionAttemptCache.delete(roleCheckKey);
           }
         }

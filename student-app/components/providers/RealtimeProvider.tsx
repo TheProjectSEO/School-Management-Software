@@ -47,6 +47,7 @@ export function RealtimeProvider({
   const [isInitialized, setIsInitialized] = useState(!!initialStudentId);
 
   // Fetch student ID from auth if not provided
+  // Uses SECURITY DEFINER RPC to bypass RLS circular dependencies
   useEffect(() => {
     if (initialStudentId) {
       setStudentId(initialStudentId);
@@ -60,27 +61,15 @@ export function RealtimeProvider({
         const { data: { user } } = await supabase.auth.getUser();
 
         if (user) {
-          // Try to get student ID from profiles -> students relationship
-          const { data: profile, error: profileError } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("auth_user_id", user.id)
-            .maybeSingle();
+          // Use RPC function that bypasses RLS circular dependencies
+          const { data, error } = await supabase.rpc("get_student_profile", {
+            user_auth_id: user.id,
+          });
 
-          if (profileError) {
-            console.error("Error fetching profile in RealtimeProvider:", profileError);
-          } else if (profile) {
-            const { data: student, error: studentError } = await supabase
-              .from("students")
-              .select("id")
-              .eq("profile_id", profile.id)
-              .maybeSingle();
-
-            if (studentError) {
-              console.error("Error fetching student in RealtimeProvider:", studentError);
-            } else if (student) {
-              setStudentId(student.id);
-            }
+          if (error) {
+            console.error("Error fetching profile in RealtimeProvider:", error);
+          } else if (data && data.length > 0) {
+            setStudentId(data[0].student_id);
           }
         }
       } catch (error) {

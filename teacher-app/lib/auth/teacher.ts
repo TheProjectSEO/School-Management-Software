@@ -38,6 +38,7 @@ export type TeacherWithProfile = TeacherProfile & {
  * Get the currently authenticated teacher with profile data
  * Returns null if user is not authenticated or not a teacher
  * Uses React cache to prevent duplicate queries in the same render
+ * Uses SECURITY DEFINER RPC function to bypass RLS issues
  */
 export const getCurrentTeacher = cache(async (): Promise<TeacherWithProfile | null> => {
   try {
@@ -50,34 +51,44 @@ export const getCurrentTeacher = cache(async (): Promise<TeacherWithProfile | nu
       return null
     }
 
-    // Get profile linked to auth user
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('auth_user_id', user.id)
-      .single()
+    // Use RPC function that bypasses RLS for safe profile fetching
+    const { data, error } = await supabase
+      .rpc('get_teacher_profile', { user_auth_id: user.id })
 
-    if (profileError || !profile) {
+    if (error) {
+      console.error('Error fetching teacher profile via RPC:', error)
       return null
     }
 
-    // Get teacher profile with school info
-    const { data: teacherProfile, error: teacherError } = await supabase
-      .from('teacher_profiles')
-      .select(`
-        *,
-        profile:profiles!teacher_profiles_profile_id_fkey(*),
-        school:schools!teacher_profiles_school_id_fkey(id, name, logo_url)
-      `)
-      .eq('profile_id', profile.id)
-      .eq('is_active', true)
-      .single()
-
-    if (teacherError || !teacherProfile) {
+    if (!data || data.length === 0) {
       return null
     }
 
-    return teacherProfile as TeacherWithProfile
+    // Transform RPC result to expected format
+    const row = data[0]
+    return {
+      id: row.id,
+      profile_id: row.profile_id,
+      school_id: row.school_id,
+      employee_id: row.employee_id,
+      department: row.department,
+      specialization: row.specialization,
+      is_active: row.is_active,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      profile: {
+        id: row.profile_id,
+        auth_user_id: user.id,
+        full_name: row.profile_full_name,
+        phone: null,
+        avatar_url: row.profile_avatar_url
+      },
+      school: {
+        id: row.school_id,
+        name: row.school_name,
+        logo_url: row.school_logo_url
+      }
+    } as TeacherWithProfile
   } catch (error) {
     console.error('Error fetching teacher profile:', error)
     return null
@@ -102,6 +113,7 @@ export async function requireTeacher(): Promise<TeacherWithProfile> {
 /**
  * Check if the current user has a teacher role
  * Returns true if user is authenticated and has teacher profile
+ * Uses SECURITY DEFINER RPC function to bypass RLS issues
  */
 export async function getTeacherRole(): Promise<'teacher' | 'student' | null> {
   try {
@@ -114,38 +126,17 @@ export async function getTeacherRole(): Promise<'teacher' | 'student' | null> {
       return null
     }
 
-    // Get profile linked to auth user
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('auth_user_id', user.id)
-      .single()
+    // Use RPC function that bypasses RLS for safe role detection
+    const { data: roleData, error: roleError } = await supabase
+      .rpc('get_user_role', { user_auth_id: user.id })
 
-    if (profileError || !profile) {
+    if (roleError) {
+      console.error('Error detecting role via RPC:', roleError)
       return null
     }
 
-    // Check if teacher profile exists
-    const { data: teacherProfile, error: teacherError } = await supabase
-      .from('teacher_profiles')
-      .select('id')
-      .eq('profile_id', profile.id)
-      .eq('is_active', true)
-      .maybeSingle()
-
-    if (!teacherError && teacherProfile) {
-      return 'teacher'
-    }
-
-    // Check if student profile exists
-    const { data: studentProfile, error: studentError } = await supabase
-      .from('students')
-      .select('id')
-      .eq('profile_id', profile.id)
-      .maybeSingle()
-
-    if (!studentError && studentProfile) {
-      return 'student'
+    if (roleData && roleData.length > 0) {
+      return roleData[0].role as 'teacher' | 'student'
     }
 
     return null

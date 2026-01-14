@@ -33,44 +33,28 @@ export default function AdminLayout({
         return;
       }
 
-      // Get profile
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .eq("auth_user_id", user.id)
-        .single();
+      // Use SECURITY DEFINER RPC function to get admin profile
+      // This bypasses RLS to avoid circular dependency issues
+      const { data: adminData, error: adminError } = await supabase
+        .rpc('get_admin_profile', { user_auth_id: user.id });
 
-      if (profileError || !profile) {
-        console.error("Profile error:", profileError);
+      if (adminError) {
+        console.error("Admin profile RPC error:", adminError);
         router.push("/login");
         return;
       }
 
-      // Get admin profile
-      const { data: adminProfile, error: adminError } = await supabase
-        .from("admin_profiles")
-        .select("role, is_active, school_id")
-        .eq("profile_id", profile.id)
-        .eq("is_active", true)
-        .single();
-
-      if (adminError || !adminProfile) {
-        console.error("Admin profile error:", adminError);
+      if (!adminData || adminData.length === 0) {
+        console.error("No admin profile found");
         router.push("/login");
         return;
       }
 
-      // Get school
-      const { data: school } = await supabase
-        .from("schools")
-        .select("name")
-        .eq("id", adminProfile.school_id)
-        .single();
-
+      const admin = adminData[0];
       setAdminData({
-        adminName: profile.full_name || "Admin",
-        adminRole: adminProfile.role,
-        schoolName: school?.name || "MSU",
+        adminName: admin.profile_full_name || "Admin",
+        adminRole: admin.role,
+        schoolName: admin.school_name || "MSU",
       });
       setLoading(false);
     }

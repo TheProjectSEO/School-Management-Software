@@ -1,135 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentAdmin } from "@/lib/dal/admin";
 import { createClient } from "@/lib/supabase/server";
 
 /**
  * POST /api/admin/messages
  * Send a message from admin to a user (student or teacher)
+ * Uses SECURITY DEFINER RPC to bypass RLS circular dependencies
+ *
+ * Accepts: { recipientProfileId, message, subject?, attachments?, parentMessageId? }
  */
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const supabase = await createClient();
 
     const body = await request.json();
     const {
-      recipientId,
-      recipientType,
-      subject,
+      recipientProfileId,
       message,
+      subject,
       attachments,
       parentMessageId,
     } = body;
 
     // Validate required fields
-    if (!recipientId || !recipientType || !subject || !message) {
+    if (!recipientProfileId || !message) {
       return NextResponse.json(
-        {
-          error: "Missing required fields: recipientId, recipientType, subject, message",
-        },
+        { error: "Missing required fields: recipientProfileId and message are required" },
         { status: 400 }
       );
     }
 
-    // Validate recipient type
-    if (!["student", "teacher"].includes(recipientType)) {
-      return NextResponse.json(
-        { error: "Invalid recipientType. Must be 'student' or 'teacher'" },
-        { status: 400 }
-      );
-    }
+    // Use RPC function that bypasses RLS
+    // The RPC verifies admin access and recipient belongs to same school
+    const { data, error } = await supabase.rpc("admin_send_message", {
+      recipient_profile_id: recipientProfileId,
+      message_subject: subject || "Direct Message",
+      message_body: message.trim(),
+      recipient_type: null, // Auto-detect
+      message_attachments: attachments || null,
+      parent_msg_id: parentMessageId || null,
+    });
 
-    const supabase = await createClient();
+    if (error) {
+      console.error("Error sending message via RPC:", error);
 
-    // Verify recipient exists and belongs to the same school
-    if (recipientType === "student") {
-      const { data: student, error: studentError } = await supabase
-        .from("students")
-        .select("id, school_id")
-        .eq("id", recipientId)
-        .single();
-
-      if (studentError || !student) {
+      if (error.message?.includes("Access denied")) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+      if (error.message?.includes("Recipient not found")) {
         return NextResponse.json(
-          { error: "Student not found" },
+          { error: "Recipient not found or access denied" },
           { status: 404 }
-        );
-      }
-
-      if (student.school_id !== admin.school_id) {
-        return NextResponse.json(
-          { error: "Cannot send message to student from different school" },
-          { status: 403 }
-        );
-      }
-    } else {
-      // TODO: Verify teacher when teacher system is integrated
-      // For now, we'll assume the teacher exists
-    }
-
-    // Validate parent message if provided
-    if (parentMessageId) {
-      const { data: parentMessage, error: parentError } = await supabase
-        .from("direct_messages")
-        .select("id, school_id")
-        .eq("id", parentMessageId)
-        .single();
-
-      if (parentError || !parentMessage) {
-        return NextResponse.json(
-          { error: "Parent message not found" },
-          { status: 404 }
-        );
-      }
-
-      if (parentMessage.school_id !== admin.school_id) {
-        return NextResponse.json(
-          { error: "Invalid parent message" },
-          { status: 403 }
-        );
-      }
-    }
-
-    // Create the message
-    const messageData: Record<string, unknown> = {
-      school_id: admin.school_id,
-      admin_id: admin.id,
-      subject: subject.trim(),
-      body: message.trim(),
-      attachments_json: attachments || null,
-      parent_message_id: parentMessageId || null,
-      is_read: false,
-    };
-
-    // Set recipient based on type
-    if (recipientType === "student") {
-      messageData.to_student_id = recipientId;
-      messageData.from_student_id = null;
-      messageData.to_teacher_id = null;
-      messageData.from_teacher_id = null;
-    } else {
-      messageData.to_teacher_id = recipientId;
-      messageData.from_teacher_id = null;
-      messageData.to_student_id = null;
-      messageData.from_student_id = null;
-    }
-
-    const { data: newMessage, error: insertError } = await supabase
-      .from("direct_messages")
-      .insert(messageData)
-      .select()
-      .single();
-
-    if (insertError) {
-      console.error("Error creating message:", insertError);
-
-      // Check for constraint violations
-      if (insertError.code === "23514") {
-        return NextResponse.json(
-          { error: "Invalid message data. Please check all required fields." },
-          { status: 400 }
         );
       }
 
@@ -139,14 +59,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!data || data.length === 0) {
+      return NextResponse.json(
+        { error: "Failed to send message" },
+        { status: 500 }
+      );
+    }
+
+    const result = data[0];
+
     return NextResponse.json(
       {
         success: true,
+        message_id: result.message_id,
         message: {
-          id: newMessage.id,
-          subject: newMessage.subject,
-          body: newMessage.body,
-          createdAt: newMessage.created_at,
+          id: result.message_id,
+          subject: subject || "Direct Message",
+          body: message.trim(),
+          createdAt: result.created_at,
         },
       },
       { status: 201 }

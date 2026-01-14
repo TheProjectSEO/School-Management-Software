@@ -57,6 +57,7 @@ export type ModuleWithDetails = {
 
 /**
  * Get the teacher profile for the current authenticated user
+ * Uses SECURITY DEFINER RPC function to bypass RLS issues
  */
 export async function getTeacherProfile() {
   const supabase = await createClient()
@@ -64,22 +65,38 @@ export async function getTeacherProfile() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
+  // Use RPC function that bypasses RLS for safe profile fetching
   const { data, error } = await supabase
-    .from('teacher_profiles')
-    .select(`
-      *,
-      profile:profiles!inner(full_name, avatar_url),
-      school:schools!inner(name, logo_url)
-    `)
-    .eq('profiles.auth_user_id', user.id)
-    .single()
+    .rpc('get_teacher_profile', { user_auth_id: user.id })
 
   if (error) {
     console.error('Error fetching teacher profile:', error)
     return null
   }
 
-  return data as unknown as TeacherProfile
+  if (!data || data.length === 0) {
+    return null
+  }
+
+  // Transform RPC result to expected format
+  const row = data[0]
+  return {
+    id: row.id,
+    profile_id: row.profile_id,
+    school_id: row.school_id,
+    employee_id: row.employee_id,
+    department: row.department,
+    specialization: row.specialization,
+    is_active: row.is_active,
+    profile: {
+      full_name: row.profile_full_name,
+      avatar_url: row.profile_avatar_url
+    },
+    school: {
+      name: row.school_name,
+      logo_url: row.school_logo_url
+    }
+  } as TeacherProfile
 }
 
 /**

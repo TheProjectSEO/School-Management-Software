@@ -39,134 +39,54 @@ export async function autoProvisionUser(
   userMetadata?: Record<string, any>
 ): Promise<ProvisionResult> {
   try {
-    // Step 1: Check if profile already exists
-    const { data: existingProfile, error: profileCheckError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("auth_user_id", userId)
-      .maybeSingle();
+    // Generate full name from metadata or email
+    const fullName = userMetadata?.full_name ||
+                    userMetadata?.name ||
+                    userEmail?.split("@")[0] ||
+                    "Student";
 
-    if (profileCheckError) {
-      console.error("[Auto-Provision] Error checking profile:", profileCheckError);
+    // Use SECURITY DEFINER RPC to bypass RLS circular dependencies
+    const { data, error } = await supabase.rpc("auto_provision_student", {
+      p_auth_user_id: userId,
+      p_full_name: fullName,
+      p_avatar_url: userMetadata?.avatar_url || null,
+      p_phone: userMetadata?.phone || null,
+    });
+
+    if (error) {
+      console.error("[Auto-Provision] RPC error:", error);
       return {
         success: false,
-        error: `Profile check failed: ${profileCheckError.message}`,
+        error: `Auto-provision failed: ${error.message}`,
       };
     }
 
-    let profileId = existingProfile?.id;
-    let isNewUser = false;
-
-    // Step 2: Create profile if it doesn't exist
-    if (!existingProfile) {
-      isNewUser = true;
-
-      // Generate full name from metadata or email
-      const fullName = userMetadata?.full_name ||
-                      userMetadata?.name ||
-                      userEmail?.split("@")[0] ||
-                      "Student";
-
-      const { data: newProfile, error: profileError } = await supabase
-        .from("profiles")
-        .insert({
-          auth_user_id: userId,
-          full_name: fullName,
-          avatar_url: userMetadata?.avatar_url || null,
-          phone: userMetadata?.phone || null,
-        })
-        .select("id")
-        .single();
-
-      if (profileError) {
-        console.error("[Auto-Provision] Error creating profile:", profileError);
-        return {
-          success: false,
-          error: `Profile creation failed: ${profileError.message}`,
-        };
-      }
-
-      profileId = newProfile.id;
-      console.log(`[Auto-Provision] Created profile ${profileId} for user ${userId}`);
-    }
-
-    // Step 3: Check if student record exists
-    const { data: existingStudent, error: studentCheckError } = await supabase
-      .from("students")
-      .select("id")
-      .eq("profile_id", profileId)
-      .maybeSingle();
-
-    if (studentCheckError) {
-      console.error("[Auto-Provision] Error checking student:", studentCheckError);
-      // Don't fail completely, profile exists
+    if (!data || data.length === 0) {
       return {
-        success: true,
-        profileId,
-        isNewUser,
-        error: `Student check failed: ${studentCheckError.message}`,
+        success: false,
+        error: "Auto-provision returned no data",
       };
     }
 
-    let studentId = existingStudent?.id;
+    const result = data[0];
 
-    // Step 4: Create student record if it doesn't exist
-    if (!existingStudent && profileId) {
-      // Get the default school (MSU)
-      const { data: defaultSchool, error: schoolError } = await supabase
-        .from("schools")
-        .select("id")
-        .limit(1)
-        .maybeSingle();
-
-      if (schoolError || !defaultSchool) {
-        // Don't log as error - schools may not be set up yet
-        // Only log in development for debugging
-        if (process.env.NODE_ENV === "development") {
-          console.debug("[Auto-Provision] No default school found - student record will be created when school is added");
-        }
-        // Profile exists, so partial success
-        return {
-          success: true,
-          profileId,
-          isNewUser,
-          error: "Default school not found, student record not created",
-        };
-      }
-
-      const { data: newStudent, error: studentError } = await supabase
-        .from("students")
-        .insert({
-          school_id: defaultSchool.id,
-          profile_id: profileId,
-          lrn: null,
-          grade_level: null,
-          section_id: null,
-        })
-        .select("id")
-        .single();
-
-      if (studentError) {
-        console.error("[Auto-Provision] Error creating student:", studentError);
-        // Profile exists, so partial success
-        return {
-          success: true,
-          profileId,
-          isNewUser,
-          error: `Student creation failed: ${studentError.message}`,
-        };
-      }
-
-      studentId = newStudent.id;
-      console.log(`[Auto-Provision] Created student ${studentId} for profile ${profileId}`);
+    if (!result.success) {
+      console.error("[Auto-Provision] RPC returned error:", result.error_message);
+      return {
+        success: false,
+        error: result.error_message,
+      };
     }
 
-    // Success - all records exist or were created
+    if (result.is_new_user) {
+      console.log(`[Auto-Provision] Created profile ${result.profile_id}, student ${result.student_id} for user ${userId}`);
+    }
+
     return {
       success: true,
-      profileId,
-      studentId,
-      isNewUser,
+      profileId: result.profile_id,
+      studentId: result.student_id,
+      isNewUser: result.is_new_user,
     };
 
   } catch (error) {

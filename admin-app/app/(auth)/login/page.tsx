@@ -41,41 +41,28 @@ export default function AdminLoginPage() {
       return;
     }
 
-    // Check if user has a profile
-    const { data: profile, error: profileError } = await supabase
-      .from("profiles")
-      .select("id")
-      .eq("auth_user_id", user.id)
-      .single();
+    // Use SECURITY DEFINER RPC function to check admin access
+    // This bypasses RLS to avoid circular dependency issues
+    const { data: adminData, error: adminError } = await supabase
+      .rpc('get_admin_profile', { user_auth_id: user.id });
 
-    if (profileError || !profile) {
-      setError("Profile not found. Please contact your administrator.");
-      setLoading(false);
-      return;
-    }
-
-    // Check if user has admin access via admin_profiles table
-    const { data: adminProfile, error: adminProfileError } = await supabase
-      .from("admin_profiles")
-      .select("role, is_active")
-      .eq("profile_id", profile.id)
-      .eq("is_active", true)
-      .single();
-
-    if (adminProfileError) {
-      console.error("Admin profile error:", adminProfileError);
-      setError(`Admin access check failed: ${adminProfileError.message}`);
+    if (adminError) {
+      console.error("Admin profile RPC error:", adminError);
+      setError("Failed to verify admin access. Please try again.");
       await supabase.auth.signOut();
       setLoading(false);
       return;
     }
 
-    if (!adminProfile) {
-      setError("You do not have admin access");
+    if (!adminData || adminData.length === 0) {
+      setError("You do not have admin access. Please contact your administrator.");
       await supabase.auth.signOut();
       setLoading(false);
       return;
     }
+
+    const adminProfile = adminData[0];
+    console.log("Admin verified:", adminProfile.role);
 
     console.log("Login successful, redirecting to dashboard...");
     // Successfully authenticated as admin

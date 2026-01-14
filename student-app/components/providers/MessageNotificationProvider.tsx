@@ -148,7 +148,7 @@ export function MessageNotificationProvider({
         "postgres_changes",
         {
           event: "INSERT",
-          schema: "school software",
+          schema: "public",
           table: "teacher_direct_messages",
           filter: `to_profile_id=eq.${profileId}`,
         },
@@ -161,15 +161,15 @@ export function MessageNotificationProvider({
           // Play sound
           playNotificationSound();
 
-          // Get sender name
-          const { data: senderProfile } = await supabase
-            .from("profiles")
-            .select("full_name")
-            .eq("id", message.from_profile_id)
-            .single();
+          // Get sender name using RPC to bypass RLS circular dependencies
+          const { data: senderData } = await supabase.rpc("get_profile_display_name", {
+            p_profile_id: message.from_profile_id,
+          });
+
+          const senderName = senderData && senderData.length > 0 ? senderData[0].full_name : null;
 
           // Show toast
-          showNewMessageToast(message, senderProfile?.full_name);
+          showNewMessageToast(message, senderName);
         }
       )
       .subscribe((status) => {

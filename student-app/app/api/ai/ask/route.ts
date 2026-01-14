@@ -269,7 +269,7 @@ export async function POST(request: NextRequest) {
 
     // Get student ID
     const { data: profile } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("id")
       .eq("auth_user_id", user.id)
       .single();

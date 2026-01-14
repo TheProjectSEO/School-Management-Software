@@ -16,7 +16,8 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.local' });
 
-const EXPECTED_SCHEMA = 'school software';
+// Data is now in the public schema (migrated from "school software")
+const EXPECTED_SCHEMA = 'public';
 
 const EXPECTED_TABLES = {
   'schools': ['id', 'name', 'slug', 'region'],
@@ -27,12 +28,10 @@ const EXPECTED_TABLES = {
   'profiles': ['id', 'auth_user_id', 'full_name'],
 };
 
+// Use default public schema (no schema config needed)
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  {
-    db: { schema: EXPECTED_SCHEMA }
-  }
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
 async function verifySchema() {
@@ -76,10 +75,9 @@ async function verifySchema() {
   } else {
     console.log('❌ Schema verification FAILED!');
     console.log('\n⚠️  ACTION REQUIRED:');
-    console.log('1. Check that lib/supabase/client.ts uses schema: "school software"');
-    console.log('2. Check that lib/supabase/server.ts uses schema: "school software"');
-    console.log('3. Verify RLS policies on failing tables');
-    console.log('4. Check that tables exist in "school software" schema (not n8n_content_creation)');
+    console.log('1. Check that tables exist in the public schema');
+    console.log('2. Verify RLS policies on failing tables');
+    console.log('3. Ensure the anon key has proper access');
     console.log('\nTo check which schema has which tables, run:');
     console.log('  SELECT table_schema, table_name FROM information_schema.tables');
     console.log('  WHERE table_name IN (\'schools\', \'sections\', \'students\');\n');

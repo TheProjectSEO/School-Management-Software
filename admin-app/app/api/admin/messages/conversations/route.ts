@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentAdmin } from "@/lib/dal/admin";
 import { createClient } from "@/lib/supabase/server";
 
 /**
  * GET /api/admin/messages/conversations
  * List all conversations with students and teachers
- * Supports pagination and search
+ * Uses SECURITY DEFINER RPC to bypass RLS
  */
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const supabase = await createClient();
     const { searchParams } = new URL(request.url);
 
@@ -21,147 +15,50 @@ export async function GET(request: NextRequest) {
     const pageSize = parseInt(searchParams.get("pageSize") || "20");
     const search = searchParams.get("search");
 
-    // Get all unique conversation participants
-    // A conversation exists if there's at least one message between admin and user
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    // Query messages where admin is sender or receiver
-    let conversationsQuery = supabase
-      .from("direct_messages")
-      .select(`
-        id,
-        from_student_id,
-        to_student_id,
-        from_teacher_id,
-        to_teacher_id,
-        admin_id,
-        subject,
-        body,
-        is_read,
-        created_at,
-        students!direct_messages_from_student_id_fkey(
-          id,
-          profile_id,
-          profiles(id, full_name)
-        ),
-        students_to:students!direct_messages_to_student_id_fkey(
-          id,
-          profile_id,
-          profiles(id, full_name)
-        )
-      `, { count: "exact" })
-      .eq("school_id", admin.school_id)
-      .or(`admin_id.eq.${admin.id}`)
-      .order("created_at", { ascending: false });
-
-    if (search) {
-      // Search by participant name or message subject
-      conversationsQuery = conversationsQuery.or(
-        `subject.ilike.%${search}%,body.ilike.%${search}%`
-      );
-    }
-
-    const { data: messages, count, error } = await conversationsQuery
-      .range(from, to);
+    // Use RPC function that bypasses RLS
+    const { data, error } = await supabase.rpc("admin_get_conversations", {
+      page_num: page,
+      page_size: pageSize,
+      search_query: search || null,
+    });
 
     if (error) {
-      console.error("Error fetching conversations:", error);
+      console.error("Error fetching conversations via RPC:", error);
+      if (error.message?.includes("Access denied")) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
       return NextResponse.json(
         { error: "Failed to fetch conversations" },
         { status: 500 }
       );
     }
 
-    // Group messages by conversation participant
-    const conversationMap = new Map<string, {
-      profileId: string;
-      name: string;
-      role: "student" | "teacher";
+    // Get total count from first row (all rows have same total_count)
+    const totalCount = data && data.length > 0 ? Number(data[0].total_count) : 0;
+
+    // Transform RPC results to expected format
+    const conversations = (data || []).map((row: Record<string, unknown>) => ({
+      profileId: row.partner_profile_id as string,
+      partner_profile_id: row.partner_profile_id as string,
+      name: row.partner_name as string || "Unknown",
+      role: row.partner_role as "student" | "teacher",
       lastMessage: {
-        id: string;
-        subject: string;
-        body: string;
-        isRead: boolean;
-        createdAt: string;
-        fromAdmin: boolean;
-      };
-      unreadCount: number;
-    }>();
-
-    for (const message of messages || []) {
-      const isFromAdmin = message.admin_id === admin.id;
-
-      let participantId: string | null = null;
-      let participantName = "";
-      let participantRole: "student" | "teacher" = "student";
-
-      // Determine the other participant
-      if (isFromAdmin) {
-        // Admin sent this message
-        if (message.to_student_id) {
-          participantId = message.to_student_id;
-          participantName = (Array.isArray(message.students_to) && message.students_to[0] && Array.isArray(message.students_to[0].profiles)
-            ? message.students_to[0].profiles[0]?.full_name
-            : null) || "Unknown Student";
-          participantRole = "student";
-        } else if (message.to_teacher_id) {
-          participantId = message.to_teacher_id;
-          participantName = "Teacher"; // TODO: Get actual teacher name
-          participantRole = "teacher";
-        }
-      } else {
-        // Admin received this message
-        if (message.from_student_id) {
-          participantId = message.from_student_id;
-          participantName = (Array.isArray(message.students) && message.students[0] && Array.isArray(message.students[0].profiles)
-            ? message.students[0].profiles[0]?.full_name
-            : null) || "Unknown Student";
-          participantRole = "student";
-        } else if (message.from_teacher_id) {
-          participantId = message.from_teacher_id;
-          participantName = "Teacher"; // TODO: Get actual teacher name
-          participantRole = "teacher";
-        }
-      }
-
-      if (!participantId) continue;
-
-      const key = `${participantRole}-${participantId}`;
-      const existing = conversationMap.get(key);
-
-      if (!existing) {
-        conversationMap.set(key, {
-          profileId: participantId,
-          name: participantName,
-          role: participantRole,
-          lastMessage: {
-            id: message.id,
-            subject: message.subject,
-            body: message.body,
-            isRead: message.is_read,
-            createdAt: message.created_at,
-            fromAdmin: isFromAdmin,
-          },
-          unreadCount: !isFromAdmin && !message.is_read ? 1 : 0,
-        });
-      } else {
-        // Update unread count
-        if (!isFromAdmin && !message.is_read) {
-          existing.unreadCount++;
-        }
-      }
-    }
-
-    // Convert map to array
-    const conversations = Array.from(conversationMap.values());
+        id: row.last_message_id as string,
+        subject: row.last_message_subject as string,
+        body: row.last_message_body as string,
+        isRead: row.last_message_is_read as boolean,
+        createdAt: row.last_message_created_at as string,
+        fromAdmin: row.last_message_from_admin as boolean,
+      },
+      unreadCount: Number(row.unread_count) || 0,
+    }));
 
     return NextResponse.json({
       data: conversations,
-      total: count || 0,
+      total: totalCount,
       page,
       pageSize,
-      totalPages: Math.ceil((count || 0) / pageSize),
+      totalPages: Math.ceil(totalCount / pageSize),
     });
   } catch (error) {
     console.error("Error in GET /api/admin/messages/conversations:", error);

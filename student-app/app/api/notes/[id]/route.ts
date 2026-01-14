@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 
 // Helper to get student ID from auth user
+// Uses SECURITY DEFINER RPC to bypass RLS circular dependencies
 async function getStudentId(supabase: Awaited<ReturnType<typeof createClient>>) {
   const {
     data: { user },
@@ -9,31 +10,19 @@ async function getStudentId(supabase: Awaited<ReturnType<typeof createClient>>) 
 
   if (!user) return null;
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("id")
-    .eq("auth_user_id", user.id)
-    .maybeSingle();
+  // Use RPC function that bypasses RLS circular dependencies
+  const { data, error } = await supabase.rpc("get_student_profile", {
+    user_auth_id: user.id,
+  });
 
-  if (profileError) {
-    console.error("Error fetching profile:", profileError);
+  if (error) {
+    console.error("Error fetching student via RPC:", error);
     return null;
   }
 
-  if (!profile) return null;
+  if (!data || data.length === 0) return null;
 
-  const { data: student, error: studentError } = await supabase
-    .from("students")
-    .select("id")
-    .eq("profile_id", profile.id)
-    .maybeSingle();
-
-  if (studentError) {
-    console.error("Error fetching student:", studentError);
-    return null;
-  }
-
-  return student?.id || null;
+  return data[0].student_id || null;
 }
 
 // GET - Get a single note

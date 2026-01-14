@@ -1,6 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { NextResponse } from "next/server";
 
+/**
+ * OAuth callback handler
+ * Uses SECURITY DEFINER RPC to auto-provision users bypassing RLS circular dependencies
+ */
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
@@ -18,62 +22,28 @@ export async function GET(request: Request) {
     }
 
     if (session?.user) {
-      // Check if this is a new user (OAuth signup)
-      // We'll check if a profile exists for this user
-      const { data: existingProfile } = await supabase
-        .from("profiles")
-        .select("id")
-        .eq("auth_user_id", session.user.id)
-        .single();
+      // Use SECURITY DEFINER RPC to auto-provision user
+      // This bypasses RLS circular dependencies and handles both profile and student creation atomically
+      const fullName = session.user.user_metadata?.full_name ||
+                      session.user.user_metadata?.name ||
+                      session.user.email?.split("@")[0] ||
+                      "Student";
 
-      // If no profile exists, create one with data from OAuth provider
-      if (!existingProfile) {
-        const fullName = session.user.user_metadata?.full_name ||
-                        session.user.user_metadata?.name ||
-                        session.user.email?.split("@")[0] ||
-                        "Student";
+      const { data: provisionData, error: provisionError } = await supabase.rpc("auto_provision_student", {
+        p_auth_user_id: session.user.id,
+        p_full_name: fullName,
+        p_avatar_url: session.user.user_metadata?.avatar_url || null,
+        p_phone: null,
+      });
 
-        // First, get the default school (MSU)
-        const { data: defaultSchool } = await supabase
-          .from("schools")
-          .select("id")
-          .limit(1)
-          .single();
-
-        // Create profile
-        const { data: newProfile, error: profileError } = await supabase
-          .from("profiles")
-          .insert({
-            auth_user_id: session.user.id,
-            full_name: fullName,
-            avatar_url: session.user.user_metadata?.avatar_url,
-            phone: null,
-          })
-          .select()
-          .single();
-
-        if (profileError) {
-          console.error("Error creating profile:", profileError);
-          return NextResponse.redirect(`${origin}/login?error=profile_creation_failed`);
-        }
-
-        // Create a student record for the new user
-        if (newProfile && defaultSchool) {
-          const { error: studentError } = await supabase
-            .from("students")
-            .insert({
-              school_id: defaultSchool.id,
-              profile_id: newProfile.id,
-              lrn: null,
-              grade_level: null,
-              section_id: null,
-            });
-
-          if (studentError) {
-            console.error("Error creating student record:", studentError);
-            // Don't fail the login, profile exists so they can still access
-          }
-        }
+      if (provisionError) {
+        console.error("Error auto-provisioning user:", provisionError);
+        // Don't fail the login - middleware will attempt again
+      } else if (provisionData && provisionData.length > 0 && provisionData[0].is_new_user) {
+        console.log("OAuth callback: New user provisioned", {
+          profileId: provisionData[0].profile_id,
+          studentId: provisionData[0].student_id,
+        });
       }
 
       // Successful authentication, redirect to dashboard

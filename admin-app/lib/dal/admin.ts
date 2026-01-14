@@ -63,6 +63,10 @@ export interface BulkImportResult {
 }
 
 // Functions
+/**
+ * Get the currently authenticated admin profile
+ * Uses SECURITY DEFINER RPC function to bypass RLS issues
+ */
 export async function getCurrentAdmin(): Promise<AdminProfile | null> {
   const supabase = await createClient();
 
@@ -72,39 +76,25 @@ export async function getCurrentAdmin(): Promise<AdminProfile | null> {
 
   if (!user) return null;
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, full_name")
-    .eq("auth_user_id", user.id)
-    .single();
+  // Use RPC function that bypasses RLS for safe profile fetching
+  const { data, error } = await supabase
+    .rpc('get_admin_profile', { user_auth_id: user.id });
 
-  if (profileError || !profile) {
-    console.error("Profile error:", profileError);
+  if (error) {
+    console.error("Error fetching admin profile via RPC:", error);
     return null;
   }
 
-  const { data: adminProfile, error: adminError } = await supabase
-    .from("admin_profiles")
-    .select("id, profile_id, school_id, role, is_active")
-    .eq("profile_id", profile.id)
-    .eq("is_active", true)
-    .single();
-
-  if (adminError || !adminProfile) {
-    console.error("Admin profile error:", adminError);
+  if (!data || data.length === 0) {
+    console.error("No admin profile found for user");
     return null;
   }
 
-  // Get school separately
-  const { data: school } = await supabase
-    .from("schools")
-    .select("id, name")
-    .eq("id", adminProfile.school_id)
-    .single();
+  const row = data[0];
 
   // Default permissions based on role
   const permissions: AdminPermission[] =
-    adminProfile.role === "super_admin" ? [
+    row.role === "super_admin" ? [
       "users:read", "users:create", "users:update", "users:delete",
       "enrollments:read", "enrollments:create", "enrollments:update",
       "reports:read", "reports:export",
@@ -119,12 +109,20 @@ export async function getCurrentAdmin(): Promise<AdminProfile | null> {
     ];
 
   return {
-    ...adminProfile,
+    id: row.id,
+    profile_id: row.profile_id,
+    school_id: row.school_id,
+    role: row.role as AdminRole,
+    is_active: row.is_active,
     profile: {
-      ...profile,
+      id: row.profile_id,
+      full_name: row.profile_full_name,
       email: user.email || "",
     },
-    schools: school,
+    schools: {
+      id: row.school_id,
+      name: row.school_name,
+    },
     permissions,
   } as AdminProfile;
 }
@@ -147,64 +145,42 @@ export async function listStudents(params: {
   pageSize?: number;
 }): Promise<PaginatedResult<UserListItem>> {
   const supabase = await createClient();
-  const { search, status, sectionId, page = 1, pageSize = 20 } = params;
+  const { search, sectionId, page = 1, pageSize = 20 } = params;
 
-  let query = supabase
-    .from("students")
-    .select(
-      `
-      id,
-      profile_id,
-      lrn,
-      grade_level,
-      status,
-      created_at,
-      profiles(id, full_name),
-      sections(id, name)
-    `,
-      { count: "exact" }
-    );
-
-  if (search) {
-    query = query.or(`profiles.full_name.ilike.%${search}%,lrn.ilike.%${search}%`);
-  }
-
-  if (status) {
-    query = query.eq("status", status);
-  }
-
-  if (sectionId) {
-    query = query.eq("section_id", sectionId);
-  }
-
-  const from = (page - 1) * pageSize;
-  const to = from + pageSize - 1;
-
-  const { data, count, error } = await query.range(from, to).order("created_at", { ascending: false });
+  // Use SECURITY DEFINER RPC to bypass RLS circular dependencies
+  const { data, error } = await supabase.rpc('admin_list_students', {
+    search_query: search || null,
+    section_filter: sectionId || null,
+    page_num: page,
+    page_size: pageSize,
+  });
 
   if (error) {
-    console.error("Error listing students:", error);
+    console.error("Error listing students via RPC:", error);
     return { data: [], total: 0, page, pageSize, totalPages: 0 };
   }
+
+  // Get total count from first row (all rows have same total_count)
+  const totalCount = data && data.length > 0 ? Number(data[0].total_count) : 0;
 
   const users: UserListItem[] = (data || []).map((s: Record<string, unknown>) => ({
     id: s.id as string,
     profile_id: s.profile_id as string,
-    full_name: (s.profiles as { full_name: string })?.full_name || "",
+    full_name: s.full_name as string || "",
     email: "", // Email not available in list view
     role: "student" as const,
-    status: (s.status as "active" | "inactive" | "suspended") || "active",
+    status: "active" as const, // Students table doesn't have status column
     grade_level: s.grade_level as string,
-    section_name: (s.sections as { name: string })?.name,
+    section_name: s.section_name as string,
     created_at: s.created_at as string,
   }));
 
   return {
     data: users,
-    total: count || 0,
+    total: totalCount,
     page,
     pageSize,
-    totalPages: Math.ceil((count || 0) / pageSize),
+    totalPages: Math.ceil(totalCount / pageSize),
   };
 }
 

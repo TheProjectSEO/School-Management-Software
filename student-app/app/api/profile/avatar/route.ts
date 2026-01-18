@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     // Update profile with new avatar URL
     const { error: updateError } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .update({
         avatar_url: publicUrl,
         updated_at: new Date().toISOString(),
@@ -113,7 +113,7 @@ export async function DELETE() {
 
     // Get current profile to find avatar URL
     const { data: profile, error: profileError } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("avatar_url")
       .eq("auth_user_id", user.id)
       .maybeSingle();
@@ -135,7 +135,7 @@ export async function DELETE() {
 
     // Update profile to remove avatar URL
     const { error: updateError } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .update({
         avatar_url: null,
         updated_at: new Date().toISOString(),

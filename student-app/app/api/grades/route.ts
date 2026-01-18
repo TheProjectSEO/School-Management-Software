@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     // Get profile first (profiles table links auth_user_id to profile_id)
     const { data: profile } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("id")
       .eq("auth_user_id", user.id)
       .maybeSingle();

@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
 
     // Verify profile belongs to user
     const { data: profile, error: profileCheckError } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("auth_user_id")
       .eq("id", profileId)
       .maybeSingle();

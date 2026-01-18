@@ -34,7 +34,7 @@ export async function requireTeacher(): Promise<
 
     // Get profile
     const { data: profile, error: profileError } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("id")
       .eq("auth_user_id", user.id)
       .single();
@@ -49,11 +49,12 @@ export async function requireTeacher(): Promise<
       };
     }
 
-    // Get teacher record from n8n_content_creation schema
+    // Get teacher record
     const { data: teacher, error: teacherError } = await supabase
-      .from("n8n_content_creation.teacher_profiles")
+      .from("teacher_profiles")
       .select("id, school_id")
       .eq("profile_id", profile.id)
+      .eq("is_active", true)
       .single();
 
     if (teacherError || !teacher) {
@@ -61,25 +62,6 @@ export async function requireTeacher(): Promise<
         success: false,
         response: NextResponse.json(
           { error: "Teacher profile not found" },
-          { status: 403 }
-        ),
-      };
-    }
-
-    // Verify teacher has active role
-    const { data: role, error: roleError } = await supabase
-      .from("n8n_content_creation.user_roles")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("school_id", teacher.school_id)
-      .eq("role", "teacher")
-      .single();
-
-    if (roleError || !role) {
-      return {
-        success: false,
-        response: NextResponse.json(
-          { error: "Teacher role not found" },
           { status: 403 }
         ),
       };

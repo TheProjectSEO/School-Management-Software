@@ -124,7 +124,7 @@ async function getStudentProfile(
   // Fetch profile data (name, avatar, phone)
   if (student?.profile_id) {
     const { data: profile } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("full_name, avatar_url, phone, created_at, auth_user_id")
       .eq("id", student.profile_id)
       .single();

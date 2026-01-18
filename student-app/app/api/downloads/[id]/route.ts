@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     // Get profile first (profiles table links auth_user_id to profile_id)
     const { data: profile } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("id")
       .eq("auth_user_id", user.id)
       .maybeSingle();
@@ -84,7 +84,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     // Get profile first (profiles table links auth_user_id to profile_id)
     const { data: profile } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("id")
       .eq("auth_user_id", user.id)
       .maybeSingle();
@@ -145,7 +145,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
     // Get profile first (profiles table links auth_user_id to profile_id)
     const { data: profile } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("id")
       .eq("auth_user_id", user.id)
       .maybeSingle();

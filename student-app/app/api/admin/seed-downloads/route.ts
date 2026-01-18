@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     // Get student ID
     const { data: profile, error: profileError } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("id")
       .eq("auth_user_id", user.id)
       .maybeSingle();

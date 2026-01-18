@@ -111,7 +111,7 @@ export async function updateStudentProfile(
   console.log("Updating profile:", { profileId, updates });
 
   const { data, error } = await supabase
-    .from("profiles")
+    .from("school_profiles")
     .update({
       ...updates,
       updated_at: new Date().toISOString(),

@@ -130,7 +130,7 @@ export async function getConversationMessages(
 
   // Fetch all profiles at once
   const { data: profiles } = await supabase
-    .from("profiles")
+    .from("school_profiles")
     .select("id, full_name, avatar_url")
     .in("id", Array.from(profileIds));
 

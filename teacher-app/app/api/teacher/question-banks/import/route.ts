@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // Verify bank exists and teacher has access
     const { data: bank } = await supabase
-      .from("n8n_content_creation.question_banks")
+      .from("teacher_question_banks")
       .select("subject_id")
       .eq("id", bankId)
       .single();
@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     // Verify teacher has access
     const { data: sectionSubject } = await supabase
-      .from("n8n_content_creation.section_subjects")
+      .from("teacher_assignments")
       .select("id")
       .eq("subject_id", bank.subject_id)
       .eq("teacher_id", teacherId)
@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
     let imported = 0;
     if (validQuestions.length > 0) {
       const { data: insertedQuestions, error: insertError } = await supabase
-        .from("n8n_content_creation.questions")
+        .from("teacher_assessment_questions")
         .insert(validQuestions)
         .select();
 

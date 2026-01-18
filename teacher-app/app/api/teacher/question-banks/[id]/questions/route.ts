@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Get questions from bank
     const { data: questions, error } = await supabase
-      .from('n8n_content_creation.teacher_bank_questions')
+      .from('teacher_bank_questions')
       .select('*')
       .eq('bank_id', id)
       .order('created_at', { ascending: false })
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Create question
     const { data: question, error: questionError } = await supabase
-      .from('n8n_content_creation.teacher_bank_questions')
+      .from('teacher_bank_questions')
       .insert({
         bank_id: id,
         question_text,

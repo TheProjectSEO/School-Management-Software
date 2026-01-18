@@ -24,7 +24,7 @@ export async function POST(
 
     // Verify access
     const { data: module } = await supabase
-      .from("n8n_content_creation.modules")
+      .from("modules")
       .select("subject_id, status, title")
       .eq("id", id)
       .single();
@@ -38,7 +38,7 @@ export async function POST(
 
     // Verify teacher has access
     const { data: sectionSubject } = await supabase
-      .from("n8n_content_creation.section_subjects")
+      .from("teacher_assignments")
       .select("id")
       .eq("subject_id", module.subject_id)
       .eq("teacher_id", teacherId)
@@ -54,7 +54,7 @@ export async function POST(
 
     // Check if already published
     const { data: existingPublish } = await supabase
-      .from("n8n_content_creation.module_publish")
+      .from("module_publish")
       .select("id")
       .eq("module_id", id)
       .single();
@@ -68,7 +68,7 @@ export async function POST(
 
     // Update module status
     const { error: moduleError } = await supabase
-      .from("n8n_content_creation.modules")
+      .from("modules")
       .update({ status: "published" })
       .eq("id", id);
 
@@ -82,7 +82,7 @@ export async function POST(
 
     // Create publish record
     const { data: publishRecord, error: publishError } = await supabase
-      .from("n8n_content_creation.module_publish")
+      .from("module_publish")
       .insert({
         module_id: id,
         published_by: userId,

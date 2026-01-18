@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
 
     let query = supabase
-      .from("n8n_content_creation.announcements")
+      .from("teacher_announcements")
       .select("*")
       .eq("created_by", userId)
       .order("created_at", { ascending: false })
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     if (scopeType === "section") {
       // Verify teacher teaches these sections
       const { data: sectionSubjects } = await supabase
-        .from("n8n_content_creation.section_subjects")
+        .from("teacher_assignments")
         .select("section_id")
         .eq("teacher_id", teacherId)
         .in("section_id", scopeIds);
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     } else if (scopeType === "subject_multi_section") {
       // Verify teacher teaches these subjects
       const { data: sectionSubjects } = await supabase
-        .from("n8n_content_creation.section_subjects")
+        .from("teacher_assignments")
         .select("subject_id")
         .eq("teacher_id", teacherId)
         .in("subject_id", scopeIds);
@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
 
     // Create announcement
     const { data: announcement, error } = await supabase
-      .from("n8n_content_creation.announcements")
+      .from("teacher_announcements")
       .insert({
         scope_type: scopeType,
         scope_ids_json: scopeIds,

@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
 
     // Get teacher's section subjects
     const { data: teacherSectionSubjects } = await supabase
-      .from("n8n_content_creation.section_subjects")
+      .from("teacher_assignments")
       .select("id, section_id")
       .eq("teacher_id", teacherId);
 
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
 
     // Build query for assessment instances
     let instanceQuery = supabase
-      .from("n8n_content_creation.assessment_instances")
+      .from("assessments")
       .select("id")
       .in("section_subject_id", sectionSubjectIds);
 
@@ -61,45 +61,45 @@ export async function GET(request: NextRequest) {
 
     // Get submissions
     let submissionQuery = supabase
-      .from("n8n_content_creation.submissions")
+      .from("submissions")
       .select(
         `
         *,
-        student:n8n_content_creation.student_profiles(
+        student:students(
           id,
-          profile:profiles(
+          profile:school_profiles(
             first_name,
             last_name,
             avatar_url
           )
         ),
-        assessment:n8n_content_creation.assessment_instances(
+        assessment:assessments(
           id,
           open_at,
           close_at,
-          template:n8n_content_creation.assessment_templates(
+          template:teacher_assessment_templates(
             id,
             title,
             type
           ),
-          section_subject:n8n_content_creation.section_subjects(
-            section:n8n_content_creation.sections(id, name),
-            subject:n8n_content_creation.subjects(id, name, code)
+          section_subject:teacher_assignments(
+            section:sections(id, name),
+            subject:courses(id, name, code)
           )
         ),
-        latest_version:n8n_content_creation.submission_versions(
+        latest_version:teacher_submission_versions(
           version_no,
           payload_json,
           file_paths_json,
           created_at
         ),
-        rubric_score:n8n_content_creation.rubric_scores(
+        rubric_score:teacher_rubric_scores(
           id,
           total_score,
           graded_at,
           graded_by
         ),
-        feedback:n8n_content_creation.feedback(
+        feedback:teacher_feedback(
           id,
           teacher_comment,
           released_at

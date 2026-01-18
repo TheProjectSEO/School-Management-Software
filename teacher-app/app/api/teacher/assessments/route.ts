@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     // Build query
     let query = supabase
-      .from('n8n_content_creation.assessments')
+      .from('assessments')
       .select(`
         *,
         courses:course_id (
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
 
     // Create assessment
     const { data: assessment, error: assessmentError } = await supabase
-      .from('n8n_content_creation.assessments')
+      .from('assessments')
       .insert({
         title,
         type,
@@ -138,14 +138,14 @@ export async function POST(request: NextRequest) {
       }))
 
       const { error: questionsError } = await supabase
-        .from('n8n_content_creation.assessment_questions')
+        .from('teacher_assessment_questions')
         .insert(questionsToInsert)
 
       if (questionsError) {
         console.error('Error creating questions:', questionsError)
         // Rollback assessment creation
         await supabase
-          .from('n8n_content_creation.assessments')
+          .from('assessments')
           .delete()
           .eq('id', assessment.id)
 

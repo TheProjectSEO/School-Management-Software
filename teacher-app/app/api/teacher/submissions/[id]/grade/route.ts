@@ -34,12 +34,12 @@ export async function POST(
 
     // Get submission with access check
     const { data: submission, error: fetchError } = await supabase
-      .from("n8n_content_creation.submissions")
+      .from("submissions")
       .select(
         `
         *,
-        assessment:n8n_content_creation.assessment_instances(
-          section_subject:n8n_content_creation.section_subjects(
+        assessment:assessments(
+          section_subject:teacher_assignments(
             teacher_id
           )
         )
@@ -78,7 +78,7 @@ export async function POST(
 
     // Create or update rubric score
     const { data: existingScore } = await supabase
-      .from("n8n_content_creation.rubric_scores")
+      .from("rubric_scores")
       .select("id")
       .eq("submission_id", id)
       .single();
@@ -86,7 +86,7 @@ export async function POST(
     if (existingScore) {
       // Update existing score
       const { error: updateError } = await supabase
-        .from("n8n_content_creation.rubric_scores")
+        .from("rubric_scores")
         .update({
           rubric_template_id: rubricTemplateId,
           scores_json: scores,
@@ -106,7 +106,7 @@ export async function POST(
     } else {
       // Create new score
       const { error: createError } = await supabase
-        .from("n8n_content_creation.rubric_scores")
+        .from("rubric_scores")
         .insert({
           submission_id: id,
           rubric_template_id: rubricTemplateId,
@@ -127,7 +127,7 @@ export async function POST(
 
     // Create or update feedback
     const { data: existingFeedback } = await supabase
-      .from("n8n_content_creation.feedback")
+      .from("teacher_feedback")
       .select("id")
       .eq("submission_id", id)
       .single();
@@ -146,7 +146,7 @@ export async function POST(
     if (existingFeedback) {
       // Update existing feedback
       const { error: updateError } = await supabase
-        .from("n8n_content_creation.feedback")
+        .from("teacher_feedback")
         .update(feedbackData)
         .eq("id", existingFeedback.id);
 
@@ -161,7 +161,7 @@ export async function POST(
       // Create new feedback
       feedbackData.submission_id = id;
       const { error: createError } = await supabase
-        .from("n8n_content_creation.feedback")
+        .from("teacher_feedback")
         .insert(feedbackData);
 
       if (createError) {
@@ -176,7 +176,7 @@ export async function POST(
     // Update submission status
     const newStatus = autoRelease ? "released" : "graded";
     const { error: statusError } = await supabase
-      .from("n8n_content_creation.submissions")
+      .from("submissions")
       .update({
         status: newStatus,
         updated_at: new Date().toISOString(),

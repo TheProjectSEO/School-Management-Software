@@ -163,7 +163,7 @@ export function MessageNotificationProvider({
 
           // Get sender name
           const { data: senderProfile } = await supabase
-            .from("profiles")
+            .from("school_profiles")
             .select("full_name")
             .eq("id", message.from_profile_id)
             .single();

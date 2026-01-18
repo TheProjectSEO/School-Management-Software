@@ -19,12 +19,12 @@ export async function GET() {
     const supabase = await createClient();
 
     const { data: profile, error } = await supabase
-      .from("n8n_content_creation.teacher_profiles")
+      .from("teacher_profiles")
       .select(
         `
         *,
-        school:n8n_content_creation.schools(id, name, logo_url),
-        profile:profiles(
+        school:schools(id, name, logo_url),
+        profile:school_profiles(
           id,
           first_name,
           last_name,
@@ -91,7 +91,7 @@ export async function PATCH(request: NextRequest) {
         profileUpdates.avatar_url = avatarUrl?.trim() || null;
 
       const { error: profileError } = await supabase
-        .from("profiles")
+        .from("school_profiles")
         .update(profileUpdates)
         .eq("id", profileId);
 
@@ -114,7 +114,7 @@ export async function PATCH(request: NextRequest) {
         teacherUpdates.office_hours = officeHours || null;
 
       const { error: teacherError } = await supabase
-        .from("n8n_content_creation.teacher_profiles")
+        .from("teacher_profiles")
         .update(teacherUpdates)
         .eq("id", teacherId);
 
@@ -129,12 +129,12 @@ export async function PATCH(request: NextRequest) {
 
     // Fetch updated profile
     const { data: updatedProfile, error: fetchError } = await supabase
-      .from("n8n_content_creation.teacher_profiles")
+      .from("teacher_profiles")
       .select(
         `
         *,
-        school:n8n_content_creation.schools(id, name, logo_url),
-        profile:profiles(
+        school:schools(id, name, logo_url),
+        profile:school_profiles(
           id,
           first_name,
           last_name,

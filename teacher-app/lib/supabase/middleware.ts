@@ -55,7 +55,7 @@ export async function updateSession(request: NextRequest) {
   if (user && isAuthRoute) {
     // Get profile to determine role
     const { data: profile } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("id")
       .eq("auth_user_id", user.id)
       .single();
@@ -79,7 +79,7 @@ export async function updateSession(request: NextRequest) {
   if (user && isTeacherRoute) {
     // Get profile
     const { data: profile } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("id")
       .eq("auth_user_id", user.id)
       .single();

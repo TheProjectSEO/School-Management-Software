@@ -174,7 +174,7 @@ export async function getMessageThread(
 
     // Get user profile
     const { data: userProfile, error: profileError } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("id, full_name, email, avatar_url")
       .eq("id", profileId)
       .single();
@@ -257,7 +257,7 @@ export async function sendMessage(
 
     // Verify recipient exists
     const { data: recipient, error: recipientError } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("id, full_name, email")
       .eq("id", toProfileId)
       .single();

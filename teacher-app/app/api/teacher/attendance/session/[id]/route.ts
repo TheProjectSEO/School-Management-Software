@@ -24,16 +24,16 @@ export async function GET(
 
     // Get session with access check
     const { data: session, error: sessionError } = await supabase
-      .from("n8n_content_creation.live_sessions")
+      .from("teacher_live_sessions")
       .select(
         `
         *,
-        section_subject:n8n_content_creation.section_subjects(
+        section_subject:teacher_assignments(
           id,
           teacher_id,
           section_id,
-          section:n8n_content_creation.sections(id, name),
-          subject:n8n_content_creation.subjects(id, name, code)
+          section:sections(id, name),
+          subject:courses(id, name, code)
         )
       `
       )
@@ -54,14 +54,14 @@ export async function GET(
 
     // Get enrolled students
     const { data: enrollments } = await supabase
-      .from("n8n_content_creation.section_enrollments")
+      .from("enrollments")
       .select(
         `
         student_id,
-        student:n8n_content_creation.student_profiles(
+        student:students(
           id,
           student_number,
-          profile:profiles(
+          profile:school_profiles(
             first_name,
             last_name,
             avatar_url
@@ -78,13 +78,13 @@ export async function GET(
 
     // Get attendance records for this session
     const { data: attendanceRecords } = await supabase
-      .from("n8n_content_creation.live_attendance")
+      .from("teacher_attendance")
       .select("*")
       .eq("session_id", id);
 
     // Get presence events for analytics
     const { data: presenceEvents } = await supabase
-      .from("n8n_content_creation.session_presence_events")
+      .from("teacher_session_presence")
       .select("*")
       .eq("session_id", id);
 
@@ -152,11 +152,11 @@ export async function PATCH(
 
     // Get session with access check
     const { data: session } = await supabase
-      .from("n8n_content_creation.live_sessions")
+      .from("teacher_live_sessions")
       .select(
         `
         *,
-        section_subject:n8n_content_creation.section_subjects(
+        section_subject:teacher_assignments(
           teacher_id,
           section_id
         )
@@ -179,7 +179,7 @@ export async function PATCH(
 
     // Verify student is enrolled
     const { data: enrollment } = await supabase
-      .from("n8n_content_creation.section_enrollments")
+      .from("enrollments")
       .select("id")
       .eq("section_id", session.section_subject.section_id)
       .eq("student_id", studentId)
@@ -194,7 +194,7 @@ export async function PATCH(
 
     // Check if record exists
     const { data: existing } = await supabase
-      .from("n8n_content_creation.live_attendance")
+      .from("teacher_attendance")
       .select("id")
       .eq("session_id", id)
       .eq("student_id", studentId)
@@ -203,7 +203,7 @@ export async function PATCH(
     if (existing) {
       // Update existing record
       const { error } = await supabase
-        .from("n8n_content_creation.live_attendance")
+        .from("teacher_attendance")
         .update({
           status,
           manual_override: true,
@@ -223,7 +223,7 @@ export async function PATCH(
     } else {
       // Create new record
       const { error } = await supabase
-        .from("n8n_content_creation.live_attendance")
+        .from("teacher_attendance")
         .insert({
           session_id: id,
           student_id: studentId,

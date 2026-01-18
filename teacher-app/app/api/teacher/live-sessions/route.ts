@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     // Get teacher's section subjects
     const { data: teacherSectionSubjects } = await supabase
-      .from("n8n_content_creation.section_subjects")
+      .from("teacher_assignments")
       .select("id")
       .eq("teacher_id", teacherId);
 
@@ -36,16 +36,16 @@ export async function GET(request: NextRequest) {
 
     // Build query
     let query = supabase
-      .from("n8n_content_creation.live_sessions")
+      .from("teacher_live_sessions")
       .select(
         `
         *,
-        section_subject:n8n_content_creation.section_subjects(
+        section_subject:teacher_assignments(
           id,
-          section:n8n_content_creation.sections(id, name),
-          subject:n8n_content_creation.subjects(id, name, code)
+          section:sections(id, name),
+          subject:courses(id, name, code)
         ),
-        module:n8n_content_creation.modules(id, title)
+        module:modules(id, title)
       `
       )
       .in("section_subject_id", sectionSubjectIds)
@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
 
     // Verify teacher teaches this section subject
     const { data: sectionSubject } = await supabase
-      .from("n8n_content_creation.section_subjects")
+      .from("teacher_assignments")
       .select("id")
       .eq("id", sectionSubjectId)
       .eq("teacher_id", teacherId)
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
 
     // Create session
     const { data: session, error } = await supabase
-      .from("n8n_content_creation.live_sessions")
+      .from("teacher_live_sessions")
       .insert({
         section_subject_id: sectionSubjectId,
         module_id: moduleId || null,
@@ -162,12 +162,12 @@ export async function POST(request: NextRequest) {
       .select(
         `
         *,
-        section_subject:n8n_content_creation.section_subjects(
+        section_subject:teacher_assignments(
           id,
-          section:n8n_content_creation.sections(id, name),
-          subject:n8n_content_creation.subjects(id, name, code)
+          section:sections(id, name),
+          subject:courses(id, name, code)
         ),
-        module:n8n_content_creation.modules(id, title)
+        module:modules(id, title)
       `
       )
       .single();

@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     // Build query
     let query = supabase
-      .from('n8n_content_creation.teacher_question_banks')
+      .from('teacher_question_banks')
       .select(`
         id,
         name,
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     const banksWithCounts = await Promise.all(
       banks.map(async (bank) => {
         const { count } = await supabase
-          .from('n8n_content_creation.teacher_bank_questions')
+          .from('teacher_bank_questions')
           .select('*', { count: 'exact', head: true })
           .eq('bank_id', bank.id)
 
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
 
     // Create question bank
     const { data: bank, error: bankError } = await supabase
-      .from('n8n_content_creation.teacher_question_banks')
+      .from('teacher_question_banks')
       .insert({
         name,
         description,

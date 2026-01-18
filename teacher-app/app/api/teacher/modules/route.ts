@@ -23,16 +23,16 @@ export async function GET(request: NextRequest) {
 
     // Build query
     let query = supabase
-      .from("n8n_content_creation.modules")
+      .from("modules")
       .select(
         `
         *,
-        subject:n8n_content_creation.subjects(
+        subject:courses(
           id,
           name,
           code
         ),
-        publish_info:n8n_content_creation.module_publish(
+        publish_info:modules(
           id,
           published_at,
           published_by
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Get all subjects teacher teaches
       const { data: teacherSubjects } = await supabase
-        .from("n8n_content_creation.section_subjects")
+        .from("teacher_assignments")
         .select("subject_id")
         .eq("teacher_id", teacherId);
 
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     // Verify teacher teaches this subject
     const { data: sectionSubject } = await supabase
-      .from("n8n_content_creation.section_subjects")
+      .from("teacher_assignments")
       .select("id")
       .eq("subject_id", subjectId)
       .eq("teacher_id", teacherId)
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     // Create module
     const { data: module, error } = await supabase
-      .from("n8n_content_creation.modules")
+      .from("modules")
       .insert({
         subject_id: subjectId,
         title: title.trim(),
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       .select(
         `
         *,
-        subject:n8n_content_creation.subjects(
+        subject:courses(
           id,
           name,
           code

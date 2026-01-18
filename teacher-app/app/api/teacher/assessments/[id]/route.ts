@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Get assessment with questions
     const { data: assessment, error } = await supabase
-      .from('n8n_content_creation.assessments')
+      .from('assessments')
       .select(`
         *,
         courses:course_id (
@@ -95,7 +95,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     // Update assessment
     const { data: assessment, error: assessmentError } = await supabase
-      .from('n8n_content_creation.assessments')
+      .from('assessments')
       .update({
         title,
         type,
@@ -121,7 +121,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     if (questions) {
       // Delete existing questions
       await supabase
-        .from('n8n_content_creation.assessment_questions')
+        .from('teacher_assessment_questions')
         .delete()
         .eq('assessment_id', id)
 
@@ -141,7 +141,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         }))
 
         const { error: questionsError } = await supabase
-          .from('n8n_content_creation.assessment_questions')
+          .from('teacher_assessment_questions')
           .insert(questionsToInsert)
 
         if (questionsError) {
@@ -183,7 +183,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
 
     // Delete assessment (questions will be cascade deleted)
     const { error } = await supabase
-      .from('n8n_content_creation.assessments')
+      .from('assessments')
       .delete()
       .eq('id', id)
       .eq('created_by', teacherProfile.id) // Ensure teacher owns this assessment

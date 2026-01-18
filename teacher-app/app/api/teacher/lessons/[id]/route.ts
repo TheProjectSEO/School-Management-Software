@@ -25,11 +25,11 @@ export async function PATCH(
 
     // Verify access
     const { data: lesson } = await supabase
-      .from("n8n_content_creation.lessons")
+      .from("lessons")
       .select(
         `
         *,
-        module:n8n_content_creation.modules(subject_id)
+        module:modules(subject_id)
       `
       )
       .eq("id", id)
@@ -44,7 +44,7 @@ export async function PATCH(
 
     // Verify teacher has access
     const { data: sectionSubject } = await supabase
-      .from("n8n_content_creation.section_subjects")
+      .from("teacher_assignments")
       .select("id")
       .eq("subject_id", lesson.module.subject_id)
       .eq("teacher_id", teacherId)
@@ -73,13 +73,13 @@ export async function PATCH(
 
     // Update lesson
     const { data: updatedLesson, error } = await supabase
-      .from("n8n_content_creation.lessons")
+      .from("lessons")
       .update(updates)
       .eq("id", id)
       .select(
         `
         *,
-        module:n8n_content_creation.modules(
+        module:modules(
           id,
           title
         )
@@ -126,11 +126,11 @@ export async function DELETE(
 
     // Verify access
     const { data: lesson } = await supabase
-      .from("n8n_content_creation.lessons")
+      .from("lessons")
       .select(
         `
         *,
-        module:n8n_content_creation.modules(subject_id)
+        module:modules(subject_id)
       `
       )
       .eq("id", id)
@@ -145,7 +145,7 @@ export async function DELETE(
 
     // Verify teacher has access
     const { data: sectionSubject } = await supabase
-      .from("n8n_content_creation.section_subjects")
+      .from("teacher_assignments")
       .select("id")
       .eq("subject_id", lesson.module.subject_id)
       .eq("teacher_id", teacherId)
@@ -161,7 +161,7 @@ export async function DELETE(
 
     // Delete lesson
     const { error } = await supabase
-      .from("n8n_content_creation.lessons")
+      .from("lessons")
       .delete()
       .eq("id", id);
 

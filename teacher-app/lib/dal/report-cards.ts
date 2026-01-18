@@ -103,7 +103,7 @@ export async function getTeacherReportCards(
             name,
             grade_level
           ),
-          profile:profiles(
+          profile:school_profiles(
             full_name,
             avatar_url
           )
@@ -212,7 +212,7 @@ export async function getSectionReportCardsList(
           id,
           lrn,
           section:sections(name, grade_level),
-          profile:profiles(full_name, avatar_url)
+          profile:school_profiles(full_name, avatar_url)
         )
       `
       )
@@ -317,7 +317,7 @@ export async function getReportCard(
         student:students(
           id,
           lrn,
-          profile:profiles(
+          profile:school_profiles(
             full_name,
             avatar_url
           )

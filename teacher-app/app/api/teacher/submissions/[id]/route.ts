@@ -24,14 +24,14 @@ export async function GET(
 
     // Get submission with all related data
     const { data: submission, error } = await supabase
-      .from("n8n_content_creation.submissions")
+      .from("submissions")
       .select(
         `
         *,
-        student:n8n_content_creation.student_profiles(
+        student:students(
           id,
           student_number,
-          profile:profiles(
+          profile:school_profiles(
             id,
             first_name,
             last_name,
@@ -39,37 +39,37 @@ export async function GET(
             avatar_url
           )
         ),
-        assessment:n8n_content_creation.assessment_instances(
+        assessment:assessments(
           id,
           open_at,
           close_at,
           time_limit,
-          template:n8n_content_creation.assessment_templates(
+          template:teacher_assessment_templates(
             id,
             title,
             type,
             instructions,
             rubric_template_id
           ),
-          section_subject:n8n_content_creation.section_subjects(
+          section_subject:teacher_assignments(
             id,
             teacher_id,
-            section:n8n_content_creation.sections(id, name),
-            subject:n8n_content_creation.subjects(id, name, code)
+            section:sections(id, name),
+            subject:courses(id, name, code)
           )
         ),
-        versions:n8n_content_creation.submission_versions(
+        versions:teacher_submission_versions(
           id,
           version_no,
           payload_json,
           file_paths_json,
           created_at
         ),
-        rubric_score:n8n_content_creation.rubric_scores(
+        rubric_score:teacher_rubric_scores(
           id,
           scores_json,
           total_score,
-          rubric_template:n8n_content_creation.rubric_templates(
+          rubric_template:teacher_rubric_templates(
             id,
             title,
             criteria_json,
@@ -78,7 +78,7 @@ export async function GET(
           graded_at,
           graded_by
         ),
-        feedback:n8n_content_creation.feedback(
+        feedback:teacher_feedback(
           id,
           teacher_comment,
           inline_notes_json,

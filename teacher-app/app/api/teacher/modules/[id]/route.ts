@@ -23,35 +23,35 @@ export async function GET(
     const supabase = await createClient();
 
     const { data: module, error } = await supabase
-      .from("n8n_content_creation.modules")
+      .from("modules")
       .select(
         `
         *,
-        subject:n8n_content_creation.subjects(
+        subject:courses(
           id,
           name,
           code
         ),
-        publish_info:n8n_content_creation.module_publish(
+        publish_info:modules(
           id,
           published_at,
           published_by
         ),
-        assets:n8n_content_creation.content_assets(
+        assets:teacher_content_assets(
           id,
           asset_type,
           storage_path,
           meta_json,
           created_at
         ),
-        transcript:n8n_content_creation.transcripts(
+        transcript:teacher_transcripts(
           id,
           text,
           timestamps_json,
           version,
           published_at
         ),
-        notes:n8n_content_creation.teacher_notes(
+        notes:teacher_teacher_notes(
           id,
           rich_text,
           version,
@@ -72,7 +72,7 @@ export async function GET(
 
     // Verify teacher has access to this module's subject
     const { data: sectionSubject } = await supabase
-      .from("n8n_content_creation.section_subjects")
+      .from("teacher_assignments")
       .select("id")
       .eq("subject_id", module.subject_id)
       .eq("teacher_id", teacherId)
@@ -118,7 +118,7 @@ export async function PATCH(
 
     // First verify access
     const { data: existingModule } = await supabase
-      .from("n8n_content_creation.modules")
+      .from("modules")
       .select("subject_id")
       .eq("id", id)
       .single();
@@ -132,7 +132,7 @@ export async function PATCH(
 
     // Verify teacher has access
     const { data: sectionSubject } = await supabase
-      .from("n8n_content_creation.section_subjects")
+      .from("teacher_assignments")
       .select("id")
       .eq("subject_id", existingModule.subject_id)
       .eq("teacher_id", teacherId)
@@ -168,18 +168,18 @@ export async function PATCH(
 
     // Update module
     const { data: module, error } = await supabase
-      .from("n8n_content_creation.modules")
+      .from("modules")
       .update(updates)
       .eq("id", id)
       .select(
         `
         *,
-        subject:n8n_content_creation.subjects(
+        subject:courses(
           id,
           name,
           code
         ),
-        publish_info:n8n_content_creation.module_publish(
+        publish_info:modules(
           id,
           published_at,
           published_by
@@ -227,7 +227,7 @@ export async function DELETE(
 
     // Verify access
     const { data: existingModule } = await supabase
-      .from("n8n_content_creation.modules")
+      .from("modules")
       .select("subject_id, status")
       .eq("id", id)
       .single();
@@ -241,7 +241,7 @@ export async function DELETE(
 
     // Verify teacher has access
     const { data: sectionSubject } = await supabase
-      .from("n8n_content_creation.section_subjects")
+      .from("teacher_assignments")
       .select("id")
       .eq("subject_id", existingModule.subject_id)
       .eq("teacher_id", teacherId)
@@ -265,7 +265,7 @@ export async function DELETE(
 
     // Delete module
     const { error } = await supabase
-      .from("n8n_content_creation.modules")
+      .from("modules")
       .delete()
       .eq("id", id);
 

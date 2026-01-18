@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { data: sectionSubject } = await supabase
-      .from("n8n_content_creation.section_subjects")
+      .from("teacher_assignments")
       .select("id")
       .eq("section_id", sectionId)
       .eq("teacher_id", teacherId)
@@ -43,14 +43,14 @@ export async function GET(request: NextRequest) {
 
     // Get enrolled students
     const { data: enrollments } = await supabase
-      .from("n8n_content_creation.section_enrollments")
+      .from("enrollments")
       .select(
         `
         student_id,
-        student:n8n_content_creation.student_profiles(
+        student:students(
           id,
           student_number,
-          profile:profiles(
+          profile:school_profiles(
             first_name,
             last_name,
             avatar_url
@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
 
     // Get attendance records for the date
     const { data: attendanceRecords } = await supabase
-      .from("n8n_content_creation.daily_presence")
+      .from("teacher_daily_attendance")
       .select("*")
       .eq("date", date)
       .in(
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
 
     // Verify section access
     const { data: sectionSubject } = await supabase
-      .from("n8n_content_creation.section_subjects")
+      .from("teacher_assignments")
       .select("id")
       .eq("section_id", sectionId)
       .eq("teacher_id", teacherId)
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
 
     // Verify student is enrolled in section
     const { data: enrollment } = await supabase
-      .from("n8n_content_creation.section_enrollments")
+      .from("enrollments")
       .select("id")
       .eq("section_id", sectionId)
       .eq("student_id", studentId)
@@ -161,7 +161,7 @@ export async function POST(request: NextRequest) {
 
     // Check if record exists
     const { data: existing } = await supabase
-      .from("n8n_content_creation.daily_presence")
+      .from("teacher_daily_attendance")
       .select("id")
       .eq("student_id", studentId)
       .eq("date", date)
@@ -170,7 +170,7 @@ export async function POST(request: NextRequest) {
     if (existing) {
       // Update existing record
       const { error } = await supabase
-        .from("n8n_content_creation.daily_presence")
+        .from("teacher_daily_attendance")
         .update({
           status,
           manual_override: true,
@@ -190,7 +190,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Create new record
       const { error } = await supabase
-        .from("n8n_content_creation.daily_presence")
+        .from("teacher_daily_attendance")
         .insert({
           student_id: studentId,
           date,

@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
     if (conversationWith) {
       // Get messages with a specific user
       const { data: messages, error } = await supabase
-        .from("n8n_content_creation.direct_messages")
+        .from("teacher_direct_messages")
         .select(
           `
           *,
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Get all conversations (grouped by other user)
       const { data: messages, error } = await supabase
-        .from("n8n_content_creation.direct_messages")
+        .from("teacher_direct_messages")
         .select(
           `
           *,

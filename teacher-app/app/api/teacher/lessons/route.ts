@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
 
     // Verify module exists and teacher has access
     const { data: module } = await supabase
-      .from("n8n_content_creation.modules")
+      .from("modules")
       .select("subject_id")
       .eq("id", moduleId)
       .single();
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Verify teacher has access
     const { data: sectionSubject } = await supabase
-      .from("n8n_content_creation.section_subjects")
+      .from("teacher_assignments")
       .select("id")
       .eq("subject_id", module.subject_id)
       .eq("teacher_id", teacherId)
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
 
     // Create lesson
     const { data: lesson, error } = await supabase
-      .from("n8n_content_creation.lessons")
+      .from("lessons")
       .insert({
         module_id: moduleId,
         title: title.trim(),
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       .select(
         `
         *,
-        module:n8n_content_creation.modules(
+        module:modules(
           id,
           title
         )

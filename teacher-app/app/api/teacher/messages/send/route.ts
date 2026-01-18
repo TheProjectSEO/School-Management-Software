@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     // Verify recipient exists and is in the same school
     const { data: recipientProfile } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("id")
       .eq("auth_user_id", toUserId)
       .single();
@@ -45,13 +45,13 @@ export async function POST(request: NextRequest) {
 
     // Verify recipient is in same school (check via student or teacher profile)
     const { data: recipientStudent } = await supabase
-      .from("n8n_content_creation.student_profiles")
+      .from("students")
       .select("school_id")
       .eq("profile_id", recipientProfile.id)
       .single();
 
     const { data: recipientTeacher } = await supabase
-      .from("n8n_content_creation.teacher_profiles")
+      .from("teacher_profiles")
       .select("school_id")
       .eq("profile_id", recipientProfile.id)
       .single();
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     // Create message
     const { data: directMessage, error } = await supabase
-      .from("n8n_content_creation.direct_messages")
+      .from("teacher_direct_messages")
       .insert({
         school_id: schoolId,
         from_user: userId,

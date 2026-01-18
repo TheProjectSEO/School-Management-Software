@@ -223,7 +223,7 @@ export function useAdminMessaging(
             if (message.sender_profile_id === userProfileId) {
               // Enrich with profile data
               const { data: profiles } = await supabase
-                .from("profiles")
+                .from("school_profiles")
                 .select("id, full_name, email, avatar_url")
                 .in("id", [message.sender_profile_id, message.receiver_profile_id]);
 
@@ -321,7 +321,7 @@ export function useAdminMessaging(
 
           // Enrich with profile data
           const { data: profiles } = await supabase
-            .from("profiles")
+            .from("school_profiles")
             .select("id, full_name, email, avatar_url")
             .in("id", [message.sender_profile_id, message.receiver_profile_id]);
 

@@ -112,7 +112,7 @@ export async function createStudent(input: CreateStudentInput): Promise<{ succes
   try {
     // Create profile first (note: email should be created via Supabase Auth separately)
     const { data: profile, error: profileError } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .insert({
         full_name: input.fullName,
         phone: input.phone,
@@ -174,7 +174,7 @@ export async function updateStudent(
       if (updates.phone) profileUpdates.phone = updates.phone;
 
       const { error: profileError } = await supabase
-        .from("profiles")
+        .from("school_profiles")
         .update(profileUpdates)
         .eq("id", student.profile_id);
 
@@ -329,7 +329,7 @@ export async function createTeacher(input: CreateTeacherInput): Promise<{ succes
   try {
     // Create profile first (note: email should be created via Supabase Auth separately)
     const { data: profile, error: profileError } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .insert({
         full_name: input.fullName,
         phone: input.phone,
@@ -392,7 +392,7 @@ export async function updateTeacher(
       if (updates.phone) profileUpdates.phone = updates.phone;
 
       const { error: profileError } = await supabase
-        .from("profiles")
+        .from("school_profiles")
         .update(profileUpdates)
         .eq("id", teacher.profile_id);
 

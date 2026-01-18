@@ -21,7 +21,7 @@ export async function GET() {
 
     // Get profile
     const { data: profile, error: profileError } = await supabase
-      .from("profiles")
+      .from("school_profiles")
       .select("id")
       .eq("auth_user_id", user.id)
       .single();

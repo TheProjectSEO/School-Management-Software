@@ -25,11 +25,11 @@ export async function PATCH(
 
     // Verify access
     const { data: session } = await supabase
-      .from("n8n_content_creation.live_sessions")
+      .from("teacher_live_sessions")
       .select(
         `
         *,
-        section_subject:n8n_content_creation.section_subjects(teacher_id)
+        section_subject:teacher_assignments(teacher_id)
       `
       )
       .eq("id", id)
@@ -84,18 +84,18 @@ export async function PATCH(
 
     // Update session
     const { data: updatedSession, error } = await supabase
-      .from("n8n_content_creation.live_sessions")
+      .from("teacher_live_sessions")
       .update(updates)
       .eq("id", id)
       .select(
         `
         *,
-        section_subject:n8n_content_creation.section_subjects(
+        section_subject:teacher_assignments(
           id,
-          section:n8n_content_creation.sections(id, name),
-          subject:n8n_content_creation.subjects(id, name, code)
+          section:sections(id, name),
+          subject:courses(id, name, code)
         ),
-        module:n8n_content_creation.modules(id, title)
+        module:modules(id, title)
       `
       )
       .single();
@@ -139,11 +139,11 @@ export async function DELETE(
 
     // Verify access
     const { data: session } = await supabase
-      .from("n8n_content_creation.live_sessions")
+      .from("teacher_live_sessions")
       .select(
         `
         status,
-        section_subject:n8n_content_creation.section_subjects(teacher_id)
+        section_subject:teacher_assignments(teacher_id)
       `
       )
       .eq("id", id)
@@ -171,7 +171,7 @@ export async function DELETE(
 
     // Delete session
     const { error } = await supabase
-      .from("n8n_content_creation.live_sessions")
+      .from("teacher_live_sessions")
       .delete()
       .eq("id", id);
 

@@ -16,7 +16,7 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.local' });
 
-const EXPECTED_SCHEMA = 'school software';
+const EXPECTED_SCHEMA = 'public';
 
 const EXPECTED_TABLES = {
   'schools': ['id', 'name', 'slug', 'region'],
@@ -24,7 +24,7 @@ const EXPECTED_TABLES = {
   'students': ['id', 'school_id', 'profile_id', 'lrn', 'section_id'],
   'courses': ['id', 'school_id', 'section_id', 'teacher_id', 'name'],
   'teacher_profiles': ['id', 'profile_id', 'school_id', 'employee_id'],
-  'profiles': ['id', 'auth_user_id', 'full_name'],
+  'school_profiles': ['id', 'auth_user_id', 'full_name'],
 };
 
 const supabase = createClient(
@@ -76,10 +76,10 @@ async function verifySchema() {
   } else {
     console.log('❌ Schema verification FAILED!');
     console.log('\n⚠️  ACTION REQUIRED:');
-    console.log('1. Check that lib/supabase/client.ts uses schema: "school software"');
-    console.log('2. Check that lib/supabase/server.ts uses schema: "school software"');
+    console.log('1. Check that lib/supabase/client.ts uses schema: "public"');
+    console.log('2. Check that lib/supabase/server.ts uses schema: "public"');
     console.log('3. Verify RLS policies on failing tables');
-    console.log('4. Check that tables exist in "school software" schema (not n8n_content_creation)');
+    console.log('4. Check that tables exist in "public" schema (not n8n_content_creation)');
     console.log('\nTo check which schema has which tables, run:');
     console.log('  SELECT table_schema, table_name FROM information_schema.tables');
     console.log('  WHERE table_name IN (\'schools\', \'sections\', \'students\');\n');

@@ -1,19 +1,19 @@
 // @ts-nocheck - Uses n8n_content_creation schema with complex queries
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireTeacher } from "@/lib/auth/requireTeacher";
+import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 
 /**
  * GET /api/teacher/live-sessions
  * List live sessions for teacher
  */
 export async function GET(request: NextRequest) {
-  const authResult = await requireTeacher();
+  const authResult = await requireTeacherAPI();
   if (!authResult.success) {
     return authResult.response;
   }
 
-  const { teacherId } = authResult.context;
+  const { teacherId } = authResult.teacher;
   const { searchParams } = new URL(request.url);
   const sectionSubjectId = searchParams.get("sectionSubjectId");
   const status = searchParams.get("status");
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const { data: teacherSectionSubjects } = await supabase
       .from("teacher_assignments")
       .select("id")
-      .eq("teacher_id", teacherId);
+      .eq("teacher_profile_id", teacherId);
 
     if (!teacherSectionSubjects || teacherSectionSubjects.length === 0) {
       return NextResponse.json({ sessions: [] });
@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         section_subject:teacher_assignments(
           id,
           section:sections(id, name),
-          subject:courses(id, name, code)
+          subject:courses(id, name, subject_code)
         ),
         module:modules(id, title)
       `
@@ -89,12 +89,12 @@ export async function GET(request: NextRequest) {
  * Create a new live session
  */
 export async function POST(request: NextRequest) {
-  const authResult = await requireTeacher();
+  const authResult = await requireTeacherAPI();
   if (!authResult.success) {
     return authResult.response;
   }
 
-  const { teacherId } = authResult.context;
+  const { teacherId } = authResult.teacher;
 
   try {
     const supabase = await createClient();
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       .from("teacher_assignments")
       .select("id")
       .eq("id", sectionSubjectId)
-      .eq("teacher_id", teacherId)
+      .eq("teacher_profile_id", teacherId)
       .single();
 
     if (!sectionSubject) {
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
         section_subject:teacher_assignments(
           id,
           section:sections(id, name),
-          subject:courses(id, name, code)
+          subject:courses(id, name, subject_code)
         ),
         module:modules(id, title)
       `

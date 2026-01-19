@@ -1,12 +1,9 @@
 import { createBrowserClient } from '@supabase/ssr'
 
 /**
- * ⚠️ SCHEMA: "school software" - DO NOT CHANGE ⚠️
+ * ✅ SCHEMA: "public" - Tables are in public schema
  *
- * Shared across student-app, teacher-app, admin-app.
- * All school tables are in "school software" schema.
- *
- * See UNIVERSAL_SCHEMA_CONFIG.md for details.
+ * All school tables are in "public" schema.
  */
 export function createClient() {
   return createBrowserClient(
@@ -14,7 +11,7 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       db: {
-        schema: "school software", // ⚠️ NEVER CHANGE
+        schema: "public",
       },
     }
   )

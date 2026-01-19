@@ -23,7 +23,7 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       db: {
-        schema: "school software", // ⚠️ CORRECT SCHEMA - Source of truth
+        schema: "public", // ⚠️ CORRECT SCHEMA - Source of truth
       },
     }
   )

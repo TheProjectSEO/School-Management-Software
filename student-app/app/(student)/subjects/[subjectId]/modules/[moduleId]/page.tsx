@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import {
   getCurrentStudent,
   getModuleById,
@@ -12,6 +13,7 @@ import VideoPlayer from "./VideoPlayer";
 import LessonNavigation from "./LessonNavigation";
 import NotesPanel from "./NotesPanel";
 import AskAIPanel from "./AskAIPanel";
+import { LessonReactions } from "@/components/student/lesson/LessonReactions";
 
 export const revalidate = 600; // 10 minutes - lesson content
 
@@ -37,11 +39,21 @@ export default async function ModulePage({
     redirect(`/subjects/${subjectId}`);
   }
 
-  // Fetch subject data
+  // Fetch subject data with section info
   const subject = await getSubjectById(subjectId);
   if (!subject) {
     redirect("/subjects");
   }
+
+  // Fetch section to get grade level
+  const supabase = await createClient();
+  const { data: courseWithSection } = await supabase
+    .from('courses')
+    .select('section:sections(grade_level)')
+    .eq('id', subjectId)
+    .single();
+
+  const gradeLevel = courseWithSection?.section?.grade_level || '10';
 
   // Fetch lessons for this module
   const lessons = await getLessonsByModule(moduleId);
@@ -169,6 +181,15 @@ export default async function ModulePage({
               <span className="material-symbols-outlined">share</span>
             </button>
           </div>
+        </div>
+
+        {/* Lesson Reactions */}
+        <div className="mt-4">
+          <LessonReactions
+            lessonId={currentLesson.id}
+            studentId={student.id}
+            gradeLevel={gradeLevel}
+          />
         </div>
       </div>
 

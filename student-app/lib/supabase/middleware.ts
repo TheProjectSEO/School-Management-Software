@@ -40,19 +40,26 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Protected routes - redirect to login if not authenticated
-  const isAuthRoute =
+  // Public routes - accessible without login
+  const isPublicRoute =
     request.nextUrl.pathname.startsWith("/login") ||
-    request.nextUrl.pathname.startsWith("/register");
+    request.nextUrl.pathname.startsWith("/register") ||
+    request.nextUrl.pathname.startsWith("/apply") ||  // Public application form
+    request.nextUrl.pathname.startsWith("/api/applications");  // Application submission API
 
-  if (!user && !isAuthRoute) {
+  // Protected routes - redirect to login if not authenticated
+  if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
   // Redirect authenticated users away from auth pages
-  if (user && isAuthRoute) {
+  const isAuthPage =
+    request.nextUrl.pathname.startsWith("/login") ||
+    request.nextUrl.pathname.startsWith("/register");
+
+  if (user && isAuthPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/";
     return NextResponse.redirect(url);
@@ -61,7 +68,7 @@ export async function updateSession(request: NextRequest) {
   // ROLE-BASED ACCESS: Check if user is a teacher trying to access student app
   // Teachers should use the teacher app instead
   // Uses SECURITY DEFINER RPC to bypass RLS circular dependencies
-  if (user && !isAuthRoute) {
+  if (user && !isPublicRoute) {
     const roleCheckKey = `role_${user.id}`;
     const lastRoleCheck = provisionAttemptCache.get(roleCheckKey);
     const now = Date.now();
@@ -105,7 +112,7 @@ export async function updateSession(request: NextRequest) {
 
   // AUTO-PROVISIONING: Ensure profile and student record exist
   // Only attempt once per user per TTL period to prevent log spam
-  if (user && !isAuthRoute && !request.nextUrl.pathname.startsWith("/wrong-app")) {
+  if (user && !isPublicRoute && !request.nextUrl.pathname.startsWith("/wrong-app")) {
     const lastAttempt = provisionAttemptCache.get(user.id);
     const now = Date.now();
 

@@ -10,7 +10,7 @@ import { getCurrentProfile } from '@/lib/dal/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const profile = await getCurrentProfile();
 
     if (!profile || profile.role !== 'teacher') {
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const profile = await getCurrentProfile();
 
     if (!profile || profile.role !== 'teacher') {

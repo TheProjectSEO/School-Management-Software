@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MatchingContent, MatchingPair, generateId } from '@/teacher-app/lib/types/assessment-builder';
+import { MatchingContent, MatchingPair, generateId } from '@/lib/types/assessment-builder';
 
 interface MatchingEditorProps {
   value: MatchingContent;

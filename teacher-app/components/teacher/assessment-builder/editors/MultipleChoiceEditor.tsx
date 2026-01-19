@@ -5,7 +5,7 @@ import {
   MultipleChoiceContent,
   MultipleChoiceOption,
   generateId,
-} from '@/teacher-app/lib/types/assessment-builder';
+} from '@/lib/types/assessment-builder';
 
 interface MultipleChoiceEditorProps {
   value: MultipleChoiceContent;

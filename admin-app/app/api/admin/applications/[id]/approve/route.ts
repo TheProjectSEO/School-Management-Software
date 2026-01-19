@@ -10,8 +10,8 @@ type ApprovePayload = {
   generateCredentials?: boolean;
 };
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const applicationId = params.id;
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id: applicationId } = await params;
   const body = (await req.json().catch(() => ({}))) as ApprovePayload;
   const supabase = createServiceClient();
 
@@ -44,15 +44,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
     return NextResponse.json({ error: "Failed to create auth user" }, { status: 500 });
   }
 
-  const authUserId =
-    authCreated?.user?.id ||
-    (
-      await supabase.auth.admin.listUsers({
-        page: 1,
-        perPage: 1,
-        filter: `email.eq.${application.email}`,
-      })
-    ).data?.users?.[0]?.id;
+  let authUserId = authCreated?.user?.id;
+  
+  if (!authUserId) {
+    // User already exists, try to find them
+    const { data: existingUsers } = await supabase.auth.admin.listUsers({
+      page: 1,
+      perPage: 100,
+    });
+    const existingUser = existingUsers?.users?.find(u => u.email === application.email);
+    authUserId = existingUser?.id;
+  }
 
   if (!authUserId) {
     return NextResponse.json({ error: "Unable to resolve auth user" }, { status: 500 });

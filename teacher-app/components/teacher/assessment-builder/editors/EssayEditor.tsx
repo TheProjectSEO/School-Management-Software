@@ -1,6 +1,6 @@
 'use client';
 
-import { EssayContent } from '@/teacher-app/lib/types/assessment-builder';
+import { EssayContent } from '@/lib/types/assessment-builder';
 
 interface EssayEditorProps {
   value: EssayContent;

@@ -7,7 +7,7 @@ import {
   QuestionImportRow,
   ImportResult,
   QUESTION_TYPE_CONFIG,
-} from '@/teacher-app/lib/types/assessment-builder';
+} from '@/lib/types/assessment-builder';
 
 interface QuestionImportModalProps {
   isOpen: boolean;

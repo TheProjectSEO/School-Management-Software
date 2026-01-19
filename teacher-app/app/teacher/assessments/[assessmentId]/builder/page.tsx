@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { AssessmentBuilderPage } from '@/teacher-app/components/teacher/assessment-builder';
+import { AssessmentBuilderPage } from '@/components/teacher/assessment-builder';
 import {
   Assessment,
   AssessmentQuestion,
   BankRule,
   QuestionBank,
-} from '@/teacher-app/lib/types/assessment-builder';
+} from '@/lib/types/assessment-builder';
 import {
   getAssessmentQuestions,
   getBankRules,
@@ -21,7 +21,7 @@ import {
   addBankRule,
   updateBankRule,
   deleteBankRule,
-} from '@/teacher-app/lib/dal/assessment-builder';
+} from '@/lib/dal/assessment-builder';
 
 export default function AssessmentBuilderPageRoute() {
   const params = useParams();

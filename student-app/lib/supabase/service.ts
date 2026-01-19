@@ -14,7 +14,7 @@ export function createServiceClient(): SupabaseClient {
 
   return createClient(url, serviceKey, {
     db: {
-      schema: "school software",
+      schema: "public",
     },
   });
 }

@@ -12,7 +12,7 @@ import {
   QuestionBank,
   BankQuestion,
   generateId,
-} from '@/teacher-app/lib/types/assessment-builder';
+} from '@/lib/types/assessment-builder';
 import { QuestionList } from './QuestionList';
 import { QuestionEditor } from './QuestionEditor';
 import { BankRulesPanel } from './BankRulesPanel';

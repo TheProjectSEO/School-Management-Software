@@ -18,7 +18,7 @@ import {
   verticalListSortingStrategy,
   arrayMove,
 } from '@dnd-kit/sortable';
-import { AssessmentQuestion } from '@/teacher-app/lib/types/assessment-builder';
+import { AssessmentQuestion } from '@/lib/types/assessment-builder';
 import { QuestionCard } from './QuestionCard';
 
 interface QuestionListProps {

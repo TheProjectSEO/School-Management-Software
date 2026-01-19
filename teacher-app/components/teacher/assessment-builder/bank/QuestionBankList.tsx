@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { QuestionBank } from '@/teacher-app/lib/types/assessment-builder';
+import { QuestionBank } from '@/lib/types/assessment-builder';
 
 interface QuestionBankListProps {
   banks: QuestionBank[];

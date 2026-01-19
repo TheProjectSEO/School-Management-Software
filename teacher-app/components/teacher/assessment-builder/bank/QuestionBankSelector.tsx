@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { QuestionBank, BankQuestion, QuestionFilters, QUESTION_TYPE_CONFIG, QuestionType } from '@/teacher-app/lib/types/assessment-builder';
+import { QuestionBank, BankQuestion, QuestionFilters, QUESTION_TYPE_CONFIG, QuestionType } from '@/lib/types/assessment-builder';
 
 interface QuestionBankSelectorProps {
   isOpen: boolean;

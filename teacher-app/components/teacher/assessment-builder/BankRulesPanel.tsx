@@ -7,7 +7,7 @@ import {
   QuestionBank,
   SeedMode,
   DifficultyLevel,
-} from '@/teacher-app/lib/types/assessment-builder';
+} from '@/lib/types/assessment-builder';
 
 interface BankRulesPanelProps {
   rules: BankRule[];

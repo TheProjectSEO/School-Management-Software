@@ -13,7 +13,7 @@ interface PageProps {
 }
 
 export default async function RecordingsPage({ params }: PageProps) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const profile = await getCurrentProfile();
 
   if (!profile || profile.role !== 'student') {

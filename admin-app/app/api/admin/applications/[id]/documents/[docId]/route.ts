@@ -5,15 +5,16 @@ const BUCKET = "application-documents";
 
 export async function GET(
   _req: NextRequest,
-  { params }: { params: { id: string; docId: string } }
+  { params }: { params: Promise<{ id: string; docId: string }> }
 ) {
+  const { id, docId } = await params;
   const supabase = createServiceClient();
 
   const { data: doc, error } = await supabase
     .from("application_documents")
     .select("storage_path, file_name, mime_type")
-    .eq("id", params.docId)
-    .eq("application_id", params.id)
+    .eq("id", docId)
+    .eq("application_id", id)
     .single();
 
   if (error || !doc) {

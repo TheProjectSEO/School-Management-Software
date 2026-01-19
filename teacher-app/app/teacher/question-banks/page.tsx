@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { QuestionBank } from '@/teacher-app/lib/types/assessment-builder';
+import { QuestionBank } from '@/lib/types/assessment-builder';
 import {
   getQuestionBanks,
   createQuestionBank,
   deleteQuestionBank,
-} from '@/teacher-app/lib/dal/assessment-builder';
+} from '@/lib/dal/assessment-builder';
 
 export default function QuestionBanksPage() {
   const router = useRouter();

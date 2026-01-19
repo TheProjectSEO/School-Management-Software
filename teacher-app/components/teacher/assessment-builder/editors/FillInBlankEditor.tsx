@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FillInBlankContent, generateId } from '@/teacher-app/lib/types/assessment-builder';
+import { FillInBlankContent, generateId } from '@/lib/types/assessment-builder';
 
 interface FillInBlankEditorProps {
   value: FillInBlankContent;

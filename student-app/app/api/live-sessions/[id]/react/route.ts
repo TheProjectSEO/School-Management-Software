@@ -22,7 +22,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const profile = await getCurrentProfile();
 
     if (!profile || profile.role !== 'student') {
@@ -135,7 +135,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const profile = await getCurrentProfile();
 
     if (!profile) {

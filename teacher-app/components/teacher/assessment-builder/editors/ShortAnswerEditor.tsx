@@ -1,6 +1,6 @@
 'use client';
 
-import { ShortAnswerContent } from '@/teacher-app/lib/types/assessment-builder';
+import { ShortAnswerContent } from '@/lib/types/assessment-builder';
 
 interface ShortAnswerEditorProps {
   value: ShortAnswerContent;

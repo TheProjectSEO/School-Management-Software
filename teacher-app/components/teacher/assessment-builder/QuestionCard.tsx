@@ -12,7 +12,7 @@ import {
   ShortAnswerContent,
   MatchingContent,
   FillInBlankContent,
-} from '@/teacher-app/lib/types/assessment-builder';
+} from '@/lib/types/assessment-builder';
 
 interface QuestionCardProps {
   question: AssessmentQuestion;

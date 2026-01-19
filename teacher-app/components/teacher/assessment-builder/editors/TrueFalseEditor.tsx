@@ -1,6 +1,6 @@
 'use client';
 
-import { TrueFalseContent } from '@/teacher-app/lib/types/assessment-builder';
+import { TrueFalseContent } from '@/lib/types/assessment-builder';
 
 interface TrueFalseEditorProps {
   value: TrueFalseContent;

@@ -9,15 +9,15 @@ import {
   QuestionType,
   QUESTION_TYPE_CONFIG,
   DifficultyLevel,
-} from '@/teacher-app/lib/types/assessment-builder';
+} from '@/lib/types/assessment-builder';
 import {
   getBankQuestions,
   addQuestionToBank,
   deleteBankQuestion,
   importQuestionsToBank,
-} from '@/teacher-app/lib/dal/assessment-builder';
-import { QuestionEditor } from '@/teacher-app/components/teacher/assessment-builder/QuestionEditor';
-import { QuestionImportModal } from '@/teacher-app/components/teacher/assessment-builder/bank/QuestionImportModal';
+} from '@/lib/dal/assessment-builder';
+import { QuestionEditor } from '@/components/teacher/assessment-builder/QuestionEditor';
+import { QuestionImportModal } from '@/components/teacher/assessment-builder/bank/QuestionImportModal';
 
 export default function QuestionBankDetailPage() {
   const params = useParams();
@@ -403,7 +403,12 @@ export default function QuestionBankDetailPage() {
       {/* Question Editor Modal */}
       {showQuestionEditor && (
         <QuestionEditor
-          initialQuestion={
+          isOpen={showQuestionEditor}
+          onClose={() => {
+            setShowQuestionEditor(false);
+            setEditingQuestion(null);
+          }}
+          initialValue={
             editingQuestion
               ? {
                   prompt: editingQuestion.prompt,
@@ -416,10 +421,6 @@ export default function QuestionBankDetailPage() {
               : null
           }
           onSave={handleSaveQuestion}
-          onCancel={() => {
-            setShowQuestionEditor(false);
-            setEditingQuestion(null);
-          }}
           isLoading={saving}
         />
       )}

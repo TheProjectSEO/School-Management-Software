@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { UserStatusBadge } from "@/components/ui";
 
 interface StudentDetailPageProps {
-  params: { studentId: string };
+  params: Promise<{ studentId: string }>;
 }
 
 async function getStudentDetails(studentId: string) {
@@ -109,7 +109,8 @@ async function getStudentDetails(studentId: string) {
 }
 
 export default async function StudentDetailPage({ params }: StudentDetailPageProps) {
-  const student = await getStudentDetails(params.studentId);
+  const { studentId } = await params;
+  const student = await getStudentDetails(studentId);
 
   if (!student) {
     notFound();
@@ -140,7 +141,7 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
         </div>
         <div className="flex items-center gap-3">
           <Link
-            href={`/users/students/${params.studentId}/edit`}
+            href={`/users/students/${studentId}/edit`}
             className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
           >
             <span className="material-symbols-outlined text-lg">edit</span>
@@ -230,7 +231,7 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Enrolled Courses</h3>
               <Link
-                href={`/enrollments?studentId=${params.studentId}`}
+                href={`/enrollments?studentId=${studentId}`}
                 className="text-sm text-primary hover:underline"
               >
                 View All
@@ -269,7 +270,7 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900">Recent Grades</h3>
               <Link
-                href={`/reports/grades?studentId=${params.studentId}`}
+                href={`/reports/grades?studentId=${studentId}`}
                 className="text-sm text-primary hover:underline"
               >
                 View All

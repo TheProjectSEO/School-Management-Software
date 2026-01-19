@@ -15,7 +15,7 @@ import {
   EssayContent,
   MatchingContent,
   FillInBlankContent,
-} from '@/teacher-app/lib/types/assessment-builder';
+} from '@/lib/types/assessment-builder';
 import {
   MultipleChoiceEditor,
   TrueFalseEditor,

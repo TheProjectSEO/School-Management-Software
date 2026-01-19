@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { BankQuestion, QuestionBank, QUESTION_TYPE_CONFIG, QuestionType, QuestionFilters } from '@/teacher-app/lib/types/assessment-builder';
+import { BankQuestion, QuestionBank, QUESTION_TYPE_CONFIG, QuestionType, QuestionFilters } from '@/lib/types/assessment-builder';
 
 interface BankQuestionListProps {
   bank: QuestionBank;

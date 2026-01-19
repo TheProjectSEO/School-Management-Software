@@ -24,7 +24,7 @@ export async function processRecordingForSession(
 ): Promise<RecordingProcessResult> {
   try {
     const dailyClient = getDailyClient();
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // 1. Get recordings from Daily.co
     console.log(`[Recording] Fetching recordings for room: ${dailyRoomName}`);
@@ -132,7 +132,7 @@ export async function deleteRecording(
   recordingId?: string
 ): Promise<boolean> {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
 
     // Delete from Supabase storage
     const fileName = `${sessionId}/recording.mp4`;
@@ -176,7 +176,7 @@ export async function getRecordingSignedUrl(
   expiresIn: number = 3600 // 1 hour default
 ): Promise<string | null> {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const fileName = `${sessionId}/recording.mp4`;
 
     const { data, error } = await supabase.storage

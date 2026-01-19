@@ -9,8 +9,8 @@ type RequestInfoPayload = {
   note?: string;
 };
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const applicationId = params.id;
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id: applicationId } = await params;
   const body = (await req.json().catch(() => ({}))) as RequestInfoPayload;
   const supabase = createServiceClient();
 

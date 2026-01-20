@@ -83,7 +83,7 @@ function chunkText(text: string, maxChars = 1800) {
 async function transcribeWithOpenAI(recordingBuffer: ArrayBuffer) {
   const file = new File([recordingBuffer], "recording.mp4", { type: "video/mp4" });
   const formData = new FormData();
-  formData.append("model", "gpt-4o-mini-transcribe");
+  formData.append("model", "whisper-1");
   formData.append("file", file);
   formData.append("response_format", "verbose_json");
 

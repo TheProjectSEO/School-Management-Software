@@ -20,6 +20,20 @@ coverage/
 .env.production.local
 .env*.local
 
+# Sensitive documentation files with exposed secrets
+*_CREDENTIALS.md
+*_ACCESS_*.md
+*_SECRETS.md
+*_KEYS.md
+COMPLETE_SYSTEM_GUIDE.md
+ALL_ACCESS_*.md
+LOGIN_CREDENTIALS.md
+DEMO_CREDENTIALS.md
+TEST_ACCOUNTS.md
+WORKING_LOGIN_CREDENTIALS.md
+FINAL_WORKING_CREDENTIALS.md
+TEST_CREDENTIALS.md
+
 # IDE and OS files
 .DS_Store
 *.pem

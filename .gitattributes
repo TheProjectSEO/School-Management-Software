@@ -1,0 +1,9 @@
+# Prevent accidental commits of sensitive files
+*_CREDENTIALS.md filter=git-crypt diff=git-crypt
+*_ACCESS_*.md filter=git-crypt diff=git-crypt
+*_SECRETS.md filter=git-crypt diff=git-crypt
+COMPLETE_SYSTEM_GUIDE.md filter=git-crypt diff=git-crypt
+ALL_ACCESS_*.md filter=git-crypt diff=git-crypt
+LOGIN_CREDENTIALS.md filter=git-crypt diff=git-crypt
+DEMO_CREDENTIALS.md filter=git-crypt diff=git-crypt
+TEST_ACCOUNTS.md filter=git-crypt diff=git-crypt

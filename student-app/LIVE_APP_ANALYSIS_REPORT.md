@@ -305,14 +305,14 @@ export function createClient() {
 NEXT_PUBLIC_SUPABASE_URL=https://qyjzqzqqjimittltttph.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<valid-anon-key>
 SUPABASE_SERVICE_ROLE_KEY=your-service-role-key-here  ⚠️ PLACEHOLDER
-GROQ_API_KEY=<configured>
+OPENAI_API_KEY=<configured>
 ```
 
 **Status:** 
 - ✅ Supabase URL configured
 - ✅ Anon key configured
 - ⚠️ Service role key is placeholder (may affect admin operations)
-- ✅ GROQ AI key configured
+- ✅ OpenAI key configured
 
 ---
 

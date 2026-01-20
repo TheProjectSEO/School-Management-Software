@@ -48,6 +48,8 @@ const getNavGroups = (unreadCount: number): NavGroup[] => [
   {
     title: "Academics",
     items: [
+      { href: "/applications", icon: "description", label: "Applications" },
+      { href: "/enrollment-qr", icon: "qr_code", label: "Enrollment QR" },
       { href: "/enrollments", icon: "assignment_ind", label: "Enrollments" },
       { href: "/enrollments/bulk", icon: "group_add", label: "Bulk Enrollment" },
     ],

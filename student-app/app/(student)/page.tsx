@@ -4,6 +4,7 @@ import {
   getCurrentStudent,
   getRecentSubjects,
   getUpcomingAssessments,
+  getUpcomingLiveSessions,
   getUnreadNotificationCount,
   getStudentProgressStats,
 } from "@/lib/dal";
@@ -23,6 +24,7 @@ export default async function DashboardPage() {
   let recentSubjects = [];
   let upcomingAssessments = [];
   let unreadCount = 0;
+  let upcomingLiveSessions = [];
   let progressStats = {
     totalCourses: 0,
     averageProgress: 0,
@@ -32,11 +34,12 @@ export default async function DashboardPage() {
   let hasError = false;
 
   try {
-    [recentSubjects, upcomingAssessments, unreadCount, progressStats] = await Promise.all([
+    [recentSubjects, upcomingAssessments, unreadCount, progressStats, upcomingLiveSessions] = await Promise.all([
       getRecentSubjects(student.id, 1),
       getUpcomingAssessments(student.id, 2),
       getUnreadNotificationCount(student.id),
       getStudentProgressStats(student.id),
+      getUpcomingLiveSessions(student.id, 3),
     ]);
   } catch (error) {
     console.error("Error fetching dashboard data:", error);
@@ -403,6 +406,63 @@ export default async function DashboardPage() {
 
         {/* Sidebar Content */}
         <div className="flex flex-col gap-6 lg:col-span-4">
+          {/* Live Sessions Card */}
+          <div className="rounded-xl border border-slate-200 bg-white p-5 dark:bg-[#1a2634] dark:border-slate-700">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                Live Sessions
+              </h3>
+              <Link
+                href="/live-sessions"
+                className="text-xs font-semibold text-primary hover:underline"
+              >
+                View all
+              </Link>
+            </div>
+            {upcomingLiveSessions.length > 0 ? (
+              <div className="space-y-3">
+                {upcomingLiveSessions.map((session: any) => (
+                  <div
+                    key={session.id}
+                    className="rounded-lg border border-slate-100 dark:border-slate-700 p-3"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                        {session.title}
+                      </p>
+                      <span
+                        className={`text-xs font-semibold ${
+                          session.status === "live"
+                            ? "text-green-600"
+                            : "text-slate-500"
+                        }`}
+                      >
+                        {session.status === "live" ? "Live" : "Scheduled"}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {session.course?.name || "Course"}
+                    </p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {new Date(session.scheduled_start).toLocaleString()}
+                    </p>
+                    <Link
+                      href={`/live-sessions/${session.id}`}
+                      className="mt-2 inline-flex text-xs font-semibold text-primary hover:underline"
+                    >
+                      {session.status === "live" ? "Join now" : "View details"}
+                    </Link>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-lg border border-slate-100 dark:border-slate-700 p-4 text-center">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  No upcoming live sessions.
+                </p>
+              </div>
+            )}
+          </div>
           {/* Progress Stats Card */}
           <div className="rounded-xl bg-gradient-to-br from-primary to-[#420a0b] p-6 text-white shadow-lg dark:from-[#7B1113] dark:to-[#1a0505]">
             <div className="mb-4 flex items-center gap-2">

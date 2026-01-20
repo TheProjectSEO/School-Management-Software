@@ -1,7 +1,7 @@
 // @ts-nocheck - Uses n8n_content_creation schema with complex queries
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { requireTeacher } from "@/lib/auth/teacher";
+import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 
 /**
  * PATCH /api/teacher/live-sessions/[id]
@@ -11,12 +11,12 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireTeacher();
+  const authResult = await requireTeacherAPI();
   if (!authResult.success) {
     return authResult.response;
   }
 
-  const { teacherId } = authResult.context;
+  const { teacherId } = authResult.teacher;
   const { id } = await params;
 
   try {
@@ -29,7 +29,7 @@ export async function PATCH(
       .select(
         `
         *,
-        section_subject:teacher_assignments(teacher_id)
+        course_id
       `
       )
       .eq("id", id)
@@ -43,15 +43,21 @@ export async function PATCH(
     }
 
     // Verify teacher has access
-    if (session.section_subject.teacher_id !== teacherId) {
+    const { count: accessCount } = await supabase
+      .from("teacher_assignments")
+      .select("*", { count: "exact", head: true })
+      .eq("teacher_profile_id", teacherId)
+      .eq("course_id", session.course_id);
+
+    if (!accessCount) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
     const {
       title,
       description,
-      startAt,
-      endAt,
+      scheduledStart,
+      scheduledEnd,
       joinUrl,
       status,
       recordingUrl,
@@ -62,17 +68,17 @@ export async function PATCH(
     if (title !== undefined) updates.title = title?.trim() || null;
     if (description !== undefined)
       updates.description = description?.trim() || null;
-    if (startAt !== undefined) updates.start_at = startAt;
-    if (endAt !== undefined) updates.end_at = endAt;
+    if (scheduledStart !== undefined) updates.scheduled_start = scheduledStart;
+    if (scheduledEnd !== undefined) updates.scheduled_end = scheduledEnd;
     if (joinUrl !== undefined) updates.join_url = joinUrl?.trim() || null;
     if (status !== undefined) updates.status = status;
     if (recordingUrl !== undefined)
       updates.recording_url = recordingUrl?.trim() || null;
 
     // Validate times if both are being updated
-    if (updates.start_at && updates.end_at) {
-      const start = new Date(updates.start_at);
-      const end = new Date(updates.end_at);
+    if (updates.scheduled_start && updates.scheduled_end) {
+      const start = new Date(updates.scheduled_start);
+      const end = new Date(updates.scheduled_end);
 
       if (end <= start) {
         return NextResponse.json(
@@ -90,11 +96,8 @@ export async function PATCH(
       .select(
         `
         *,
-        section_subject:teacher_assignments(
-          id,
-          section:sections(id, name),
-          subject:courses(id, name, code)
-        ),
+        course:courses(id, name, subject_code),
+        section:sections(id, name),
         module:modules(id, title)
       `
       )
@@ -106,6 +109,28 @@ export async function PATCH(
         { error: "Failed to update session" },
         { status: 500 }
       );
+    }
+
+    const mirrorUpdates: Record<string, unknown> = {};
+    if (updates.title !== undefined) mirrorUpdates.title = updates.title;
+    if (updates.description !== undefined) mirrorUpdates.description = updates.description;
+    if (updates.scheduled_start !== undefined)
+      mirrorUpdates.scheduled_start = updates.scheduled_start;
+    if (updates.scheduled_end !== undefined)
+      mirrorUpdates.scheduled_end = updates.scheduled_end;
+    if (updates.join_url !== undefined) mirrorUpdates.daily_room_url = updates.join_url;
+    if (updates.status !== undefined) mirrorUpdates.status = updates.status;
+    if (updates.recording_url !== undefined)
+      mirrorUpdates.recording_url = updates.recording_url;
+
+    if (Object.keys(mirrorUpdates).length > 0) {
+      const { error: mirrorError } = await supabase
+        .from("live_sessions")
+        .update(mirrorUpdates)
+        .eq("id", id);
+      if (mirrorError) {
+        console.error("Error updating student live session:", mirrorError);
+      }
     }
 
     return NextResponse.json({ session: updatedSession });
@@ -126,12 +151,12 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireTeacher();
+  const authResult = await requireTeacherAPI();
   if (!authResult.success) {
     return authResult.response;
   }
 
-  const { teacherId } = authResult.context;
+  const { teacherId } = authResult.teacher;
   const { id } = await params;
 
   try {
@@ -143,7 +168,7 @@ export async function DELETE(
       .select(
         `
         status,
-        section_subject:teacher_assignments(teacher_id)
+        course_id
       `
       )
       .eq("id", id)
@@ -157,7 +182,13 @@ export async function DELETE(
     }
 
     // Verify teacher has access
-    if (session.section_subject.teacher_id !== teacherId) {
+    const { count: accessCount } = await supabase
+      .from("teacher_assignments")
+      .select("*", { count: "exact", head: true })
+      .eq("teacher_profile_id", teacherId)
+      .eq("course_id", session.course_id);
+
+    if (!accessCount) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
@@ -181,6 +212,15 @@ export async function DELETE(
         { error: "Failed to delete session" },
         { status: 500 }
       );
+    }
+
+    const { error: mirrorError } = await supabase
+      .from("live_sessions")
+      .delete()
+      .eq("id", id);
+
+    if (mirrorError) {
+      console.error("Error deleting student live session:", mirrorError);
     }
 
     return NextResponse.json({ success: true });

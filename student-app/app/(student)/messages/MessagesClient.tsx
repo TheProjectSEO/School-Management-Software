@@ -34,6 +34,7 @@ export function MessagesClient({
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [showNewConversation, setShowNewConversation] = useState(false);
+  const [teacherSearch, setTeacherSearch] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Real-time hooks
@@ -262,6 +263,7 @@ export function MessagesClient({
     setSelectedConversation(newConversation);
     setMessages([]);
     setShowNewConversation(false);
+    setTeacherSearch("");
 
     // Load quota for this teacher
     try {
@@ -297,6 +299,15 @@ export function MessagesClient({
       .toUpperCase()
       .slice(0, 2);
   };
+
+  const filteredTeachers = availableTeachers.filter((teacher) => {
+    if (!teacherSearch.trim()) return true;
+    const query = teacherSearch.toLowerCase();
+    return (
+      teacher.profile?.full_name?.toLowerCase().includes(query) ||
+      teacher.course_name?.toLowerCase().includes(query)
+    );
+  });
 
   return (
     <div className="h-full flex flex-col">
@@ -585,7 +596,15 @@ export function MessagesClient({
                 Select a teacher from your enrolled courses:
               </p>
 
-              {availableTeachers.length === 0 ? (
+              <input
+                type="text"
+                value={teacherSearch}
+                onChange={(e) => setTeacherSearch(e.target.value)}
+                placeholder="Start typing a teacher name or course..."
+                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary mb-4"
+              />
+
+              {filteredTeachers.length === 0 ? (
                 <div className="text-center py-8 text-slate-500">
                   <span className="material-symbols-outlined text-4xl mb-2">person_off</span>
                   <p>No teachers available</p>
@@ -593,7 +612,7 @@ export function MessagesClient({
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {availableTeachers.map((teacher) => (
+                  {filteredTeachers.map((teacher) => (
                     <button
                       key={teacher.id}
                       onClick={() => startNewConversation(teacher)}

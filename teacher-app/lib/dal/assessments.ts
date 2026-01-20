@@ -60,6 +60,9 @@ export type SubmissionDetail = {
     avatar_url: string | null
   }
   score: number | null
+  ai_score?: number | null
+  ai_feedback?: string | null
+  ai_graded_at?: string | null
   submitted_at: string
   graded_at: string | null
   feedback: string | null
@@ -176,7 +179,7 @@ export async function getPendingSubmissions(teacherId: string, filters?: {
       student:students!inner(
         id,
         lrn,
-        profile:profiles!inner(full_name)
+        profile:school_profiles!inner(full_name)
       )
     `)
     .in('assessment.course_id', courseIds)
@@ -254,7 +257,7 @@ export async function getSubmissionDetail(submissionId: string, teacherId: strin
       student:students!inner(
         id,
         lrn,
-        profile:profiles!inner(
+        profile:school_profiles!inner(
           full_name,
           avatar_url
         )
@@ -303,6 +306,9 @@ export async function getSubmissionDetail(submissionId: string, teacherId: strin
       avatar_url: submission.student.profile.avatar_url
     },
     score: submission.score,
+    ai_score: submission.ai_score ?? null,
+    ai_feedback: submission.ai_feedback ?? null,
+    ai_graded_at: submission.ai_graded_at ?? null,
     submitted_at: submission.submitted_at,
     graded_at: submission.graded_at,
     feedback: submission.feedback,

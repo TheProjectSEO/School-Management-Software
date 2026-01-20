@@ -431,7 +431,7 @@ DAILY_API_KEY=5a400788fc8e091243f5080ea09254580083c3783d53f1fb899a4210700b7dae
 DAILY_DOMAIN=klase.daily.co
 
 # AI
-GROQ_API_KEY=gsk_t2UzZ...
+OPENAI_API_KEY=sk-...
 ```
 
 ### Package Dependencies

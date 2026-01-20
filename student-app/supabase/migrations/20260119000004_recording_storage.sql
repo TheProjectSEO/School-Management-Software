@@ -27,7 +27,7 @@ ON storage.objects FOR SELECT USING (
   bucket_id = 'session-recordings' AND
   -- Extract session ID from file path (format: <session-id>/recording.mp4)
   (SELECT ls.course_id FROM live_sessions ls
-   WHERE ls.id::text = split_part(name, '/', 1)::uuid
+   WHERE ls.id = split_part(name, '/', 1)::uuid
   ) IN (
     SELECT e.course_id FROM enrollments e
     JOIN students s ON s.id = e.student_id
@@ -41,7 +41,7 @@ CREATE POLICY "Teachers can view recordings for their sessions"
 ON storage.objects FOR SELECT USING (
   bucket_id = 'session-recordings' AND
   (SELECT ls.teacher_id FROM live_sessions ls
-   WHERE ls.id::text = split_part(name, '/', 1)::uuid
+   WHERE ls.id = split_part(name, '/', 1)::uuid
   ) IN (
     SELECT tp.id FROM teacher_profiles tp
     JOIN school_profiles sp ON sp.id = tp.profile_id
@@ -54,7 +54,7 @@ CREATE POLICY "Teachers can upload recordings for their sessions"
 ON storage.objects FOR INSERT WITH CHECK (
   bucket_id = 'session-recordings' AND
   (SELECT ls.teacher_id FROM live_sessions ls
-   WHERE ls.id::text = split_part(name, '/', 1)::uuid
+   WHERE ls.id = split_part(name, '/', 1)::uuid
   ) IN (
     SELECT tp.id FROM teacher_profiles tp
     JOIN school_profiles sp ON sp.id = tp.profile_id
@@ -74,8 +74,9 @@ CREATE POLICY "Admins can manage all recordings"
 ON storage.objects FOR ALL USING (
   bucket_id = 'session-recordings' AND
   auth.uid() IN (
-    SELECT sp.auth_user_id FROM school_profiles sp
-    WHERE sp.role = 'admin'
+    SELECT sp.auth_user_id
+    FROM school_profiles sp
+    JOIN admin_profiles ap ON ap.profile_id = sp.id
   )
 );
 

@@ -6,7 +6,8 @@ import Link from "next/link";
 interface Course {
   id: string;
   name: string;
-  code: string;
+  subject_code?: string;
+  code?: string;
 }
 
 interface Section {
@@ -75,9 +76,20 @@ export default function BulkEnrollPage() {
     try {
       const response = await fetch("/api/admin/courses");
       const data = await response.json();
-      setCourses(data);
+      
+      // Ensure data is an array
+      if (Array.isArray(data)) {
+        setCourses(data);
+      } else if (data.error) {
+        console.error("Failed to fetch courses:", data.error);
+        setCourses([]);
+      } else {
+        console.error("Unexpected response format:", data);
+        setCourses([]);
+      }
     } catch (error) {
       console.error("Failed to fetch courses:", error);
+      setCourses([]);
     }
   };
 
@@ -85,9 +97,20 @@ export default function BulkEnrollPage() {
     try {
       const response = await fetch(`/api/admin/courses/${courseId}/sections`);
       const data = await response.json();
-      setSections(data);
+      
+      // Ensure data is an array
+      if (Array.isArray(data)) {
+        setSections(data);
+      } else if (data.error) {
+        console.error("Failed to fetch sections:", data.error);
+        setSections([]);
+      } else {
+        console.error("Unexpected response format:", data);
+        setSections([]);
+      }
     } catch (error) {
       console.error("Failed to fetch sections:", error);
+      setSections([]);
     }
   };
 
@@ -102,9 +125,20 @@ export default function BulkEnrollPage() {
 
       const response = await fetch(`/api/admin/users/students?${params}`);
       const data = await response.json();
-      setStudents(data.data || []);
+      
+      // Ensure data.data is an array
+      if (Array.isArray(data.data)) {
+        setStudents(data.data);
+      } else if (data.error) {
+        console.error("Failed to fetch students:", data.error);
+        setStudents([]);
+      } else {
+        console.error("Unexpected response format:", data);
+        setStudents([]);
+      }
     } catch (error) {
       console.error("Failed to fetch students:", error);
+      setStudents([]);
     } finally {
       setLoading(false);
     }
@@ -255,9 +289,9 @@ export default function BulkEnrollPage() {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 >
                   <option value="">Select a course...</option>
-                  {courses.map((course) => (
+                  {Array.isArray(courses) && courses.map((course) => (
                     <option key={course.id} value={course.id}>
-                      {course.name} ({course.code})
+                      {course.name} {course.code || course.subject_code ? `(${course.code || course.subject_code})` : ''}
                     </option>
                   ))}
                 </select>
@@ -275,7 +309,7 @@ export default function BulkEnrollPage() {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-gray-50 disabled:cursor-not-allowed"
                 >
                   <option value="">Select a section...</option>
-                  {sections.map((section) => (
+                  {Array.isArray(sections) && sections.map((section) => (
                     <option key={section.id} value={section.id}>
                       {section.name} - Grade {section.grade_level} ({section.enrolled_count}/
                       {section.capacity})
@@ -379,7 +413,7 @@ export default function BulkEnrollPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {students.map((student) => (
+                    {Array.isArray(students) && students.map((student) => (
                       <tr
                         key={student.id}
                         onClick={() => toggleStudentSelection(student)}
@@ -460,7 +494,7 @@ export default function BulkEnrollPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {selectedStudents.map((student) => (
+                    {Array.isArray(selectedStudents) && selectedStudents.map((student) => (
                       <tr key={student.id}>
                         <td className="px-4 py-2 font-medium text-gray-900">{student.full_name}</td>
                         <td className="px-4 py-2 text-gray-600">{student.email}</td>
@@ -544,7 +578,7 @@ export default function BulkEnrollPage() {
               </div>
             </div>
 
-            {result.errors.length > 0 && (
+            {result.errors && Array.isArray(result.errors) && result.errors.length > 0 && (
               <div className="bg-red-50 border border-red-200 rounded-lg p-4">
                 <h3 className="text-sm font-medium text-red-800 mb-2">Failed Enrollments</h3>
                 <ul className="text-sm text-red-600 space-y-1">

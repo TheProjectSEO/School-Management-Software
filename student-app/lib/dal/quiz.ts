@@ -3,6 +3,7 @@
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { generateAiDraftEvaluation } from "@/lib/ai/assessment-grader";
 import type {
   Question,
   AnswerOption,
@@ -218,6 +219,20 @@ export async function saveAnswer(
 ): Promise<boolean> {
   const supabase = await createClient();
 
+  const { data: submission, error: statusError } = await supabase
+    .from("submissions")
+    .select("status")
+    .eq("id", submissionId)
+    .single();
+
+  if (statusError || !submission) {
+    return false;
+  }
+
+  if (submission.status !== "pending") {
+    return false;
+  }
+
   const { error } = await supabase.from("student_answers").upsert(
     {
       submission_id: submissionId,
@@ -283,6 +298,17 @@ export async function submitQuiz(
 ): Promise<QuizResult | null> {
   const supabase = await createClient();
 
+  const { data: submission, error: submissionError } = await supabase
+    .from("submissions")
+    .select("id, status")
+    .eq("id", submissionId)
+    .single();
+
+  if (submissionError || !submission || submission.status !== "pending") {
+    console.error("Submission is not pending or not found");
+    return null;
+  }
+
   // Get questions with correct answers
   const questions = await getQuestionsWithAnswers(assessmentId);
   if (questions.length === 0) {
@@ -291,8 +317,16 @@ export async function submitQuiz(
   }
 
   const questionMap = new Map(questions.map((q) => [q.id, q]));
-  let totalScore = 0;
+  let autoScore = 0;
   let totalPoints = 0;
+  let subjectivePoints = 0;
+  const subjectiveQuestions: {
+    id: string;
+    prompt: string;
+    answer: string;
+    maxPoints: number;
+    type: string;
+  }[] = [];
 
   // Grade each answer
   const gradedAnswers: StudentAnswer[] = [];
@@ -317,21 +351,18 @@ export async function submitQuiz(
       isCorrect = studentAnswer === question.correct_answer?.toLowerCase();
       pointsEarned = isCorrect ? question.points : 0;
     } else if (question.question_type === "short_answer") {
-      // Simple text comparison (case-insensitive, trimmed)
-      const studentAnswer = answer.text_answer?.trim().toLowerCase();
-      const correctAnswer = question.correct_answer?.trim().toLowerCase();
-      // Allow for some flexibility - check if answer contains the correct answer
-      if (studentAnswer && correctAnswer) {
-        isCorrect = studentAnswer === correctAnswer ||
-                    studentAnswer.includes(correctAnswer) ||
-                    correctAnswer.includes(studentAnswer);
-      } else {
-        isCorrect = false;
-      }
-      pointsEarned = isCorrect ? question.points : 0;
+      subjectivePoints += question.points;
+      subjectiveQuestions.push({
+        id: question.id,
+        prompt: question.question_text,
+        answer: answer.text_answer || "",
+        maxPoints: question.points,
+        type: "short_answer",
+      });
+      pointsEarned = 0;
     }
 
-    totalScore += pointsEarned;
+    autoScore += pointsEarned;
 
     gradedAnswers.push({
       id: "", // Will be set by DB
@@ -339,11 +370,29 @@ export async function submitQuiz(
       question_id: answer.question_id,
       selected_option_id: answer.selected_option_id,
       text_answer: answer.text_answer,
-      is_correct: isCorrect,
-      points_earned: pointsEarned,
+      is_correct: question.question_type === "short_answer" ? null : isCorrect,
+      points_earned: question.question_type === "short_answer" ? null : pointsEarned,
       created_at: new Date().toISOString(),
     });
   }
+
+  const { data: assessment } = await supabase
+    .from("assessments")
+    .select("title, course:courses(name)")
+    .eq("id", assessmentId)
+    .single();
+
+  const aiDraft = await generateAiDraftEvaluation({
+    assessmentTitle: assessment?.title || "Assessment",
+    courseName: (assessment?.course as { name?: string } | null)?.name ?? null,
+    subjectiveQuestions,
+    totalSubjectivePoints: subjectivePoints,
+  });
+
+  const aiScore =
+    typeof aiDraft?.subjectivePointsAwarded === "number"
+      ? autoScore + aiDraft.subjectivePointsAwarded
+      : autoScore;
 
   // Upsert all answers
   for (const answer of gradedAnswers) {
@@ -354,7 +403,7 @@ export async function submitQuiz(
         selected_option_id: answer.selected_option_id || null,
         text_answer: answer.text_answer || null,
         is_correct: answer.is_correct,
-        points_earned: answer.points_earned,
+        points_earned: answer.points_earned ?? null,
       },
       {
         onConflict: "submission_id,question_id",
@@ -366,11 +415,13 @@ export async function submitQuiz(
   const { error: updateError } = await supabase
     .from("submissions")
     .update({
-      score: totalScore,
-      status: "graded",
+      score: null,
+      status: "submitted",
       submitted_at: new Date().toISOString(),
-      graded_at: new Date().toISOString(),
       time_spent_seconds: payload.time_spent_seconds,
+      ai_score: aiScore,
+      ai_feedback: aiDraft?.feedback ?? null,
+      ai_graded_at: aiDraft ? new Date().toISOString() : null,
     })
     .eq("id", submissionId);
 
@@ -381,9 +432,9 @@ export async function submitQuiz(
 
   return {
     submission_id: submissionId,
-    score: totalScore,
+    score: aiScore,
     total_points: totalPoints,
-    percentage: Math.round((totalScore / totalPoints) * 100),
+    percentage: Math.round((aiScore / totalPoints) * 100),
     answers: gradedAnswers.map((a) => ({
       ...a,
       question: questionMap.get(a.question_id)!,

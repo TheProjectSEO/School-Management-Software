@@ -239,7 +239,7 @@ export async function getRecentPendingSubmissions(
       submitted_at,
       student:students!inner(
         lrn,
-        profile:profiles!inner(full_name)
+        profile:school_profiles!inner(full_name)
       ),
       assessment:assessments!inner(
         title,
@@ -544,7 +544,7 @@ export async function getRecentActivity(
     .select(`
       id,
       submitted_at,
-      student:students!inner(profile:profiles!inner(full_name)),
+      student:students!inner(profile:school_profiles!inner(full_name)),
       assessment:assessments!inner(title, course_id)
     `)
     .in('assessment.course_id', courseIds)
@@ -570,7 +570,7 @@ export async function getRecentActivity(
     .select(`
       id,
       enrolled_at,
-      student:students!inner(profile:profiles!inner(full_name)),
+      student:students!inner(profile:school_profiles!inner(full_name)),
       course:courses!inner(name, id)
     `)
     .in('course_id', courseIds)

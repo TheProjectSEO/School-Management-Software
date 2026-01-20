@@ -5,6 +5,7 @@ import {
   getSubjectById,
   getModulesBySubject,
   getSubjectProgress,
+  getLiveSessionsForCourse,
 } from "@/lib/dal";
 
 export const revalidate = 300; // 5 minutes - course content
@@ -32,6 +33,9 @@ export default async function SubjectDetailPage({
 
   // Fetch progress for this subject
   const progressData = await getSubjectProgress(student.id, subjectId);
+
+  // Fetch live sessions for this course
+  const liveSessions = await getLiveSessionsForCourse(student.id, subjectId);
 
   // Calculate overall progress
   const totalLessons = progressData.length;
@@ -76,6 +80,13 @@ export default async function SubjectDetailPage({
           </div>
         </div>
         <div className="flex gap-3">
+          <Link
+            href={`/subjects/${subjectId}/recordings`}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm"
+          >
+            <span className="material-symbols-outlined text-[20px]">play_circle</span>
+            Recordings
+          </Link>
           <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-sm font-medium hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm">
             <span className="material-symbols-outlined text-[20px]">mail</span>
             Contact
@@ -85,6 +96,75 @@ export default async function SubjectDetailPage({
             Share
           </button>
         </div>
+      </div>
+
+      {/* Live Sessions */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+            Live Sessions
+          </h3>
+          <Link
+            href="/live-sessions"
+            className="text-sm font-semibold text-primary hover:underline"
+          >
+            View all
+          </Link>
+        </div>
+        {liveSessions.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {liveSessions.map((session) => (
+              <div
+                key={session.id}
+                className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="font-semibold text-slate-900 dark:text-white">
+                    {session.title}
+                  </h4>
+                  <span
+                    className={`text-xs font-semibold ${
+                      session.status === "live"
+                        ? "text-green-600"
+                        : session.status === "scheduled"
+                        ? "text-blue-600"
+                        : "text-slate-500"
+                    }`}
+                  >
+                    {session.status}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {new Date(session.scheduled_start).toLocaleString()}
+                </p>
+                <div className="mt-3">
+                  <Link
+                    href={`/live-sessions/${session.id}`}
+                    className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ${
+                      session.status === "live"
+                        ? "bg-green-600 text-white"
+                        : "border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-[16px]">
+                      videocam
+                    </span>
+                    {session.status === "live" ? "Join Session" : "View Details"}
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+            <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600 mb-2 block">
+              videocam
+            </span>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              No live sessions scheduled for this course.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Current Module Card */}

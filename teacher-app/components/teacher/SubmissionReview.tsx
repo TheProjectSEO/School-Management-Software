@@ -15,7 +15,7 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
   const router = useRouter()
   const [feedback, setFeedback] = useState(submission.feedback || '')
   const [rubricScores, setRubricScores] = useState<Record<string, number>>({})
-  const [totalScore, setTotalScore] = useState(submission.score || 0)
+  const [totalScore, setTotalScore] = useState(submission.score ?? submission.ai_score ?? 0)
 
   const handleGenerateAIFeedback = async () => {
     // TODO: Implement AI feedback generation
@@ -177,6 +177,11 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
             <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">
               Score
             </h2>
+            {submission.ai_score !== null && submission.ai_score !== undefined && submission.status !== 'graded' && (
+              <div className="rounded-lg bg-slate-50 dark:bg-slate-800/60 p-3 text-sm text-slate-700 dark:text-slate-200 mb-4">
+                Draft AI score: {submission.ai_score}/{submission.assessment.total_points}
+              </div>
+            )}
             <div className="text-center py-6">
               <div className="text-5xl font-bold text-primary mb-2">
                 {totalScore}

@@ -5,8 +5,8 @@
  * Manage Daily.co virtual classroom sessions
  */
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface LiveSession {
   id: string;
@@ -14,26 +14,43 @@ interface LiveSession {
   title: string;
   description: string;
   scheduled_start: string;
-  scheduled_end: string;
+  scheduled_end: string | null;
   status: 'scheduled' | 'live' | 'ended' | 'cancelled';
-  daily_room_url: string | null;
-  recording_enabled: boolean;
-  max_participants: number;
+  join_url: string | null;
+  recording_url?: string | null;
+  max_participants?: number;
   course?: {
+    id: string;
     name: string;
     subject_code: string;
+  };
+  section?: {
+    id: string;
+    name: string;
   };
 }
 
 export default function LiveSessionsPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const preselectedCourseId = searchParams.get('courseId');
+
+  const studentJoinBaseUrl = useMemo(() => {
+    return process.env.NEXT_PUBLIC_STUDENT_URL || '';
+  }, []);
 
   useEffect(() => {
     fetchSessions();
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get('openCreate') === '1') {
+      setShowCreateModal(true);
+    }
+  }, [searchParams]);
 
   async function fetchSessions() {
     try {
@@ -67,6 +84,52 @@ export default function LiveSessionsPage() {
     } catch (error) {
       console.error('Failed to start session:', error);
       alert('Error starting session');
+    }
+  }
+
+  function getStudentJoinLink(sessionId: string) {
+    return studentJoinBaseUrl
+      ? `${studentJoinBaseUrl}/live-sessions/${sessionId}`
+      : `/live-sessions/${sessionId}`;
+  }
+
+  async function copyJoinLink(sessionId: string) {
+    const link = getStudentJoinLink(sessionId);
+    try {
+      await navigator.clipboard.writeText(link);
+      alert('Join link copied!');
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+      alert(`Copy this link: ${link}`);
+    }
+  }
+
+  async function shareToStudents(session: LiveSession) {
+    try {
+      const link = getStudentJoinLink(session.id);
+      const response = await fetch('/api/announcements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `Live Session: ${session.title}`,
+          content: `Join the live session for ${session.course?.name || 'your course'} on ${new Date(
+            session.scheduled_start
+          ).toLocaleString()}.\n\nJoin link: ${link}`,
+          target_type: 'course',
+          target_course_ids: session.course?.id ? [session.course.id] : [],
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        alert(data.error || 'Failed to send announcement');
+        return;
+      }
+
+      alert('Announcement sent to students.');
+    } catch (error) {
+      console.error('Failed to share session:', error);
+      alert('Failed to share with students.');
     }
   }
 
@@ -141,18 +204,11 @@ export default function LiveSessionsPage() {
                     <StatusBadge status={session.status} />
                   </div>
                   {/* Display course/subject info if available */}
-                  {(
-                    // student-app shape
-                    (session as any).course?.name ||
-                    // teacher-app shape via section_subject.subject
-                    (session as any).section_subject?.subject?.name
-                  ) && (
+                  {session.course?.name && (
                     <p className="text-sm text-gray-600 mb-2">
-                      {((session as any).course?.name || (session as any).section_subject?.subject?.name) as string}
-                      {(() => {
-                        const code = ((session as any).course?.code || (session as any).section_subject?.subject?.code) as string | undefined;
-                        return code ? ` (${code})` : '';
-                      })()}
+                      {session.course.name}
+                      {session.course.subject_code ? ` (${session.course.subject_code})` : ''}
+                      {session.section?.name ? ` — ${session.section.name}` : ''}
                     </p>
                   )}
                   {session.description && (
@@ -161,13 +217,15 @@ export default function LiveSessionsPage() {
                   <div className="flex items-center gap-4 text-sm text-gray-500">
                     <span className="flex items-center gap-1">
                       <span className="material-symbols-outlined text-base">schedule</span>
-                      {new Date((session as any).scheduled_start || (session as any).start_at).toLocaleString()}
+                      {new Date(session.scheduled_start).toLocaleString()}
                     </span>
-                    <span className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-base">group</span>
-                      Max {session.max_participants} participants
-                    </span>
-                    {session.recording_enabled && (
+                    {session.max_participants && (
+                      <span className="flex items-center gap-1">
+                        <span className="material-symbols-outlined text-base">group</span>
+                        Max {session.max_participants} participants
+                      </span>
+                    )}
+                    {!!session.recording_url && (
                       <span className="flex items-center gap-1">
                         <span className="material-symbols-outlined text-base">videocam</span>
                         Recording enabled
@@ -188,11 +246,10 @@ export default function LiveSessionsPage() {
                   )}
                   {session.status === 'live' && (
                     <>
-                      {((session as any).daily_room_url || (session as any).join_url) && (
+                      {session.join_url && (
                         <button
                           onClick={() => {
-                            const url = (session as any).daily_room_url || (session as any).join_url;
-                            if (url) window.open(url as string, '_blank');
+                            if (session.join_url) window.open(session.join_url, '_blank');
                           }}
                           className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
                         >
@@ -206,6 +263,25 @@ export default function LiveSessionsPage() {
                       >
                         <span className="material-symbols-outlined">stop_circle</span>
                         End Session
+                      </button>
+                    </>
+                  )}
+                  {session.status !== 'ended' && (
+                    <>
+                      <button
+                        onClick={() => copyJoinLink(session.id)}
+                        className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center gap-2"
+                      >
+                        <span className="material-symbols-outlined">content_copy</span>
+                        Copy Join Link
+                      </button>
+                      <button
+                        onClick={() => shareToStudents(session)}
+                        className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center gap-2"
+                        disabled={!session.course?.id}
+                      >
+                        <span className="material-symbols-outlined">campaign</span>
+                        Share to Students
                       </button>
                     </>
                   )}
@@ -230,6 +306,7 @@ export default function LiveSessionsPage() {
             setShowCreateModal(false);
             fetchSessions();
           }}
+          preselectedCourseId={preselectedCourseId}
         />
       )}
     </div>
@@ -254,13 +331,15 @@ function StatusBadge({ status }: { status: LiveSession['status'] }) {
 function CreateSessionModal({
   onClose,
   onCreated,
+  preselectedCourseId,
 }: {
   onClose: () => void;
   onCreated: () => void;
+  preselectedCourseId: string | null;
 }) {
   const [subjects, setSubjects] = useState<any[]>([]);
   const [formData, setFormData] = useState({
-    sectionSubjectId: '',
+    assignmentId: '',
     title: '',
     description: '',
     startAt: '',
@@ -272,9 +351,22 @@ function CreateSessionModal({
     // Fetch teacher's subjects/section assignments from teacher-app API
     fetch('/api/teacher/subjects')
       .then((res) => res.json())
-      .then((data) => setSubjects(data.subjects || []))
+      .then((data) => {
+        const list = data.subjects || [];
+        setSubjects(list);
+
+        if (!formData.assignmentId && preselectedCourseId) {
+          const match = list.find((item: any) => item.subject?.id === preselectedCourseId);
+          if (match) {
+            setFormData((current) => ({
+              ...current,
+              assignmentId: match.id,
+            }));
+          }
+        }
+      })
       .catch(console.error);
-  }, []);
+  }, [formData.assignmentId, preselectedCourseId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -285,12 +377,12 @@ function CreateSessionModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          sectionSubjectId: formData.sectionSubjectId,
+          assignmentId: formData.assignmentId,
           title: formData.title,
           description: formData.description,
           startAt: formData.startAt ? new Date(formData.startAt).toISOString() : undefined,
           endAt: formData.endAt ? new Date(formData.endAt).toISOString() : undefined,
-          provider: 'external',
+          provider: 'daily',
         }),
       });
 
@@ -326,8 +418,8 @@ function CreateSessionModal({
                 Subject/Section *
               </label>
               <select
-                value={formData.sectionSubjectId}
-                onChange={(e) => setFormData({ ...formData, sectionSubjectId: e.target.value })}
+                value={formData.assignmentId}
+                onChange={(e) => setFormData({ ...formData, assignmentId: e.target.value })}
                 className="w-full px-3 py-2 border rounded-lg"
                 required
               >
@@ -335,7 +427,9 @@ function CreateSessionModal({
                 {subjects.map((ss) => {
                   const sectionName = ss.section?.name ?? 'Section';
                   const subjectName = ss.subject?.name ?? 'Subject';
-                  const subjectCode = ss.subject?.code ? ` (${ss.subject.code})` : '';
+                  const subjectCode = ss.subject?.subject_code
+                    ? ` (${ss.subject.subject_code})`
+                    : '';
                   return (
                     <option key={ss.id} value={ss.id}>
                       {subjectName}{subjectCode} – {sectionName}

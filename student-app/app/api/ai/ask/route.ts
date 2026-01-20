@@ -1,49 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-// Using xAI (Grok) via OpenAI-compatible HTTP API
 import { YoutubeTranscript } from "youtube-transcript";
 import { getStudentContext } from "@/lib/ai/studentContext";
 import { classifyIntent } from "@/lib/ai/intentClassifier";
 import { buildPersonalizedPrompt, generateContextualFollowUps } from "@/lib/ai/promptBuilder";
 import { QuestionIntent, ActionCards, ActionCardItem, StudentContext } from "@/lib/ai/types";
-
-const XAI_BASE_URL = (process.env.XAI_BASE_URL || "https://api.x.ai/v1").trim();
-const XAI_API_KEY = (process.env.XAI_API_KEY || "").trim();
-const XAI_MODEL = (process.env.XAI_MODEL || "grok-2-mini").trim();
-
-async function callGrokChatCompletions(args: {
-  messages: { role: "system" | "user" | "assistant"; content: string }[];
-  temperature?: number;
-  max_tokens?: number;
-}) {
-  if (!XAI_API_KEY) {
-    throw new Error("Missing XAI_API_KEY environment variable");
-  }
-
-  const res = await fetch(`${XAI_BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${XAI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model: XAI_MODEL,
-      messages: args.messages,
-      temperature: args.temperature ?? 0.7,
-      max_tokens: args.max_tokens ?? 2048,
-    }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => "");
-    throw new Error(`xAI API error ${res.status}: ${text}`);
-  }
-
-  return (await res.json()) as {
-    choices: { message?: { role: string; content?: string } }[];
-    model?: string;
-  };
-}
+import { callOpenAIChatCompletions, getOpenAIConfig } from "@/lib/ai/openai";
 
 // Cache for transcripts to avoid re-fetching
 const transcriptCache = new Map<string, string>();
@@ -379,8 +341,8 @@ export async function POST(request: NextRequest) {
       { role: "user", content: question },
     ];
 
-    // Call Grok (xAI) API
-    const completion = await callGrokChatCompletions({
+    // Call OpenAI API
+    const completion = await callOpenAIChatCompletions({
       messages,
       temperature: 0.7,
       max_tokens: 2048,
@@ -439,7 +401,7 @@ export async function POST(request: NextRequest) {
       videoTitle: studentContext.currentLesson?.title,
       hasTranscript: !!videoTranscript,
       studentName: studentContext.profile.name,
-      model: completion.model || XAI_MODEL,
+      model: completion.model || getOpenAIConfig().model,
     });
   } catch (error) {
     console.error("AI Ask error:", error);

@@ -70,7 +70,10 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error("Error inserting application", error);
-      return NextResponse.json({ error: "Failed to create application" }, { status: 500 });
+      return NextResponse.json(
+        { error: "Failed to create application", details: error.message, code: error.code },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ applicationId: data.id, status: data.status, submittedAt: data.submitted_at });

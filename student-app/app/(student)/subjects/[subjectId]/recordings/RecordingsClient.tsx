@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getClassroomTheme } from '@/lib/utils/classroom/theme';
+import { RecordingAIPanel } from './RecordingAIPanel';
 
 interface Recording {
   id: string;
@@ -27,7 +28,7 @@ interface RecordingsClientProps {
   course: {
     id: string;
     name: string;
-    code: string;
+    subject_code: string | null;
     section: {
       grade_level: string;
     };
@@ -71,7 +72,7 @@ export function RecordingsClient({
           {isPlayful ? '🎬 Class Recordings' : 'Session Recordings'}
         </h1>
         <p className="text-gray-600">
-          {course.name} ({course.code})
+          {course.name} ({course.subject_code || "Course"})
         </p>
       </div>
 
@@ -115,6 +116,16 @@ export function RecordingsClient({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {selectedRecording && (
+        <div className="mb-8">
+          <RecordingAIPanel
+            sessionId={selectedRecording.id}
+            sessionTitle={selectedRecording.title}
+            courseName={course.name}
+          />
+        </div>
+      )}
 
       {/* Recordings List */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

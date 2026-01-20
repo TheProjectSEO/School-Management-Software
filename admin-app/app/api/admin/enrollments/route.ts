@@ -44,7 +44,25 @@ export async function GET(request: NextRequest) {
       pageSize,
     });
 
-    return NextResponse.json(result);
+    // Transform nested data to flat structure expected by frontend
+    const transformedData = result.data.map((enrollment: any) => ({
+      id: enrollment.id,
+      student_id: enrollment.student_id,
+      student_name: enrollment.students?.profiles?.full_name || "Unknown",
+      student_email: enrollment.students?.profiles?.email || "", // Email might not be available
+      course_id: enrollment.course_id,
+      course_name: enrollment.courses?.name || "Unknown",
+      course_code: enrollment.courses?.code || enrollment.courses?.subject_code || "",
+      section_id: enrollment.section_id,
+      section_name: enrollment.sections?.name || "Unknown",
+      status: enrollment.status || "active",
+      enrolled_at: enrollment.enrolled_at,
+    }));
+
+    return NextResponse.json({
+      ...result,
+      data: transformedData,
+    });
   } catch (error) {
     console.error("Error in GET /api/admin/enrollments:", error);
     return NextResponse.json(

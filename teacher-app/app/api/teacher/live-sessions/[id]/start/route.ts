@@ -19,7 +19,8 @@ export async function POST(
     .select(
       `
       *,
-      section_subject:teacher_assignments(teacher_profile_id)
+      course_id,
+      section_id
     `
     )
     .eq('id', sessionId)
@@ -29,7 +30,13 @@ export async function POST(
     return NextResponse.json({ error: 'Session not found' }, { status: 404 });
   }
 
-  if (session.section_subject?.teacher_profile_id !== auth.teacher.teacherId) {
+  const { count: accessCount } = await supabase
+    .from('teacher_assignments')
+    .select('*', { count: 'exact', head: true })
+    .eq('teacher_profile_id', auth.teacher.teacherId)
+    .eq('course_id', session.course_id);
+
+  if (!accessCount) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
@@ -76,6 +83,32 @@ export async function POST(
     if (updateErr) {
       try { await daily.deleteRoom(room.name); } catch {}
       return NextResponse.json({ error: 'Failed to update session' }, { status: 500 });
+    }
+
+    const { error: mirrorError } = await supabase
+      .from('live_sessions')
+      .update({
+        status: 'live',
+        actual_start: new Date().toISOString(),
+        daily_room_name: room.name,
+        daily_room_url: room.url,
+        recording_enabled: true,
+      })
+      .eq('id', sessionId);
+
+    if (mirrorError) {
+      console.error('Error updating student live session:', mirrorError);
+    }
+
+    // Start Daily.co recording for the student-facing session record
+    try {
+      await daily.startRecording(room.name);
+      await supabase
+        .from('live_sessions')
+        .update({ recording_started_at: new Date().toISOString() })
+        .eq('id', sessionId);
+    } catch (recordingError) {
+      console.error('Error starting Daily.co recording:', recordingError);
     }
 
     return NextResponse.json({ session: updated, roomUrl: room.url });

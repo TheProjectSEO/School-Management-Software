@@ -1505,13 +1505,11 @@ Message: "Congratulations! You've been accepted to MSU. Check your email for log
 
 **Cost:** ~$0.04 per SMS in Philippines
 
-### 5. Groq/xAI (AI Tutoring)
-
-**API Key:** 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
+### 5. OpenAI (AI Tutoring)
 
 **Environment Variable:**
 ```env
-GROQ_API_KEY=gsk_t2UzZ...
+OPENAI_API_KEY=sk-...
 ```
 
 **What We Use:**
@@ -1520,7 +1518,7 @@ GROQ_API_KEY=gsk_t2UzZ...
 - Answer student questions
 - Provide study help
 
-**Model:** grok-2-mini (fast, cost-effective)
+**Model:** gpt-4o-mini (fast, cost-effective)
 
 **How It Works:**
 ```
@@ -1542,9 +1540,9 @@ Process:
 
       Provide helpful, grade-appropriate explanation."
 
-  3. Call Groq API:
-     POST https://api.x.ai/v1/chat/completions
-     Model: grok-2-mini
+  3. Call OpenAI API:
+     POST https://api.openai.com/v1/chat/completions
+     Model: gpt-4o-mini
      Messages: [system prompt, student question]
 
   4. Return answer:
@@ -1836,8 +1834,8 @@ DAILY_DOMAIN=klase.daily.co
 # Resend
 RESEND_API_KEY=re_US5UsX6v_2Do26VZZbVhiMvVroXd5sZnp
 
-# Groq AI
-GROQ_API_KEY=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
+# OpenAI
+OPENAI_API_KEY=sk-...
 
 # Twilio (Optional)
 # TWILIO_ACCOUNT_SID=

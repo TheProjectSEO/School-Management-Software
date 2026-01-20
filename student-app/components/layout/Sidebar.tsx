@@ -17,6 +17,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { href: "/", icon: "dashboard", label: "Dashboard" },
   { href: "/subjects", icon: "book_2", label: "My Subjects" },
+  { href: "/live-sessions", icon: "videocam", label: "Live Sessions" },
   { href: "/assessments", icon: "quiz", label: "Assessments" },
   { href: "/grades", icon: "grade", label: "Grades" },
   { href: "/attendance", icon: "event_available", label: "Attendance" },

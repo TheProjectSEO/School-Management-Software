@@ -220,7 +220,7 @@ export default function QuizClient({
       }
 
       // Redirect to submission page
-      router.push(`/assessments/${assessmentId}/submission?score=${data.score}&total=${data.totalPoints}&percentage=${data.percentage}`);
+      router.push(`/assessments/${assessmentId}/submission`);
     } catch (err) {
       console.error("Error submitting quiz:", err);
       setError("Failed to submit quiz");

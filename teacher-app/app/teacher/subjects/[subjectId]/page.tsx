@@ -1,6 +1,8 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { getTeacherProfile, getModulesForCourse } from '@/lib/dal/teacher'
+import { createClient } from '@/lib/supabase/server'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
@@ -8,6 +10,7 @@ import Button from '@/components/ui/Button'
 import EmptyState from '@/components/ui/EmptyState'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import ModulesTab from '@/components/teacher/ModulesTab'
+import AIPlannerQuickModal from '@/components/teacher/AIPlannerQuickModal'
 
 export const metadata = {
   title: 'Subject Workspace | MSU Teacher Portal',
@@ -89,7 +92,14 @@ async function SubjectWorkspaceContent({ subjectId }: { subjectId: string }) {
   )
 }
 
-export default function SubjectWorkspacePage({ params }: PageProps) {
+export default async function SubjectWorkspacePage({ params }: PageProps) {
+  const supabase = await createClient()
+  const { data: course } = await supabase
+    .from('courses')
+    .select('name, section:sections(grade_level)')
+    .eq('id', params.subjectId)
+    .single()
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -103,6 +113,18 @@ export default function SubjectWorkspacePage({ params }: PageProps) {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <AIPlannerQuickModal
+            courseId={params.subjectId}
+            courseName={course?.name || 'Course'}
+            gradeLevel={course?.section?.grade_level || null}
+          />
+          <Link
+            href={`/teacher/live-sessions?courseId=${params.subjectId}&openCreate=1`}
+            className="inline-flex items-center gap-2 h-12 px-6 rounded-lg bg-primary text-white font-semibold hover:bg-primary-hover transition-colors"
+          >
+            <span className="material-symbols-outlined text-lg">videocam</span>
+            Schedule Live Session
+          </Link>
           <Button variant="outline">
             <span className="material-symbols-outlined text-lg">settings</span>
             Settings

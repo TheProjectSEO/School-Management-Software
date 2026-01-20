@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useAdminRealtimeMessages } from "@/hooks/useAdminRealtimeMessages";
 
 /**
  * Admin Messaging Page
@@ -63,8 +64,11 @@ export default function AdminMessagesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [adminProfileId, setAdminProfileId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagePollingRef = useRef<NodeJS.Timeout | null>(null);
+
+  const { subscribe, unsubscribe, newMessage, updatedMessages } =
+    useAdminRealtimeMessages(adminProfileId);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -76,23 +80,47 @@ export default function AdminMessagesPage() {
     loadConversations();
   }, []);
 
-  // Poll for new messages when conversation is selected
+  // Load admin profile for realtime subscriptions
+  useEffect(() => {
+    const fetchAdminProfile = async () => {
+      try {
+        const res = await fetch("/api/admin/profile");
+        if (res.ok) {
+          const data = await res.json();
+          setAdminProfileId(data.adminProfileId || null);
+        }
+      } catch (error) {
+        console.error("Error fetching admin profile:", error);
+      }
+    };
+
+    fetchAdminProfile();
+  }, []);
+
+  useEffect(() => {
+    if (adminProfileId) {
+      subscribe();
+    }
+    return () => {
+      unsubscribe();
+    };
+  }, [adminProfileId, subscribe, unsubscribe]);
+
+  // Load messages when conversation is selected
   useEffect(() => {
     if (selectedConversation) {
       loadMessages(selectedConversation.partner_profile_id);
-
-      // Poll every 5 seconds for real-time updates
-      messagePollingRef.current = setInterval(() => {
-        loadMessages(selectedConversation.partner_profile_id, true);
-      }, 5000);
     }
-
-    return () => {
-      if (messagePollingRef.current) {
-        clearInterval(messagePollingRef.current);
-      }
-    };
   }, [selectedConversation?.partner_profile_id]);
+
+  // React to realtime updates
+  useEffect(() => {
+    if (!selectedConversation) return;
+    if (newMessage || updatedMessages.size > 0) {
+      loadMessages(selectedConversation.partner_profile_id, true);
+      loadConversations();
+    }
+  }, [newMessage, updatedMessages, selectedConversation?.partner_profile_id]);
 
   const loadConversations = async () => {
     setIsLoading(true);
@@ -100,7 +128,22 @@ export default function AdminMessagesPage() {
       const res = await fetch("/api/admin/messages/conversations");
       if (res.ok) {
         const data = await res.json();
-        setConversations(data.conversations || []);
+        const list = data.conversations || data.data || [];
+        setConversations(
+          list.map((item: any) => ({
+            partner_profile_id: item.partner_profile_id || item.profileId,
+            partner_name: item.name || item.partner_name,
+            partner_avatar_url: item.partner_avatar_url,
+            partner_role: item.role || item.partner_role,
+            last_message_body: item.lastMessage?.body || item.last_message_body || "",
+            last_message_at: item.lastMessage?.createdAt || item.last_message_at || new Date().toISOString(),
+            last_message_sender_type:
+              item.last_message_sender_type ||
+              (item.lastMessage?.fromAdmin ? "admin" : item.last_message_sender_type || "admin"),
+            unread_count: item.unreadCount || item.unread_count || 0,
+            total_messages: item.total_messages || 0,
+          }))
+        );
       }
     } catch (error) {
       console.error("Error loading conversations:", error);
@@ -229,13 +272,13 @@ export default function AdminMessagesPage() {
     }
   };
 
-  const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+  const handleSearch = async (query: string) => {
+    if (!query.trim()) return;
 
     setIsSearching(true);
     try {
       const res = await fetch(
-        `/api/admin/messages/search?q=${encodeURIComponent(searchQuery)}`
+        `/api/admin/messages/search?q=${encodeURIComponent(query)}`
       );
       if (res.ok) {
         const data = await res.json();
@@ -247,6 +290,20 @@ export default function AdminMessagesPage() {
       setIsSearching(false);
     }
   };
+
+  useEffect(() => {
+    if (!showSearch) return;
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      handleSearch(searchQuery);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, showSearch]);
 
   const startNewConversation = (user: User) => {
     // Check if conversation already exists
@@ -594,29 +651,18 @@ export default function AdminMessagesPage() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      handleSearch();
-                    }
-                  }}
-                  placeholder="Search by name or email..."
+                  placeholder="Start typing a name or email..."
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
-                <button
-                  onClick={handleSearch}
-                  disabled={isSearching || !searchQuery.trim()}
-                  className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  {isSearching ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
-                  ) : (
-                    <span className="material-symbols-outlined">search</span>
-                  )}
-                </button>
               </div>
 
               <div className="overflow-y-auto max-h-[50vh]">
-                {searchResults.length === 0 ? (
+                {isSearching ? (
+                  <div className="text-center py-6 text-gray-500">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2" />
+                    <p className="text-sm">Searching...</p>
+                  </div>
+                ) : searchResults.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <span className="material-symbols-outlined text-4xl mb-2 block text-gray-300">
                       person_search

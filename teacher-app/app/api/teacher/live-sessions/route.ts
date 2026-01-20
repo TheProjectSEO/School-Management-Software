@@ -15,24 +15,25 @@ export async function GET(request: NextRequest) {
 
   const { teacherId } = authResult.teacher;
   const { searchParams } = new URL(request.url);
-  const sectionSubjectId = searchParams.get("sectionSubjectId");
+  const assignmentId = searchParams.get("assignmentId");
+  const courseId = searchParams.get("courseId");
   const status = searchParams.get("status");
   const upcoming = searchParams.get("upcoming") === "true";
 
   try {
     const supabase = await createClient();
 
-    // Get teacher's section subjects
-    const { data: teacherSectionSubjects } = await supabase
+    // Get teacher's course assignments
+    const { data: teacherAssignments } = await supabase
       .from("teacher_assignments")
-      .select("id")
+      .select("id, course_id, section_id")
       .eq("teacher_profile_id", teacherId);
 
-    if (!teacherSectionSubjects || teacherSectionSubjects.length === 0) {
+    if (!teacherAssignments || teacherAssignments.length === 0) {
       return NextResponse.json({ sessions: [] });
     }
 
-    const sectionSubjectIds = teacherSectionSubjects.map((ss) => ss.id);
+    const courseIds = teacherAssignments.map((assignment) => assignment.course_id);
 
     // Build query
     let query = supabase
@@ -40,19 +41,23 @@ export async function GET(request: NextRequest) {
       .select(
         `
         *,
-        section_subject:teacher_assignments(
-          id,
-          section:sections(id, name),
-          subject:courses(id, name, subject_code)
-        ),
+        course:courses(id, name, subject_code),
+        section:sections(id, name),
         module:modules(id, title)
       `
       )
-      .in("section_subject_id", sectionSubjectIds)
-      .order("start_at", { ascending: false });
+      .in("course_id", courseIds)
+      .order("scheduled_start", { ascending: false });
 
-    if (sectionSubjectId) {
-      query = query.eq("section_subject_id", sectionSubjectId);
+    if (assignmentId) {
+      const matched = teacherAssignments.find((assignment) => assignment.id === assignmentId);
+      if (matched) {
+        query = query.eq("course_id", matched.course_id).eq("section_id", matched.section_id);
+      }
+    }
+
+    if (courseId) {
+      query = query.eq("course_id", courseId);
     }
 
     if (status) {
@@ -61,7 +66,7 @@ export async function GET(request: NextRequest) {
 
     if (upcoming) {
       const now = new Date().toISOString();
-      query = query.gte("start_at", now).eq("status", "scheduled");
+      query = query.gte("scheduled_start", now).eq("status", "scheduled");
     }
 
     const { data: sessions, error } = await query;
@@ -101,7 +106,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     const {
-      sectionSubjectId,
+      assignmentId,
       moduleId,
       title,
       description,
@@ -112,31 +117,36 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (!sectionSubjectId || !startAt || !endAt) {
+    if (!assignmentId || !startAt) {
       return NextResponse.json(
-        { error: "Section subject ID, start time, and end time are required" },
+        { error: "Assignment, start time, and title are required" },
         { status: 400 }
       );
     }
 
-    // Verify teacher teaches this section subject
-    const { data: sectionSubject } = await supabase
+    if (!title?.trim()) {
+      return NextResponse.json({ error: "Title is required" }, { status: 400 });
+    }
+
+    // Verify teacher teaches this assignment and get course/section
+    const { data: assignment } = await supabase
       .from("teacher_assignments")
-      .select("id")
-      .eq("id", sectionSubjectId)
+      .select("id, course_id, section_id")
+      .eq("id", assignmentId)
       .eq("teacher_profile_id", teacherId)
       .single();
 
-    if (!sectionSubject) {
+    if (!assignment) {
       return NextResponse.json(
-        { error: "You do not have permission to create sessions for this section" },
+        { error: "You do not have permission to create sessions for this assignment" },
         { status: 403 }
       );
     }
 
     // Validate times
     const start = new Date(startAt);
-    const end = new Date(endAt);
+    const end =
+      endAt ? new Date(endAt) : new Date(start.getTime() + 60 * 60 * 1000);
 
     if (end <= start) {
       return NextResponse.json(
@@ -149,24 +159,23 @@ export async function POST(request: NextRequest) {
     const { data: session, error } = await supabase
       .from("teacher_live_sessions")
       .insert({
-        section_subject_id: sectionSubjectId,
+        course_id: assignment.course_id,
+        section_id: assignment.section_id,
         module_id: moduleId || null,
         title: title?.trim() || null,
         description: description?.trim() || null,
-        start_at: startAt,
-        end_at: endAt,
-        provider: provider || "external",
+        scheduled_start: startAt,
+        scheduled_end: endAt || end.toISOString(),
+        provider: provider || "daily",
         join_url: joinUrl?.trim() || null,
         status: "scheduled",
+        created_by: authResult.teacher.profileId,
       })
       .select(
         `
         *,
-        section_subject:teacher_assignments(
-          id,
-          section:sections(id, name),
-          subject:courses(id, name, subject_code)
-        ),
+        course:courses(id, name, subject_code),
+        section:sections(id, name),
         module:modules(id, title)
       `
       )
@@ -180,7 +189,34 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Create notifications for enrolled students
+    // Mirror into student live_sessions table for discovery/join
+    const { error: mirrorError } = await supabase
+      .from("live_sessions")
+      .upsert(
+        {
+          id: session.id,
+          course_id: assignment.course_id,
+          module_id: moduleId || null,
+          teacher_profile_id: authResult.teacher.teacherId,
+          title: title?.trim() || "Live Session",
+          description: description?.trim() || null,
+          scheduled_start: startAt,
+          scheduled_end: endAt || end.toISOString(),
+          status: "scheduled",
+          recording_enabled: true,
+          max_participants: 50,
+        },
+        { onConflict: "id" }
+      );
+
+    if (mirrorError) {
+      console.error("Error mirroring live session:", mirrorError);
+      await supabase.from("teacher_live_sessions").delete().eq("id", session.id);
+      return NextResponse.json(
+        { error: "Failed to create live session for students" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ session }, { status: 201 });
   } catch (error) {

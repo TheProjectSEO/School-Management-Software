@@ -147,7 +147,7 @@ Based on intent, fetch only relevant data (to minimize token usage):
                      │                         │                               │
                      │                         ▼                               │
                      │              ┌──────────────────────┐                   │
-                     │              │   Groq LLM API       │                   │
+                     │              │   OpenAI LLM API     │                   │
                      │              │   (Llama 3.3 70B)    │                   │
                      │              └──────────┬───────────┘                   │
                      │                         │                               │

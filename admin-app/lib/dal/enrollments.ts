@@ -78,9 +78,8 @@ export async function listEnrollments(params: {
       students (
         id,
         profile_id,
-        profiles (
-          full_name,
-          email
+        profiles:school_profiles (
+          full_name
         )
       ),
       courses (
@@ -154,9 +153,8 @@ export async function getEnrollmentById(enrollmentId: string): Promise<Enrollmen
       students (
         id,
         profile_id,
-        profiles (
-          full_name,
-          email
+        profiles:school_profiles (
+          full_name
         )
       ),
       courses (

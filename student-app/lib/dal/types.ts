@@ -116,10 +116,17 @@ export interface Submission {
   id: string;
   assessment_id: string;
   student_id: string;
+  school_id?: string;
   score?: number;
   submitted_at: string;
   graded_at?: string;
+  graded_by?: string;
   feedback?: string;
+  ai_score?: number;
+  ai_feedback?: string;
+  ai_graded_at?: string;
+  started_at?: string;
+  time_spent_seconds?: number;
   status: "pending" | "submitted" | "graded";
   attempt_number?: number;
 }

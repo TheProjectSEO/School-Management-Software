@@ -5,17 +5,20 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/components/brand";
 import { useRealtime } from "@/components/providers/RealtimeProvider";
+import { useMessageNotifications } from "@/components/providers/MessageNotificationProvider";
 
 interface NavItem {
   href: string;
   icon: string;
   label: string;
   useRealtimeBadge?: boolean;
+  useMessageBadge?: boolean;
 }
 
 const navItems: NavItem[] = [
   { href: "/", icon: "dashboard", label: "Dashboard" },
   { href: "/subjects", icon: "book_2", label: "My Subjects" },
+  { href: "/live-sessions", icon: "videocam", label: "Live Sessions" },
   { href: "/assessments", icon: "quiz", label: "Assessments" },
   { href: "/grades", icon: "grade", label: "Grades" },
   { href: "/attendance", icon: "event_available", label: "Attendance" },
@@ -23,6 +26,8 @@ const navItems: NavItem[] = [
   { href: "/notes", icon: "sticky_note_2", label: "Notes" },
   { href: "/ask-ai", icon: "smart_toy", label: "Ask AI" },
   { href: "/downloads", icon: "download", label: "Downloads" },
+  { href: "/messages", icon: "chat", label: "Messages", useMessageBadge: true },
+  { href: "/announcements", icon: "campaign", label: "Announcements" },
   { href: "/notifications", icon: "notifications", label: "Notifications", useRealtimeBadge: true },
   { href: "/profile", icon: "person", label: "Profile" },
   { href: "/help", icon: "help", label: "Help" },
@@ -44,6 +49,7 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
 
   // Get realtime notification count - always call the hook (within RealtimeProvider)
   const { unreadCount: realtimeUnreadCount } = useRealtime();
+  const { unreadCount: messageUnreadCount } = useMessageNotifications();
 
   const isActive = (href: string) => {
     if (href === "/") {
@@ -139,6 +145,11 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
                     {item.useRealtimeBadge && realtimeUnreadCount > 0 && (
                       <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-msu-gold text-[10px] font-bold text-black shadow-sm px-1">
                         {realtimeUnreadCount > 99 ? "99+" : realtimeUnreadCount}
+                      </span>
+                    )}
+                    {item.useMessageBadge && messageUnreadCount > 0 && (
+                      <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white shadow-sm px-1">
+                        {messageUnreadCount > 99 ? "99+" : messageUnreadCount}
                       </span>
                     )}
                   </Link>

@@ -18,7 +18,7 @@ export async function POST(
     .select(
       `
       *,
-      section_subject:teacher_assignments(teacher_profile_id)
+      course_id
     `
     )
     .eq('id', sessionId)
@@ -28,7 +28,13 @@ export async function POST(
     return NextResponse.json({ error: 'Session not found' }, { status: 404 });
   }
 
-  if (session.section_subject?.teacher_profile_id !== auth.teacher.teacherId) {
+  const { count: accessCount } = await supabase
+    .from('teacher_assignments')
+    .select('*', { count: 'exact', head: true })
+    .eq('teacher_profile_id', auth.teacher.teacherId)
+    .eq('course_id', session.course_id);
+
+  if (!accessCount) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
@@ -59,6 +65,18 @@ export async function POST(
 
     if (updateErr) {
       return NextResponse.json({ error: 'Failed to update session' }, { status: 500 });
+    }
+
+    const { error: mirrorError } = await supabase
+      .from('live_sessions')
+      .update({
+        status: 'ended',
+        actual_end: new Date().toISOString(),
+      })
+      .eq('id', sessionId);
+
+    if (mirrorError) {
+      console.error('Error updating student live session:', mirrorError);
     }
 
     return NextResponse.json({ session: updated });

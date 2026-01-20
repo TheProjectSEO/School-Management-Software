@@ -5,13 +5,10 @@ import { getAssessmentForQuiz, getAssessmentSubmission, getQuizResult } from "@/
 
 export default async function SubmissionPage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ score?: string; total?: string; percentage?: string }>;
 }) {
   const { id } = await params;
-  const { score: scoreParam, total: totalParam, percentage: percentageParam } = await searchParams;
 
   // Get current student
   const student = await getCurrentStudent();
@@ -31,14 +28,15 @@ export default async function SubmissionPage({
     redirect(`/assessments/${id}`);
   }
 
-  // Use URL params if just submitted, otherwise use stored data
-  const score = scoreParam ? parseInt(scoreParam) : submission.score || 0;
-  const totalPoints = totalParam ? parseInt(totalParam) : assessment.total_points;
-  const percentage = percentageParam
-    ? parseInt(percentageParam)
-    : totalPoints > 0
-    ? Math.round((score / totalPoints) * 100)
-    : 0;
+  const totalPoints = assessment.total_points;
+  const score = submission.score || 0;
+  const percentage =
+    totalPoints > 0 ? Math.round((score / totalPoints) * 100) : 0;
+  const aiScore = submission.ai_score ?? null;
+  const aiPercentage =
+    aiScore !== null && totalPoints > 0
+      ? Math.round((aiScore / totalPoints) * 100)
+      : null;
 
   // Format timestamps
   const submittedAt = submission.submitted_at
@@ -163,10 +161,41 @@ export default async function SubmissionPage({
                 Submitted Successfully
               </h3>
               <p className="text-yellow-800/80 dark:text-amber-200/80">
-                Your quiz has been submitted and is being graded.
+                Your quiz has been submitted and is waiting for teacher review.
               </p>
             </div>
           </div>
+        </div>
+      )}
+
+      {!isGraded && aiScore !== null && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-[#1a2634] dark:border-slate-700 mb-8">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">
+                Draft AI Review
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                This is a draft estimate to help teachers review faster.
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs uppercase tracking-wider text-slate-500">
+                Estimated Score
+              </p>
+              <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                {aiScore}/{totalPoints}
+              </p>
+              {aiPercentage !== null && (
+                <p className="text-sm text-slate-500">{aiPercentage}%</p>
+              )}
+            </div>
+          </div>
+          {submission.ai_feedback && (
+            <div className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+              {submission.ai_feedback}
+            </div>
+          )}
         </div>
       )}
 

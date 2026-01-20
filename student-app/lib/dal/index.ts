@@ -7,6 +7,7 @@ export * from "./types";
 export * from "./student";
 export * from "./subjects";
 export * from "./assessments";
+export * from "./live-sessions";
 
 // Export notifications (excluding conflicting download functions)
 export {

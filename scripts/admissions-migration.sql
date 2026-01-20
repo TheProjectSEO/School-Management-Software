@@ -1,13 +1,13 @@
 -- Admissions workflow schema
--- Target schema: "school software"
+-- Target schema: public
 
 -- Ensure extension for UUID generation (if not already present)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Enrollment QR codes
-CREATE TABLE IF NOT EXISTS "school software".enrollment_qr_codes (
+CREATE TABLE IF NOT EXISTS enrollment_qr_codes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  school_id UUID REFERENCES "school software".schools(id),
+  school_id UUID REFERENCES schools(id),
   code TEXT UNIQUE NOT NULL,
   name TEXT NOT NULL,
   description TEXT,
@@ -20,16 +20,16 @@ CREATE TABLE IF NOT EXISTS "school software".enrollment_qr_codes (
   application_count INTEGER DEFAULT 0,
   enrollment_url TEXT,
   qr_image_url TEXT,
-  created_by UUID REFERENCES "school software".school_profiles(id),
+  created_by UUID REFERENCES school_profiles(id),
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- Student applications
-CREATE TABLE IF NOT EXISTS "school software".student_applications (
+CREATE TABLE IF NOT EXISTS student_applications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  school_id UUID REFERENCES "school software".schools(id),
-  qr_code_id UUID REFERENCES "school software".enrollment_qr_codes(id),
+  school_id UUID REFERENCES schools(id),
+  qr_code_id UUID REFERENCES enrollment_qr_codes(id),
 
   -- Applicant info
   first_name TEXT NOT NULL,
@@ -72,7 +72,7 @@ CREATE TABLE IF NOT EXISTS "school software".student_applications (
   )) DEFAULT 'draft',
   submitted_at TIMESTAMPTZ,
   reviewed_at TIMESTAMPTZ,
-  reviewed_by UUID REFERENCES "school software".school_profiles(id),
+  reviewed_by UUID REFERENCES school_profiles(id),
   rejection_reason TEXT,
   requested_documents TEXT[],
   admin_notes TEXT,
@@ -82,16 +82,16 @@ CREATE TABLE IF NOT EXISTS "school software".student_applications (
   user_agent TEXT,
 
   -- Link to created student on approval
-  student_id UUID REFERENCES "school software".students(id),
+  student_id UUID REFERENCES students(id),
 
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- Application documents
-CREATE TABLE IF NOT EXISTS "school software".application_documents (
+CREATE TABLE IF NOT EXISTS application_documents (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  application_id UUID REFERENCES "school software".student_applications(id) ON DELETE CASCADE,
+  application_id UUID REFERENCES student_applications(id) ON DELETE CASCADE,
   document_type TEXT CHECK (document_type IN (
     'birth_certificate',
     'report_card',
@@ -107,7 +107,7 @@ CREATE TABLE IF NOT EXISTS "school software".application_documents (
   storage_path TEXT NOT NULL,
 
   verified BOOLEAN DEFAULT false,
-  verified_by UUID REFERENCES "school software".school_profiles(id),
+  verified_by UUID REFERENCES school_profiles(id),
   verified_at TIMESTAMPTZ,
   rejection_reason TEXT,
 
@@ -115,12 +115,12 @@ CREATE TABLE IF NOT EXISTS "school software".application_documents (
 );
 
 -- Application status log (audit trail)
-CREATE TABLE IF NOT EXISTS "school software".application_status_log (
+CREATE TABLE IF NOT EXISTS application_status_log (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  application_id UUID REFERENCES "school software".student_applications(id) ON DELETE CASCADE,
+  application_id UUID REFERENCES student_applications(id) ON DELETE CASCADE,
   status TEXT NOT NULL,
   note TEXT,
-  created_by UUID REFERENCES "school software".school_profiles(id),
+  created_by UUID REFERENCES school_profiles(id),
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
@@ -136,10 +136,10 @@ VALUES (
 ON CONFLICT (id) DO NOTHING;
 
 -- Enable RLS
-ALTER TABLE "school software".enrollment_qr_codes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "school software".student_applications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "school software".application_documents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "school software".application_status_log ENABLE ROW LEVEL SECURITY;
+ALTER TABLE enrollment_qr_codes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE student_applications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE application_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE application_status_log ENABLE ROW LEVEL SECURITY;
 
 -- Policies (service_role and authenticated have full access; refine as needed per app logic)
 DO $$
@@ -147,10 +147,10 @@ BEGIN
   -- enrollment_qr_codes
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
-    WHERE schemaname = 'school software' AND tablename = 'enrollment_qr_codes' AND policyname = 'enrollment_qr_codes_full_access'
+    WHERE schemaname = 'public' AND tablename = 'enrollment_qr_codes' AND policyname = 'enrollment_qr_codes_full_access'
   ) THEN
     CREATE POLICY enrollment_qr_codes_full_access
-      ON "school software".enrollment_qr_codes
+      ON enrollment_qr_codes
       FOR ALL
       USING (true)
       WITH CHECK (true);
@@ -159,10 +159,10 @@ BEGIN
   -- student_applications
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
-    WHERE schemaname = 'school software' AND tablename = 'student_applications' AND policyname = 'student_applications_full_access'
+    WHERE schemaname = 'public' AND tablename = 'student_applications' AND policyname = 'student_applications_full_access'
   ) THEN
     CREATE POLICY student_applications_full_access
-      ON "school software".student_applications
+      ON student_applications
       FOR ALL
       USING (true)
       WITH CHECK (true);
@@ -171,10 +171,10 @@ BEGIN
   -- application_documents
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
-    WHERE schemaname = 'school software' AND tablename = 'application_documents' AND policyname = 'application_documents_full_access'
+    WHERE schemaname = 'public' AND tablename = 'application_documents' AND policyname = 'application_documents_full_access'
   ) THEN
     CREATE POLICY application_documents_full_access
-      ON "school software".application_documents
+      ON application_documents
       FOR ALL
       USING (true)
       WITH CHECK (true);
@@ -183,10 +183,10 @@ BEGIN
   -- application_status_log
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
-    WHERE schemaname = 'school software' AND tablename = 'application_status_log' AND policyname = 'application_status_log_full_access'
+    WHERE schemaname = 'public' AND tablename = 'application_status_log' AND policyname = 'application_status_log_full_access'
   ) THEN
     CREATE POLICY application_status_log_full_access
-      ON "school software".application_status_log
+      ON application_status_log
       FOR ALL
       USING (true)
       WITH CHECK (true);

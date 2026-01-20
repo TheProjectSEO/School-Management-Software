@@ -2,7 +2,7 @@
  * Student Attendance Data Access Layer
  *
  * Provides server-side data fetching functions for student attendance.
- * Data source: "school software".teacher_attendance table
+ * Data source: "public".teacher_attendance table
  *
  * Table columns:
  * - id, student_id, teacher_id, course_id, section_id

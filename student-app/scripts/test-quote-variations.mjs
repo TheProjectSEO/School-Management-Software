@@ -3,7 +3,7 @@
 /**
  * TEST QUOTE VARIATIONS FOR SCHEMA NAME
  *
- * The error message shows "school software" in the allowed list,
+ * The error message shows "public" in the allowed list,
  * but still rejects it. This suggests the issue might be:
  * 1. How we're sending the schema name in headers
  * 2. URL encoding issues
@@ -20,12 +20,12 @@ const API_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const TABLE = 'schools';
 
 const schemaVariations = [
-  { name: 'No quotes', value: 'school software' },
-  { name: 'Double quotes', value: '"school software"' },
-  { name: 'Single quotes', value: "'school software'" },
+  { name: 'No quotes', value: 'public' },
+  { name: 'Double quotes', value: '"public"' },
+  { name: 'Single quotes', value: "'public'" },
   { name: 'URL encoded space', value: 'school%20software' },
   { name: 'URL encoded with quotes', value: '%22school%20software%22' },
-  { name: 'Escaped double quotes', value: '\\"school software\\"' },
+  { name: 'Escaped double quotes', value: '\\"public\\"' },
   { name: 'Plus sign for space', value: 'school+software' },
   { name: 'Underscore instead of space', value: 'school_software' },
   { name: 'No space', value: 'schoolsoftware' },

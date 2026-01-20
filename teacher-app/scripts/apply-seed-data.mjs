@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * Apply Seed Data to "school software" Schema
+ * Apply Seed Data to "public" Schema
  *
  * This script reads seed-correct-schema.sql and applies it to Supabase
  *
@@ -37,7 +37,7 @@ if (!supabaseUrl || !apiKey) {
 }
 
 const supabase = createClient(supabaseUrl, apiKey, {
-  db: { schema: 'school software' }
+  db: { schema: 'public' }
 });
 
 async function applySeedData() {

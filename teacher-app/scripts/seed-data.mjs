@@ -3,7 +3,7 @@
 /**
  * Comprehensive Seed Data Script for MSU School OS
  * Connects teacher-app and student-app data
- * Schema: "school software" (CRITICAL)
+ * Schema: "public" (CRITICAL)
  */
 
 import { createClient } from '@supabase/supabase-js';

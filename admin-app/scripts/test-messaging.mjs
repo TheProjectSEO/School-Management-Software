@@ -21,7 +21,7 @@ if (!supabaseUrl || !serviceRoleKey) {
 
 // Create client with service role
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
-  db: { schema: 'school software' },
+  db: { schema: 'public' },
 });
 
 console.log('\n🧪 Testing Admin Messaging System\n');
@@ -61,7 +61,7 @@ await test('Check idx_direct_messages_admin index', async () => {
     sql_query: `
       SELECT indexname
       FROM pg_indexes
-      WHERE schemaname = 'school software'
+      WHERE schemaname = 'public'
         AND tablename = 'direct_messages'
         AND indexname = 'idx_direct_messages_admin';
     `
@@ -170,7 +170,7 @@ if (failedTests === 0) {
 } else {
   console.log('❌ Some tests failed. Please check:');
   console.log('  1. Did you run the migration? See MIGRATION_GUIDE.md');
-  console.log('  2. Is the database schema set to "school software"?');
+  console.log('  2. Is the database schema set to "public"?');
   console.log('  3. Are all tables created correctly?\n');
   process.exit(1);
 }

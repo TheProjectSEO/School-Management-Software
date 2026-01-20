@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 /**
- * ⚠️ SCHEMA: "school software" - DO NOT CHANGE ⚠️
+ * ⚠️ SCHEMA: "public" - DO NOT CHANGE ⚠️
  *
  * Shared across student-app, teacher-app, admin-app.
  * See UNIVERSAL_SCHEMA_CONFIG.md for details.

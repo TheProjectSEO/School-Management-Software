@@ -3,7 +3,7 @@
 /**
  * CRITICAL SCHEMA ACCESS DIAGNOSIS
  *
- * This script tests multiple methods of accessing the "school software" schema
+ * This script tests multiple methods of accessing the "public" schema
  * to identify why PGRST106 error persists despite correct configuration.
  *
  * Based on research:
@@ -17,7 +17,7 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.local' });
 
-const SCHEMA_NAME = 'school software';
+const SCHEMA_NAME = 'public';
 const TEST_TABLE = 'schools';
 
 // Initialize multiple client configurations
@@ -169,7 +169,7 @@ async function test4_DirectSQL() {
       sql: `
         SELECT schema_name
         FROM information_schema.schemata
-        WHERE schema_name = 'school software'
+        WHERE schema_name = 'public'
       `
     });
 
@@ -198,7 +198,7 @@ async function test5_QualifiedTableName() {
   try {
     // This likely won't work but let's test
     const { data, error } = await clients.public
-      .from(`"school software".${TEST_TABLE}`)
+      .from(`"public".${TEST_TABLE}`)
       .select('id, name')
       .limit(1);
 
@@ -328,7 +328,7 @@ async function runAllTests() {
     console.log('   → Schema may not be properly exposed');
     console.log('\n   ACTIONS:');
     console.log('   1. Check: SELECT rolconfig FROM pg_roles WHERE rolname = \'authenticator\'');
-    console.log('   2. Verify: GRANT USAGE ON SCHEMA "school software" TO anon, authenticated');
+    console.log('   2. Verify: GRANT USAGE ON SCHEMA "public" TO anon, authenticated');
     console.log('   3. Force reload: NOTIFY pgrst, \'reload config\'');
     console.log('   4. Or migrate to public schema');
   } else {

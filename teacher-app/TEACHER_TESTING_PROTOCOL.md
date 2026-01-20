@@ -853,12 +853,11 @@ Create specialized agents for different issue categories in the teacher app:
   - `/lib/services/attendanceTracker.ts`
 
 #### **AI Features Agent**
-- **Handles:** AI module generation, transcript cleanup, quiz generation, rubric generation, feedback drafting
-- **Skills:** Anthropic API, prompt engineering, AI response parsing, draft management
+- **Handles:** AI module generation, quiz generation, rubric generation
+- **Skills:** Anthropic/OpenAI API, prompt engineering, AI response parsing, draft management
 - **Priority:** Medium
 - **Key Files:**
   - `/app/api/teacher/ai/generate-module/route.ts`
-  - `/app/api/teacher/ai/cleanup-transcript/route.ts`
   - `/app/api/teacher/ai/generate-quiz/route.ts`
   - `/lib/services/aiAssistant.ts`
 

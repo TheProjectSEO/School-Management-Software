@@ -61,7 +61,7 @@ for (let i = 0; i < statements.length; i++) {
         'apikey': serviceKey,
         'Authorization': `Bearer ${serviceKey}`,
         'Content-Type': 'application/json',
-        'Accept-Profile': '"school software"'
+        'Accept-Profile': '"public"'
       },
       body: JSON.stringify({ query: statement })
     });
@@ -100,14 +100,14 @@ console.log('\n' + '═'.repeat(70));
 console.log('\n🔍 Verifying seeded data...\n');
 
 const checks = [
-  { table: 'schools', query: 'SELECT COUNT(*) as count FROM "school software".schools' },
-  { table: 'profiles', query: 'SELECT COUNT(*) as count FROM "school software".profiles' },
-  { table: 'students', query: 'SELECT COUNT(*) as count FROM "school software".students' },
-  { table: 'courses', query: 'SELECT COUNT(*) as count FROM "school software".courses' },
-  { table: 'enrollments', query: 'SELECT COUNT(*) as count FROM "school software".enrollments' },
-  { table: 'modules', query: 'SELECT COUNT(*) as count FROM "school software".modules' },
-  { table: 'lessons', query: 'SELECT COUNT(*) as count FROM "school software".lessons' },
-  { table: 'assessments', query: 'SELECT COUNT(*) as count FROM "school software".assessments' },
+  { table: 'schools', query: 'SELECT COUNT(*) as count FROM "public".schools' },
+  { table: 'profiles', query: 'SELECT COUNT(*) as count FROM "public".profiles' },
+  { table: 'students', query: 'SELECT COUNT(*) as count FROM "public".students' },
+  { table: 'courses', query: 'SELECT COUNT(*) as count FROM "public".courses' },
+  { table: 'enrollments', query: 'SELECT COUNT(*) as count FROM "public".enrollments' },
+  { table: 'modules', query: 'SELECT COUNT(*) as count FROM "public".modules' },
+  { table: 'lessons', query: 'SELECT COUNT(*) as count FROM "public".lessons' },
+  { table: 'assessments', query: 'SELECT COUNT(*) as count FROM "public".assessments' },
 ];
 
 for (const check of checks) {

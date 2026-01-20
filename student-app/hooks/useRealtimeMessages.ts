@@ -140,10 +140,10 @@ export function useRealtimeMessages(
           table: "teacher_direct_messages",
           filter: `to_profile_id=eq.${profileId}`,
         },
-        (payload: RealtimePostgresInsertPayload<DirectMessage>) => {
-          const message = payload.new as DirectMessage;
+                (payload: RealtimePostgresInsertPayload<DirectMessage>) => {
+                  const message = payload.new as DirectMessage;
 
-          // Only process if from current conversation partner
+                  // Only process if from current conversation partner
           if (message.from_profile_id === partnerProfileId) {
             setNewMessage(message);
             playNotificationSound();

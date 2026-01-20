@@ -148,7 +148,7 @@ export function MessageNotificationProvider({
         "postgres_changes",
         {
           event: "INSERT",
-          schema: "school software",
+          schema: "public",
           table: "teacher_direct_messages",
           filter: `to_profile_id=eq.${profileId}`,
         },

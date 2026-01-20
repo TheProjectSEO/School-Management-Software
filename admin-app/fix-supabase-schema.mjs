@@ -14,9 +14,9 @@ const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 console.log('\n🔧 Testing Different Schema Configurations...\n');
 
 // Test 1: Without quotes
-console.log('Test 1: schema: "school software"');
+console.log('Test 1: schema: "public"');
 const client1 = createClient(url, anonKey, {
-  db: { schema: 'school software' }
+  db: { schema: 'public' }
 });
 
 const { data: test1, error: error1 } = await client1
@@ -27,9 +27,9 @@ const { data: test1, error: error1 } = await client1
 console.log('Result:', error1 ? `❌ ${error1.message}` : `✅ ${JSON.stringify(test1)}`);
 
 // Test 2: With explicit quotes in string
-console.log('\nTest 2: schema: \'"school software"\'');
+console.log('\nTest 2: schema: \'"public"\'');
 const client2 = createClient(url, anonKey, {
-  db: { schema: '"school software"' }
+  db: { schema: '"public"' }
 });
 
 const { data: test2, error: error2 } = await client2
@@ -57,7 +57,7 @@ console.log('\nTest 4: Using headers');
 const client4 = createClient(url, anonKey, {
   global: {
     headers: {
-      'Accept-Profile': '"school software"'
+      'Accept-Profile': '"public"'
     }
   }
 });

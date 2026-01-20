@@ -25,7 +25,7 @@ if (!serviceRoleKey) {
 
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { autoRefreshToken: false, persistSession: false },
-  db: { schema: 'school software' }
+  db: { schema: 'public' }
 });
 
 const SCHOOL_ID = '4fa1be18-ebf6-41e7-a8ee-800ac3815ecd';

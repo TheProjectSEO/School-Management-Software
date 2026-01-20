@@ -5,7 +5,7 @@
  * Teachers can view all report cards for their assigned sections and courses,
  * add remarks, and submit for review.
  *
- * Data source: "school software".report_cards table
+ * Data source: "public".report_cards table
  */
 
 import { createClient } from "@/lib/supabase/server";
@@ -24,7 +24,7 @@ import type {
 } from "@/lib/types/report-card";
 
 // Schema name for all report card related tables
-const SCHEMA = "school software";
+const SCHEMA = "public";
 
 // ============================================================================
 // QUERY FUNCTIONS
@@ -48,7 +48,6 @@ export async function getTeacherReportCards(
 
     // First, get sections where teacher has assignments
     const { data: teacherSections, error: sectionsError } = await supabase
-      .schema(SCHEMA)
       .from("teacher_course_assignments")
       .select("section_id")
       .eq("teacher_id", teacherId)
@@ -63,7 +62,6 @@ export async function getTeacherReportCards(
 
     // Build query for report cards
     let query = supabase
-      .schema(SCHEMA)
       .from("report_cards")
       .select(
         `
@@ -116,7 +114,6 @@ export async function getTeacherReportCards(
     if (filters?.section_id) {
       // Get students in specific section
       const { data: sectionStudents } = await supabase
-        .schema(SCHEMA)
         .from("students")
         .select("id")
         .eq("section_id", filters.section_id);
@@ -130,7 +127,6 @@ export async function getTeacherReportCards(
     } else {
       // Get students in all teacher's sections
       const { data: allStudents } = await supabase
-        .schema(SCHEMA)
         .from("students")
         .select("id")
         .in("section_id", sectionIds);
@@ -185,7 +181,6 @@ export async function getSectionReportCardsList(
 
     // Get students in section
     const { data: students } = await supabase
-      .schema(SCHEMA)
       .from("students")
       .select("id")
       .eq("section_id", sectionId);
@@ -195,7 +190,6 @@ export async function getSectionReportCardsList(
     }
 
     let query = supabase
-      .schema(SCHEMA)
       .from("report_cards")
       .select(
         `
@@ -277,7 +271,6 @@ export async function getReportCard(
     const supabase = await createClient();
 
     const { data, error } = await supabase
-      .schema(SCHEMA)
       .from("report_cards")
       .select(
         `
@@ -359,7 +352,6 @@ export async function getSectionReportCardSummary(
 
     // Get section info
     const { data: section } = await supabase
-      .schema(SCHEMA)
       .from("sections")
       .select("id, name")
       .eq("id", sectionId)
@@ -371,14 +363,12 @@ export async function getSectionReportCardSummary(
 
     // Get students in section
     const { data: students, count: studentCount } = await supabase
-      .schema(SCHEMA)
       .from("students")
       .select("id", { count: "exact" })
       .eq("section_id", sectionId);
 
     // Get report cards for this section and period
     const { data: reportCards } = await supabase
-      .schema(SCHEMA)
       .from("report_cards")
       .select("status, gpa_snapshot_json, attendance_summary_json")
       .in(
@@ -465,7 +455,6 @@ export async function addTeacherRemarks(
 
     // Get current report card
     const { data: current, error: fetchError } = await supabase
-      .schema(SCHEMA)
       .from("report_cards")
       .select("teacher_remarks_json")
       .eq("id", input.report_card_id)
@@ -496,7 +485,6 @@ export async function addTeacherRemarks(
 
     // Save updated remarks
     const { error: updateError } = await supabase
-      .schema(SCHEMA)
       .from("report_cards")
       .update({
         teacher_remarks_json: updatedRemarks,
@@ -535,7 +523,6 @@ export async function submitForReview(
 
     for (const id of reportCardIds) {
       const { error } = await supabase
-        .schema(SCHEMA)
         .from("report_cards")
         .update({
           status: "pending_review",
@@ -571,7 +558,6 @@ export async function getGradingPeriods(
     const supabase = await createClient();
 
     const { data, error } = await supabase
-      .schema(SCHEMA)
       .from("grading_periods")
       .select("id, name, academic_year, is_current")
       .eq("school_id", schoolId)
@@ -611,7 +597,6 @@ export async function countReportCardsByStatus(
 
     // Get teacher's sections
     const { data: teacherSections } = await supabase
-      .schema(SCHEMA)
       .from("teacher_course_assignments")
       .select("section_id")
       .eq("teacher_id", teacherId)
@@ -625,7 +610,6 @@ export async function countReportCardsByStatus(
 
     // Get students in sections
     const { data: students } = await supabase
-      .schema(SCHEMA)
       .from("students")
       .select("id")
       .in("section_id", sectionIds);
@@ -635,7 +619,6 @@ export async function countReportCardsByStatus(
     }
 
     let query = supabase
-      .schema(SCHEMA)
       .from("report_cards")
       .select("status")
       .in(

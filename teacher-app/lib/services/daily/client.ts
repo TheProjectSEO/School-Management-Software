@@ -15,6 +15,7 @@ interface DailyRoomConfig {
     start_video_off?: boolean;
     start_audio_off?: boolean;
     exp?: number; // unix seconds
+    webhook_url?: string;
   };
 }
 

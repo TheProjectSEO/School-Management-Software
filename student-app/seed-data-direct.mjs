@@ -18,7 +18,7 @@ dotenv.config({ path: join(__dirname, '.env.local') });
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  { db: { schema: 'school software' } }
+  { db: { schema: 'public' } }
 );
 
 const STUDENT_ID = 'cc0c8b60-5736-4299-8015-e0a649119b8f';

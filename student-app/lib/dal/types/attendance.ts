@@ -2,7 +2,7 @@
  * Student Attendance Types
  *
  * Types for student-facing attendance view.
- * Data source: "school software".teacher_attendance table
+ * Data source: "public".teacher_attendance table
  */
 
 export type AttendanceStatus = 'present' | 'late' | 'absent' | 'excused';

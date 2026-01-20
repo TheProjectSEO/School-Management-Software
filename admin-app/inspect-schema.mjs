@@ -18,14 +18,14 @@ const supabase = createClient(url, serviceKey, {
   }
 });
 
-console.log('\n🔍 Inspecting "school software" Schema Structure...\n');
+console.log('\n🔍 Inspecting "public" Schema Structure...\n');
 console.log('═'.repeat(70));
 
 // Get all tables
 const tablesQuery = `
   SELECT table_name
   FROM information_schema.tables
-  WHERE table_schema = 'school software'
+  WHERE table_schema = 'public'
   ORDER BY table_name;
 `;
 
@@ -43,7 +43,7 @@ if (tablesError) {
     const columnsQuery = `
       SELECT column_name, data_type, is_nullable
       FROM information_schema.columns
-      WHERE table_schema = 'school software'
+      WHERE table_schema = 'public'
         AND table_name = '${tableName}'
       ORDER BY ordinal_position;
     `;

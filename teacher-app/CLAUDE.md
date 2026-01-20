@@ -1097,8 +1097,6 @@ app/api/
     ai/
       generate-module/route.ts
       generate-quiz/route.ts
-      generate-feedback/route.ts
-      cleanup-transcript/route.ts
 ```
 
 ---

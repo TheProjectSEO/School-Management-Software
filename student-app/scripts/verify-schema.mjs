@@ -16,7 +16,7 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.local' });
 
-// Data is now in the public schema (migrated from "school software")
+// Data is now in the public schema (migrated from "public")
 const EXPECTED_SCHEMA = 'public';
 
 const EXPECTED_TABLES = {

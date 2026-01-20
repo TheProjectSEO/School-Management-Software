@@ -5,13 +5,13 @@ import { getDailyClient } from '@/lib/services/daily/client';
 
 export async function POST(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id: sessionId } = await params;
   const auth = await requireTeacherAPI();
   if (!auth.success) return auth.response;
 
   const supabase = await createClient();
-  const sessionId = params.id;
 
   const { data: session, error } = await supabase
     .from('teacher_live_sessions')

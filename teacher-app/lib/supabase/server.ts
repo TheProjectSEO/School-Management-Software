@@ -2,14 +2,8 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 /**
- * ⚠️ CRITICAL: CORRECT SCHEMA IS "school software" ⚠️
- *
- * Schema: "school software" (with space)
- *
- * All school management tables are in "school software" schema.
- * See client.ts and EXPOSE_SCHEMA_INSTRUCTIONS.md for details.
- *
- * DO NOT change to "public" or "n8n_content_creation"!
+ * Server-side Supabase client for teacher-app.
+ * Uses the public schema where all core data resides.
  */
 export async function createClient() {
   const cookieStore = await cookies();
@@ -19,7 +13,7 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       db: {
-        schema: "public", // ⚠️ CORRECT SCHEMA - Source of truth
+        schema: "public",
       },
       cookies: {
         getAll() {

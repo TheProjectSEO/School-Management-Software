@@ -63,8 +63,6 @@ All routes use `requireTeacher()` helper from `/lib/auth/requireTeacher.ts`
 ### AI Features
 - `POST /api/teacher/ai/generate-module` - Generate module
 - `POST /api/teacher/ai/generate-quiz` - Generate quiz questions
-- `POST /api/teacher/ai/generate-feedback` - Generate feedback
-- `POST /api/teacher/ai/cleanup-transcript` - Clean transcript
 
 ## Common Query Parameters
 
@@ -130,11 +128,9 @@ app/api/teacher/
 │   └── send/route.ts
 └── ai/
     ├── generate-module/route.ts
-    ├── generate-quiz/route.ts
-    ├── generate-feedback/route.ts
-    └── cleanup-transcript/route.ts
+    └── generate-quiz/route.ts
 ```
 
-## Total Routes: 26 API endpoints
+## Total Routes: 24 API endpoints
 
 **See API_DOCUMENTATION.md for detailed request/response examples.**

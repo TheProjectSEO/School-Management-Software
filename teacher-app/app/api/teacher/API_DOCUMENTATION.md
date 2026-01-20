@@ -478,46 +478,6 @@ Generate quiz questions from module content.
 }
 ```
 
-#### POST `/api/teacher/ai/generate-feedback`
-Generate feedback for student submission.
-
-**Request:**
-```json
-{
-  "submissionContent": "Student's work...",
-  "rubricCriteria": [...],
-  "rubricScores": { "criteria1": 8 },
-  "assessmentInstructions": "..."
-}
-```
-
-#### POST `/api/teacher/ai/cleanup-transcript`
-Clean up and format a lecture transcript.
-
-**Request:**
-```json
-{
-  "rawTranscript": "Uh, so today we're gonna, um, discuss...",
-  "generateNotes": true,
-  "extractKeyPoints": true,
-  "moduleTopic": "Introduction to Calculus"
-}
-```
-
-**Response:**
-```json
-{
-  "result": {
-    "formatted": "Cleaned transcript...",
-    "keyPoints": [...],
-    "sections": [...],
-    "notes": { ... }
-  }
-}
-```
-
----
-
 ## Error Handling
 
 All routes return standard HTTP status codes:

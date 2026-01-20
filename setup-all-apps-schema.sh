@@ -35,10 +35,10 @@ update_client_ts() {
 import { createBrowserClient } from '@supabase/ssr'
 
 /**
- * ⚠️ SCHEMA: "school software" - DO NOT CHANGE ⚠️
+ * ⚠️ SCHEMA: "public" - DO NOT CHANGE ⚠️
  *
  * Shared across student-app, teacher-app, admin-app.
- * All school tables are in "school software" schema.
+ * All school tables are in "public" schema.
  *
  * See UNIVERSAL_SCHEMA_CONFIG.md for details.
  */
@@ -48,7 +48,7 @@ export function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       db: {
-        schema: "school software", // ⚠️ NEVER CHANGE
+        schema: "public", // ⚠️ NEVER CHANGE
       },
     }
   )
@@ -91,7 +91,7 @@ import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
 /**
- * ⚠️ SCHEMA: "school software" - DO NOT CHANGE ⚠️
+ * ⚠️ SCHEMA: "public" - DO NOT CHANGE ⚠️
  *
  * Shared across student-app, teacher-app, admin-app.
  * See UNIVERSAL_SCHEMA_CONFIG.md for details.
@@ -104,7 +104,7 @@ export async function createClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       db: {
-        schema: "school software", // ⚠️ NEVER CHANGE
+        schema: "public", // ⚠️ NEVER CHANGE
       },
       cookies: {
         getAll() {
@@ -248,12 +248,6 @@ echo "  ✅ Copied verify-schema.mjs to each app"
 echo "  ✅ Updated lib/supabase/client.ts (backups saved)"
 echo "  ✅ Updated lib/supabase/server.ts (backups saved)"
 echo "  ✅ Added verify-schema scripts to package.json"
-echo ""
-echo "⚠️  MANUAL STEP REQUIRED:"
-echo "  1. Go to Supabase Dashboard"
-echo "  2. Settings → API → Exposed Schemas"
-echo "  3. Add: \"school software\""
-echo "  4. Save and wait for API restart (1-2 min)"
 echo ""
 echo "🧪 Test Each App:"
 echo "  cd student-app && npm run verify-schema"

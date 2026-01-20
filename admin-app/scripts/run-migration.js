@@ -24,7 +24,7 @@ if (!supabaseUrl || !serviceRoleKey) {
 // Create Supabase client with service role (bypasses RLS)
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   db: {
-    schema: 'school software', // Target our custom schema
+    schema: 'public', // Target our custom schema
   },
 });
 

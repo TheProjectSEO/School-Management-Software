@@ -14,9 +14,9 @@ import type {
 
 export interface AdminMessage {
   id: string;
-  sender_profile_id: string;
-  receiver_profile_id: string;
-  message: string;
+  from_profile_id: string;
+  to_profile_id: string;
+  body: string;
   is_read: boolean;
   created_at: string;
   updated_at: string;
@@ -212,27 +212,27 @@ export function useAdminMessaging(
           "postgres_changes",
           {
             event: "INSERT",
-            schema: "school software",
-            table: "messages",
-            filter: `receiver_profile_id=eq.${adminProfileId}`,
+            schema: "public",
+            table: "teacher_direct_messages",
+            filter: `to_profile_id=eq.${adminProfileId}`,
           },
           async (payload: RealtimePostgresInsertPayload<AdminMessage>) => {
             const message = payload.new as AdminMessage;
 
             // Only process if from current conversation partner
-            if (message.sender_profile_id === userProfileId) {
+            if (message.from_profile_id === userProfileId) {
               // Enrich with profile data
               const { data: profiles } = await supabase
                 .from("school_profiles")
                 .select("id, full_name, email, avatar_url")
-                .in("id", [message.sender_profile_id, message.receiver_profile_id]);
+                .in("id", [message.from_profile_id, message.to_profile_id]);
 
               const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
 
               const enrichedMessage: AdminMessage = {
                 ...message,
-                sender: profileMap.get(message.sender_profile_id) as any,
-                receiver: profileMap.get(message.receiver_profile_id) as any,
+                sender: profileMap.get(message.from_profile_id) as any,
+                receiver: profileMap.get(message.to_profile_id) as any,
               };
 
               setNewMessage(enrichedMessage);
@@ -246,16 +246,16 @@ export function useAdminMessaging(
           "postgres_changes",
           {
             event: "UPDATE",
-            schema: "school software",
-            table: "messages",
-            filter: `sender_profile_id=eq.${adminProfileId}`,
+            schema: "public",
+            table: "teacher_direct_messages",
+            filter: `from_profile_id=eq.${adminProfileId}`,
           },
           (payload: RealtimePostgresUpdatePayload<AdminMessage>) => {
             const message = payload.new as AdminMessage;
             const oldMessage = payload.old as Partial<AdminMessage>;
 
             // Only process if to current conversation partner
-            if (message.receiver_profile_id === userProfileId) {
+            if (message.to_profile_id === userProfileId) {
               // Check if read status changed
               if (oldMessage.is_read === false && message.is_read === true) {
                 onMessageRead?.(message.id);
@@ -312,9 +312,9 @@ export function useAdminMessaging(
         "postgres_changes",
         {
           event: "INSERT",
-          schema: "school software",
-          table: "messages",
-          filter: `or(sender_profile_id.eq.${adminProfileId},receiver_profile_id.eq.${adminProfileId})`,
+          schema: "public",
+          table: "teacher_direct_messages",
+          filter: `or(from_profile_id.eq.${adminProfileId},to_profile_id.eq.${adminProfileId})`,
         },
         async (payload: RealtimePostgresInsertPayload<AdminMessage>) => {
           const message = payload.new as AdminMessage;
@@ -323,21 +323,21 @@ export function useAdminMessaging(
           const { data: profiles } = await supabase
             .from("school_profiles")
             .select("id, full_name, email, avatar_url")
-            .in("id", [message.sender_profile_id, message.receiver_profile_id]);
+            .in("id", [message.from_profile_id, message.to_profile_id]);
 
           const profileMap = new Map(profiles?.map((p) => [p.id, p]) || []);
 
           const enrichedMessage: AdminMessage = {
             ...message,
-            sender: profileMap.get(message.sender_profile_id) as any,
-            receiver: profileMap.get(message.receiver_profile_id) as any,
+            sender: profileMap.get(message.from_profile_id) as any,
+            receiver: profileMap.get(message.to_profile_id) as any,
           };
 
           // Determine conversation partner
           const partnerId =
-            message.sender_profile_id === adminProfileId
-              ? message.receiver_profile_id
-              : message.sender_profile_id;
+            message.from_profile_id === adminProfileId
+              ? message.to_profile_id
+              : message.from_profile_id;
 
           const update: ConversationUpdate = {
             profile_id: partnerId,
@@ -349,7 +349,7 @@ export function useAdminMessaging(
           onConversationUpdate?.(update);
 
           // Play sound if message is FROM someone else
-          if (message.receiver_profile_id === adminProfileId) {
+          if (message.to_profile_id === adminProfileId) {
             playNotificationSound();
           }
         }
@@ -359,9 +359,9 @@ export function useAdminMessaging(
         "postgres_changes",
         {
           event: "UPDATE",
-          schema: "school software",
-          table: "messages",
-          filter: `or(sender_profile_id.eq.${adminProfileId},receiver_profile_id.eq.${adminProfileId})`,
+          schema: "public",
+          table: "teacher_direct_messages",
+          filter: `or(from_profile_id.eq.${adminProfileId},to_profile_id.eq.${adminProfileId})`,
         },
         (payload: RealtimePostgresUpdatePayload<AdminMessage>) => {
           const message = payload.new as AdminMessage;
@@ -370,9 +370,9 @@ export function useAdminMessaging(
           // Check if read status changed
           if (oldMessage.is_read === false && message.is_read === true) {
             const partnerId =
-              message.sender_profile_id === adminProfileId
-                ? message.receiver_profile_id
-                : message.sender_profile_id;
+              message.from_profile_id === adminProfileId
+                ? message.to_profile_id
+                : message.from_profile_id;
 
             const update: ConversationUpdate = {
               profile_id: partnerId,

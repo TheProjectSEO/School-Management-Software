@@ -181,6 +181,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         student.school_id = schoolId;
       }
     }
+    // Update section_id if provided and currently null
+    if (!student.section_id && body.sectionId) {
+      const { error: sectionUpdateError } = await supabase
+        .from("students")
+        .update({ section_id: body.sectionId })
+        .eq("id", student.id);
+      if (sectionUpdateError) {
+        console.error("Error updating student section_id:", sectionUpdateError);
+      } else {
+        student.section_id = body.sectionId;
+      }
+    }
   } else {
     // Create student if it doesn't exist
     const { data: newStudent, error: studentError } = await supabase

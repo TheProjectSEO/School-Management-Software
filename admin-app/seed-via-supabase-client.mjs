@@ -16,7 +16,7 @@ console.log('═'.repeat(70));
 
 // Create client with service role for bypassing RLS
 const supabase = createClient(url, serviceKey, {
-  db: { schema: 'school software' },
+  db: { schema: 'public' },
   auth: {
     autoRefreshToken: false,
     persistSession: false

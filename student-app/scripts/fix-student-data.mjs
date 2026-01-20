@@ -15,7 +15,7 @@ const DEMO_SCHOOL_ID = '11111111-1111-1111-1111-111111111111';
 const DEMO_SECTION_ID = '22222222-2222-2222-2222-222222222222';
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  db: { schema: 'school software' }
+  db: { schema: 'public' }
 });
 
 async function checkAuthUser() {

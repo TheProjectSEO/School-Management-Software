@@ -12,7 +12,7 @@ const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = createClient(url, serviceKey, {
-  db: { schema: 'school software' },
+  db: { schema: 'public' },
   auth: { autoRefreshToken: false, persistSession: false }
 });
 

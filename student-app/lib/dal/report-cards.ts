@@ -4,7 +4,7 @@
  * Provides server-side data fetching functions for student report cards.
  * Students can only view report cards with status = 'released'.
  *
- * Data source: "school software".report_cards table
+ * Data source: "public".report_cards table
  */
 
 import { createClient } from "@/lib/supabase/server";

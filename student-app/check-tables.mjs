@@ -5,10 +5,10 @@ dotenv.config({ path: '.env.local' });
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-  { db: { schema: 'school software' } }
+  { db: { schema: 'public' } }
 );
 
-console.log('Checking tables in "school software" schema...\n');
+console.log('Checking tables in "public" schema...\n');
 
 const tables = [
   'students',

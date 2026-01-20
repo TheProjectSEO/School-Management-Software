@@ -13,10 +13,10 @@ const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUB
 
 // Create client with service role key for full access
 const supabase = createClient(url, serviceKey, {
-  db: { schema: 'school software' }
+  db: { schema: 'public' }
 });
 
-console.log('\n📊 Checking Existing Data in "school software" Schema...\n');
+console.log('\n📊 Checking Existing Data in "public" Schema...\n');
 console.log('═'.repeat(70));
 
 // Check schools

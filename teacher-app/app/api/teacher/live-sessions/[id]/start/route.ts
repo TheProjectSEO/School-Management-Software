@@ -5,13 +5,13 @@ import { getDailyClient } from '@/lib/services/daily/client';
 
 export async function POST(
   _req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id: sessionId } = await params;
   const auth = await requireTeacherAPI();
   if (!auth.success) return auth.response;
 
   const supabase = await createClient();
-  const sessionId = params.id;
 
   // Fetch session and verify access
   const { data: session, error } = await supabase
@@ -51,6 +51,11 @@ export async function POST(
   try {
     const daily = getDailyClient();
     const roomName = `teacher-session-${sessionId}`;
+    
+    // Webhook URL for recording events
+    const webhookUrl = process.env.DAILY_WEBHOOK_URL || 
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/daily-webhook`;
+
     const room = await daily.createRoom({
       name: roomName,
       privacy: 'private',
@@ -61,6 +66,7 @@ export async function POST(
         start_video_off: true,
         start_audio_off: true,
         exp: Math.floor(Date.now() / 1000) + 60 * 60 * 12, // 12h
+        webhook_url: webhookUrl,
       },
     });
 

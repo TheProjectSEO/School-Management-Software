@@ -2,7 +2,7 @@
  * Student Grades Data Access Layer
  *
  * Provides type-safe database queries for student grades, GPA records,
- * and report cards. All queries use the "school software" schema.
+ * and report cards. All queries use the "public" schema.
  *
  * IMPORTANT: Students should only see grades where is_released = true.
  * RLS policies enforce this at the database level.

@@ -26,7 +26,7 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 const supabase = createClient(supabaseUrl, supabaseKey, {
-  db: { schema: 'school software' }
+  db: { schema: 'public' }
 });
 
 console.log('🚀 Applying All Fixes...\n');

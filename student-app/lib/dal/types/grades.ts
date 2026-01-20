@@ -44,7 +44,7 @@ export type ReportCardStatus =
 /**
  * A single course grade for a student in a grading period
  *
- * Referenced table: "school software".course_grades
+ * Referenced table: "public".course_grades
  */
 export interface CourseGrade {
   id: string;
@@ -84,7 +84,7 @@ export interface CourseGrade {
 /**
  * Semester/term GPA summary for a student
  *
- * Referenced table: "school software".semester_gpa
+ * Referenced table: "public".semester_gpa
  */
 export interface SemesterGPA {
   id: string;
@@ -120,7 +120,7 @@ export interface SemesterGPA {
 /**
  * Report card containing a snapshot of grades and GPA for a grading period
  *
- * Referenced table: "school software".report_cards
+ * Referenced table: "public".report_cards
  */
 export interface ReportCard {
   id: string;

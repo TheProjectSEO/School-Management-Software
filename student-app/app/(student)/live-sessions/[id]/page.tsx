@@ -9,10 +9,11 @@ import { getCurrentProfile } from '@/lib/dal/auth';
 import { LiveSessionClient } from './LiveSessionClient';
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 export default async function LiveSessionPage({ params }: PageProps) {
+  const { id: sessionId } = await params;
   const supabase = await createClient();
   const profile = await getCurrentProfile();
 
@@ -45,7 +46,7 @@ export default async function LiveSessionPage({ params }: PageProps) {
       )
     `
     )
-    .eq('id', params.id)
+    .eq('id', sessionId)
     .single();
 
   if (!session) {
@@ -97,7 +98,7 @@ export default async function LiveSessionPage({ params }: PageProps) {
 
   return (
     <LiveSessionClient
-      sessionId={params.id}
+      sessionId={sessionId}
       gradeLevel={gradeLevel}
       currentUser={{
         id: student.id,

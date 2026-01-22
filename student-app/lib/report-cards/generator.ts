@@ -181,7 +181,7 @@ async function fetchStudentInfo(
         lrn,
         student_number,
         section_id,
-        profile:profiles!inner(
+        profile:school_profiles!inner(
           full_name,
           email,
           date_of_birth
@@ -300,7 +300,7 @@ async function fetchTeacherName(teacherId: string): Promise<string> {
       .from("teacher_profiles")
       .select(
         `
-        profile:profiles!inner(
+        profile:school_profiles!inner(
           full_name
         )
       `

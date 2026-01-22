@@ -4,11 +4,12 @@ import {
   getCurrentStudent,
   getRecentSubjects,
   getUpcomingAssessments,
-  getUpcomingLiveSessions,
+  getUpcomingRoomSessions,
   getUnreadNotificationCount,
   getStudentProgressStats,
 } from "@/lib/dal";
 import { DataLoadingError } from "@/components/dashboard";
+import { Key, ReactElement, JSXElementConstructor, ReactNode, ReactPortal } from "react";
 
 export const revalidate = 30; // 30 seconds - progress updates
 
@@ -24,7 +25,7 @@ export default async function DashboardPage() {
   let recentSubjects = [];
   let upcomingAssessments = [];
   let unreadCount = 0;
-  let upcomingLiveSessions = [];
+  let UpcomingRoomSessions = [];
   let progressStats = {
     totalCourses: 0,
     averageProgress: 0,
@@ -34,12 +35,12 @@ export default async function DashboardPage() {
   let hasError = false;
 
   try {
-    [recentSubjects, upcomingAssessments, unreadCount, progressStats, upcomingLiveSessions] = await Promise.all([
+    [recentSubjects, upcomingAssessments, unreadCount, progressStats, UpcomingRoomSessions] = await Promise.all([
       getRecentSubjects(student.id, 1),
       getUpcomingAssessments(student.id, 2),
       getUnreadNotificationCount(student.id),
       getStudentProgressStats(student.id),
-      getUpcomingLiveSessions(student.id, 3),
+      getUpcomingRoomSessions(student.id, 3),
     ]);
   } catch (error) {
     console.error("Error fetching dashboard data:", error);
@@ -137,7 +138,7 @@ export default async function DashboardPage() {
   };
 
   // Count tasks due soon (within 3 days)
-  const tasksDueSoon = upcomingAssessments.filter((a) => {
+  const tasksDueSoon = upcomingAssessments.filter((a: { due_date?: string; submission?: any }) => {
     if (!a.due_date) return false;
     const dueDate = new Date(a.due_date);
     const threeDaysFromNow = new Date();
@@ -317,7 +318,7 @@ export default async function DashboardPage() {
 
             {upcomingAssessments.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2">
-                {upcomingAssessments.map((assessment) => {
+                {upcomingAssessments.map((assessment: { course: { name: string; }; submission: any; due_date: string | number | Date; id: Key | null | undefined; type: string; title: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; description: any; total_points: any; }) => {
                   const courseName = assessment.course?.name || "Unknown Course";
                   const isSubmitted = !!assessment.submission;
                   const isDueSoon =
@@ -351,7 +352,7 @@ export default async function DashboardPage() {
                                   : "bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300"
                               }`}
                             >
-                              {formatDueDate(assessment.due_date)}
+                              {formatDueDate(assessment.due_date.toString())}
                             </span>
                           )}
                         </div>
@@ -419,9 +420,9 @@ export default async function DashboardPage() {
                 View all
               </Link>
             </div>
-            {upcomingLiveSessions.length > 0 ? (
+            {UpcomingRoomSessions.length > 0 ? (
               <div className="space-y-3">
-                {upcomingLiveSessions.map((session: any) => (
+                {UpcomingRoomSessions.map((session: any) => (
                   <div
                     key={session.id}
                     className="rounded-lg border border-slate-100 dark:border-slate-700 p-3"
@@ -446,12 +447,23 @@ export default async function DashboardPage() {
                     <p className="text-xs text-slate-500 dark:text-slate-400">
                       {new Date(session.scheduled_start).toLocaleString()}
                     </p>
-                    <Link
-                      href={`/live-sessions/${session.id}`}
-                      className="mt-2 inline-flex text-xs font-semibold text-primary hover:underline"
-                    >
-                      {session.status === "live" ? "Join now" : "View details"}
-                    </Link>
+                    {session.status === "live" && session.daily_room_url ? (
+                      <a
+                        href={session.daily_room_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-2 inline-flex text-xs font-semibold text-green-600 hover:underline"
+                      >
+                        Join now
+                      </a>
+                    ) : (
+                      <Link
+                        href={`/live-sessions/${session.id}`}
+                        className="mt-2 inline-flex text-xs font-semibold text-primary hover:underline"
+                      >
+                        View details
+                      </Link>
+                    )}
                   </div>
                 ))}
               </div>

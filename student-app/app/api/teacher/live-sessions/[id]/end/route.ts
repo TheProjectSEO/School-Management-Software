@@ -10,18 +10,17 @@ import { getDailyClient } from '@/lib/services/daily/client';
 import { scheduleRecordingProcessing } from '@/lib/services/daily/recordings';
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: sessionId } = await params;
     const supabase = await createClient();
     const profile = await getCurrentProfile();
 
     if (!profile || profile.role !== 'teacher') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const sessionId = params.id;
 
     // Get session and verify ownership
     const { data: session, error: sessionError } = await supabase

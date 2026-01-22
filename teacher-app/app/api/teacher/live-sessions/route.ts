@@ -1,6 +1,5 @@
-// @ts-nocheck - Uses n8n_content_creation schema with complex queries
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createN8nSchemaClient } from "@/lib/supabase/server";
 import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 
 /**
@@ -23,7 +22,7 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    // Get teacher's course assignments
+    // Get teacher's course assignments (from public schema)
     const { data: teacherAssignments } = await supabase
       .from("teacher_assignments")
       .select("id, course_id, section_id")
@@ -35,15 +34,28 @@ export async function GET(request: NextRequest) {
 
     const courseIds = teacherAssignments.map((assignment) => assignment.course_id);
 
-    // Build query
+    // Query from public.live_sessions (primary table that has Daily.co URLs)
     let query = supabase
-      .from("teacher_live_sessions")
+      .from("live_sessions")
       .select(
         `
-        *,
-        course:courses(id, name, subject_code),
-        section:sections(id, name),
-        module:modules(id, title)
+        id,
+        course_id,
+        title,
+        description,
+        scheduled_start,
+        scheduled_end,
+        actual_start,
+        actual_end,
+        status,
+        daily_room_name,
+        daily_room_url,
+        recording_enabled,
+        recording_url,
+        recording_size_bytes,
+        recording_duration_seconds,
+        max_participants,
+        course:courses(id, name, subject_code)
       `
       )
       .in("course_id", courseIds)
@@ -52,7 +64,7 @@ export async function GET(request: NextRequest) {
     if (assignmentId) {
       const matched = teacherAssignments.find((assignment) => assignment.id === assignmentId);
       if (matched) {
-        query = query.eq("course_id", matched.course_id).eq("section_id", matched.section_id);
+        query = query.eq("course_id", matched.course_id);
       }
     }
 
@@ -79,7 +91,31 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ sessions });
+    // Get transcript status for all sessions
+    const sessionIds = (sessions || []).map((s: any) => s.id);
+    let transcriptMap: Record<string, boolean> = {};
+
+    if (sessionIds.length > 0) {
+      const { data: transcripts } = await supabase
+        .from("session_transcripts")
+        .select("session_id")
+        .in("session_id", sessionIds);
+
+      if (transcripts) {
+        transcripts.forEach((t: any) => {
+          transcriptMap[t.session_id] = true;
+        });
+      }
+    }
+
+    // Transform to match expected UI format (map daily_room_url to join_url)
+    const transformedSessions = (sessions || []).map((session: any) => ({
+      ...session,
+      join_url: session.daily_room_url, // UI expects join_url
+      has_transcript: transcriptMap[session.id] || false,
+    }));
+
+    return NextResponse.json({ sessions: transformedSessions });
   } catch (error) {
     console.error("Live sessions GET error:", error);
     return NextResponse.json(
@@ -103,6 +139,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const supabase = await createClient();
+    const n8nSupabase = await createN8nSchemaClient();
     const body = await request.json();
 
     const {
@@ -155,28 +192,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create session
+    // Create session in public.live_sessions (primary table)
     const { data: session, error } = await supabase
-      .from("teacher_live_sessions")
+      .from("live_sessions")
       .insert({
         course_id: assignment.course_id,
-        section_id: assignment.section_id,
         module_id: moduleId || null,
-        title: title?.trim() || null,
+        teacher_profile_id: teacherId,
+        title: title?.trim() || "Live Session",
         description: description?.trim() || null,
         scheduled_start: startAt,
         scheduled_end: endAt || end.toISOString(),
-        provider: provider || "daily",
-        join_url: joinUrl?.trim() || null,
         status: "scheduled",
-        created_by: authResult.teacher.profileId,
+        recording_enabled: true,
+        max_participants: 50,
       })
       .select(
         `
         *,
-        course:courses(id, name, subject_code),
-        section:sections(id, name),
-        module:modules(id, title)
+        course:courses(id, name, subject_code)
       `
       )
       .single();
@@ -184,41 +218,44 @@ export async function POST(request: NextRequest) {
     if (error) {
       console.error("Error creating live session:", error);
       return NextResponse.json(
-        { error: "Failed to create session" },
+        { error: "Failed to create session", details: error.message },
         { status: 500 }
       );
     }
 
-    // Mirror into student live_sessions table for discovery/join
-    const { error: mirrorError } = await supabase
-      .from("live_sessions")
+    // Sync to n8n_content_creation.teacher_live_sessions
+    const { error: syncError } = await n8nSupabase
+      .from("teacher_live_sessions")
       .upsert(
         {
           id: session.id,
           course_id: assignment.course_id,
+          section_id: assignment.section_id,
           module_id: moduleId || null,
-          teacher_profile_id: authResult.teacher.teacherId,
           title: title?.trim() || "Live Session",
           description: description?.trim() || null,
           scheduled_start: startAt,
           scheduled_end: endAt || end.toISOString(),
+          provider: provider || "daily",
+          join_url: joinUrl?.trim() || null,
           status: "scheduled",
-          recording_enabled: true,
-          max_participants: 50,
+          created_by: authResult.teacher.profileId,
         },
         { onConflict: "id" }
       );
 
-    if (mirrorError) {
-      console.error("Error mirroring live session:", mirrorError);
-      await supabase.from("teacher_live_sessions").delete().eq("id", session.id);
-      return NextResponse.json(
-        { error: "Failed to create live session for students" },
-        { status: 500 }
-      );
+    if (syncError) {
+      console.error("Error syncing to teacher_live_sessions:", syncError);
+      // Continue anyway - primary table is created
     }
 
-    return NextResponse.json({ session }, { status: 201 });
+    // Transform response to match UI expectations
+    const transformedSession = {
+      ...session,
+      join_url: session.daily_room_url,
+    };
+
+    return NextResponse.json({ session: transformedSession }, { status: 201 });
   } catch (error) {
     console.error("Live sessions POST error:", error);
     return NextResponse.json(

@@ -653,7 +653,7 @@ export async function addLessonAttachment(
   // Get teacher's profile for created_by
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = await supabase
-    .from('profiles')
+    .from('school_profiles')
     .select('id')
     .eq('auth_user_id', user?.id)
     .single()

@@ -81,7 +81,7 @@ export async function getStudentById(
     .from("students")
     .select(`
       *,
-      profile:profiles(*)
+      profile:school_profiles(*)
     `)
     .eq("id", studentId)
     .maybeSingle();

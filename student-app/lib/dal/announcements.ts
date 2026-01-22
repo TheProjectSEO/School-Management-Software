@@ -1,6 +1,7 @@
 /**
  * Student Announcements Data Access Layer
  * Handles fetching announcements targeted to the student and read tracking
+ * Uses public.teacher_announcements table (unified schema)
  */
 
 import { createClient } from "@/lib/supabase/server";
@@ -60,9 +61,9 @@ export async function getStudentAnnouncements(
     .from("teacher_announcements")
     .select(`
       *,
-      teacher:teachers!inner (
+      teacher:teacher_profiles!inner (
         id,
-        profile:profiles (
+        profile:school_profiles (
           full_name,
           avatar_url
         )
@@ -162,9 +163,9 @@ export async function getAnnouncementDetail(
     .from("teacher_announcements")
     .select(`
       *,
-      teacher:teachers!inner (
+      teacher:teacher_profiles!inner (
         id,
-        profile:profiles (
+        profile:school_profiles (
           full_name,
           avatar_url
         )
@@ -287,9 +288,9 @@ export async function getUrgentAnnouncements(studentId: string): Promise<Announc
     .from("teacher_announcements")
     .select(`
       *,
-      teacher:teachers!inner (
+      teacher:teacher_profiles!inner (
         id,
-        profile:profiles (
+        profile:school_profiles (
           full_name,
           avatar_url
         )

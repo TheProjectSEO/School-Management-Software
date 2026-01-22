@@ -30,12 +30,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
 
+    console.log("[Messages API] Getting messages for student:", student.id, "with teacher:", teacherProfileId);
+
     // Get messages
     const messages = await getConversationMessages(
       student.id,
       teacherProfileId,
       { limit, offset }
     );
+
+    console.log("[Messages API] Retrieved", messages.length, "messages");
 
     // Get teacher ID for quota check
     const teacherId = await getTeacherIdByProfileId(teacherProfileId);
@@ -54,7 +58,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   } catch (error) {
     console.error("Error in GET /api/messages/[teacherProfileId]:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: "Internal server error", details: String(error) },
       { status: 500 }
     );
   }

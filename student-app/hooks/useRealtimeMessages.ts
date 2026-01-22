@@ -2,12 +2,8 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import type { DirectMessage, RealtimeMessage, MessageStatus } from "@/lib/dal/types";
-import type {
-  RealtimeChannel,
-  RealtimePostgresInsertPayload,
-  RealtimePostgresUpdatePayload,
-} from "@supabase/supabase-js";
 
 interface UseRealtimeMessagesOptions {
   /** Play sound on new message */
@@ -40,8 +36,9 @@ interface UseRealtimeMessagesReturn {
 }
 
 /**
- * Hook for real-time message updates using Supabase Postgres Changes
+ * Hook for real-time message updates using Supabase Realtime (browser client)
  * Subscribes to INSERT (new messages) and UPDATE (read receipts) events
+ * Uses postgres_changes directly from browser for better reliability
  */
 export function useRealtimeMessages(
   profileId: string | null,
@@ -54,8 +51,8 @@ export function useRealtimeMessages(
   const [isSubscribed, setIsSubscribed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const channelRef = useRef<RealtimeChannel | null>(null);
   const supabaseRef = useRef(createClient());
+  const channelRef = useRef<RealtimeChannel | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentPartnerRef = useRef<string | null>(null);
 
@@ -111,66 +108,85 @@ export function useRealtimeMessages(
     }
   }, [profileId]);
 
-  // Subscribe to a specific conversation
+  // Subscribe to a specific conversation using browser Supabase client
   const subscribeToConversation = useCallback((partnerProfileId: string) => {
-    if (!profileId) return;
+    if (!profileId) {
+      console.log("[useRealtimeMessages] No profileId, skipping subscription");
+      return;
+    }
 
     // If already subscribed to this partner, don't re-subscribe
     if (currentPartnerRef.current === partnerProfileId && channelRef.current) {
+      console.log("[useRealtimeMessages] Already subscribed to this partner");
       return;
     }
 
     // Clean up existing subscription
     if (channelRef.current) {
+      console.log("[useRealtimeMessages] Cleaning up existing channel");
       supabaseRef.current.removeChannel(channelRef.current);
+      channelRef.current = null;
     }
 
     currentPartnerRef.current = partnerProfileId;
     const supabase = supabaseRef.current;
 
-    // Create channel for this conversation
+    // Create unique channel name
+    const channelName = `messages:${profileId}:${partnerProfileId}:${Date.now()}`;
+    console.log(`[useRealtimeMessages] Creating channel: ${channelName}`);
+
+    // Subscribe to postgres_changes directly from browser client
     const channel = supabase
-      .channel(`messages:${profileId}:${partnerProfileId}`)
-      // Listen for new messages TO me FROM partner
+      .channel(channelName)
       .on(
         "postgres_changes",
         {
-          event: "INSERT",
+          event: "*",
           schema: "public",
           table: "teacher_direct_messages",
-          filter: `to_profile_id=eq.${profileId}`,
         },
-                (payload: RealtimePostgresInsertPayload<DirectMessage>) => {
-                  const message = payload.new as DirectMessage;
+        (payload) => {
+          console.log(`[useRealtimeMessages] Received ${payload.eventType}:`, payload);
 
-                  // Only process if from current conversation partner
-          if (message.from_profile_id === partnerProfileId) {
-            setNewMessage(message);
-            playNotificationSound();
-            onNewMessage?.(message);
+          const message = (payload.new || payload.old) as DirectMessage | null;
+          if (!message) return;
+
+          // Filter: only process messages TO or FROM this user
+          const isToMe = message.to_profile_id === profileId;
+          const isFromMe = message.from_profile_id === profileId;
+
+          if (!isToMe && !isFromMe) {
+            console.log(`[useRealtimeMessages] Message not for this user, ignoring`);
+            return;
           }
-        }
-      )
-      // Listen for updates to MY sent messages (read receipts)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "teacher_direct_messages",
-          filter: `from_profile_id=eq.${profileId}`,
-        },
-        (payload: RealtimePostgresUpdatePayload<DirectMessage>) => {
-          const message = payload.new as DirectMessage;
-          const oldMessage = payload.old as Partial<DirectMessage>;
 
-          // Only process if to current conversation partner
-          if (message.to_profile_id === partnerProfileId) {
+          // Only show messages with the current partner
+          const isWithPartner =
+            message.from_profile_id === partnerProfileId ||
+            message.to_profile_id === partnerProfileId;
+          if (!isWithPartner) {
+            console.log(`[useRealtimeMessages] Message not with partner, ignoring`);
+            return;
+          }
+
+          // Handle different event types
+          if (payload.eventType === "INSERT") {
+            // New message - only notify if it's TO this user (incoming)
+            if (isToMe && message.from_profile_id === partnerProfileId) {
+              console.log(`[useRealtimeMessages] New incoming message from partner`);
+              setNewMessage(message);
+              playNotificationSound();
+              onNewMessage?.(message);
+            }
+          } else if (payload.eventType === "UPDATE") {
+            // Updated message (read receipt, delivered, etc.)
+            console.log(`[useRealtimeMessages] Message updated`);
+
             // Determine status change
             let newStatus: MessageStatus = "sent";
             if (message.is_read) {
               newStatus = "read";
-            } else if (message.delivered_at) {
+            } else if ((message as RealtimeMessage).delivered_at) {
               newStatus = "delivered";
             }
 
@@ -180,23 +196,28 @@ export function useRealtimeMessages(
               return updated;
             });
 
-            // Check if status actually changed
-            if (
-              (oldMessage.is_read === false && message.is_read === true) ||
-              (!oldMessage.delivered_at && message.delivered_at)
-            ) {
-              onMessageStatusChange?.(message.id, newStatus);
-            }
+            onMessageStatusChange?.(message.id, newStatus);
           }
         }
       )
-      .subscribe((status) => {
+      .subscribe((status, err) => {
+        console.log(`[useRealtimeMessages] Subscription status: ${status}`, err || "");
+
         if (status === "SUBSCRIBED") {
+          console.log(`[useRealtimeMessages] Successfully subscribed`);
           setIsSubscribed(true);
           setError(null);
-        } else if (status === "CLOSED" || status === "CHANNEL_ERROR") {
+        } else if (status === "CLOSED") {
+          console.log(`[useRealtimeMessages] Channel closed`);
           setIsSubscribed(false);
-          setError("Connection lost");
+        } else if (status === "CHANNEL_ERROR") {
+          console.error(`[useRealtimeMessages] Channel error:`, err);
+          setError("Connection error");
+          setIsSubscribed(false);
+        } else if (status === "TIMED_OUT") {
+          console.error(`[useRealtimeMessages] Subscription timed out`);
+          setError("Connection timed out");
+          setIsSubscribed(false);
         }
       });
 
@@ -206,11 +227,13 @@ export function useRealtimeMessages(
   // Unsubscribe from conversation
   const unsubscribeFromConversation = useCallback(() => {
     if (channelRef.current) {
+      console.log("[useRealtimeMessages] Unsubscribing from channel");
       supabaseRef.current.removeChannel(channelRef.current);
       channelRef.current = null;
-      currentPartnerRef.current = null;
-      setIsSubscribed(false);
     }
+
+    currentPartnerRef.current = null;
+    setIsSubscribed(false);
   }, []);
 
   // Cleanup on unmount

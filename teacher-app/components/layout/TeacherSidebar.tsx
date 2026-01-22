@@ -61,7 +61,7 @@ export default function TeacherSidebar() {
 
         // Get profile
         const { data: profile } = await supabase
-          .from('profiles')
+          .from('school_profiles')
           .select('id, full_name, avatar_url')
           .eq('auth_user_id', user.id)
           .single()

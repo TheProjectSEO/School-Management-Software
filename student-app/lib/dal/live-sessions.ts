@@ -6,6 +6,7 @@ export type StudentLiveSession = {
   scheduled_start: string;
   scheduled_end: string | null;
   status: "scheduled" | "live" | "ended" | "cancelled" | string;
+  daily_room_url: string | null;
   course: {
     name: string;
     subject_code: string | null;
@@ -15,8 +16,8 @@ export type StudentLiveSession = {
   } | null;
 };
 
-export async function getUpcomingLiveSessions(studentId: string, limit = 3) {
-  const supabase = createClient();
+export async function getUpcomingRoomSessions(studentId: string, limit = 3) {
+  const supabase = await createClient();
 
   const { data: enrollments, error: enrollmentError } = await supabase
     .from("enrollments")
@@ -38,6 +39,7 @@ export async function getUpcomingLiveSessions(studentId: string, limit = 3) {
       scheduled_start,
       scheduled_end,
       status,
+      daily_room_url,
       course:courses(
         name,
         subject_code,
@@ -55,11 +57,32 @@ export async function getUpcomingLiveSessions(studentId: string, limit = 3) {
     return [];
   }
 
-  return (data || []) as StudentLiveSession[];
+  // Transform data to match StudentLiveSession type
+  const transformedData = (data || []).map((row: any) => ({
+    id: row.id,
+    title: row.title,
+    scheduled_start: row.scheduled_start,
+    scheduled_end: row.scheduled_end,
+    status: row.status,
+    daily_room_url: row.daily_room_url,
+    course: Array.isArray(row.course) && row.course.length > 0
+      ? {
+          name: row.course[0].name,
+          subject_code: row.course[0].subject_code,
+          section: Array.isArray(row.course[0].section) && row.course[0].section.length > 0
+            ? {
+                grade_level: row.course[0].section[0].grade_level,
+              }
+            : null,
+        }
+      : null,
+  }));
+
+  return transformedData as StudentLiveSession[];
 }
 
 export async function getLiveSessionsForCourse(studentId: string, courseId: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { count } = await supabase
     .from("enrollments")
@@ -80,6 +103,7 @@ export async function getLiveSessionsForCourse(studentId: string, courseId: stri
       scheduled_start,
       scheduled_end,
       status,
+      daily_room_url,
       course:courses(
         name,
         subject_code,
@@ -96,5 +120,26 @@ export async function getLiveSessionsForCourse(studentId: string, courseId: stri
     return [];
   }
 
-  return (data || []) as StudentLiveSession[];
+  // Transform data to match StudentLiveSession type
+  const transformedData = (data || []).map((row: any) => ({
+    id: row.id,
+    title: row.title,
+    scheduled_start: row.scheduled_start,
+    scheduled_end: row.scheduled_end,
+    status: row.status,
+    daily_room_url: row.daily_room_url,
+    course: Array.isArray(row.course) && row.course.length > 0
+      ? {
+          name: row.course[0].name,
+          subject_code: row.course[0].subject_code,
+          section: Array.isArray(row.course[0].section) && row.course[0].section.length > 0
+            ? {
+                grade_level: row.course[0].section[0].grade_level,
+              }
+            : null,
+        }
+      : null,
+  }));
+
+  return transformedData as StudentLiveSession[];
 }

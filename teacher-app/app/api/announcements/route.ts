@@ -83,7 +83,8 @@ export async function POST(request: NextRequest) {
       target_course_ids: body.target_course_ids || [],
       priority: body.priority || 'normal',
       expires_at: body.expires_at || null,
-      attachments: body.attachments || []
+      attachments: body.attachments || [],
+      auto_publish: body.auto_publish || false
     }
 
     const announcement = await createAnnouncement(input)

@@ -266,7 +266,7 @@ export async function getGradebookData(
         id,
         lrn,
         profile_id,
-        profile:profiles!inner(full_name)
+        profile:school_profiles!inner(full_name)
       )
     `)
     .eq('course_id', courseId)

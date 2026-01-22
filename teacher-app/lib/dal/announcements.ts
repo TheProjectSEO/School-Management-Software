@@ -1,6 +1,7 @@
 /**
  * Teacher Announcement Data Access Layer
  * Handles CRUD operations for announcements with targeting support
+ * Uses public.teacher_announcements table (unified schema)
  */
 
 import { createClient } from '@/lib/supabase/server'
@@ -53,6 +54,7 @@ export interface CreateAnnouncementInput {
     type: string
     size: number
   }>
+  auto_publish?: boolean
 }
 
 export interface UpdateAnnouncementInput {
@@ -190,7 +192,7 @@ export async function getAnnouncement(announcementId: string): Promise<Announcem
 }
 
 /**
- * Create a new announcement (draft by default)
+ * Create a new announcement (draft by default, or auto-publish if specified)
  */
 export async function createAnnouncement(
   input: CreateAnnouncementInput
@@ -199,6 +201,8 @@ export async function createAnnouncement(
   if (!teacher) return null
 
   const supabase = await createClient()
+
+  const shouldPublish = input.auto_publish === true
 
   const { data, error } = await supabase
     .from('teacher_announcements')
@@ -214,7 +218,8 @@ export async function createAnnouncement(
       priority: input.priority || 'normal',
       expires_at: input.expires_at || null,
       attachments: input.attachments || [],
-      is_published: false
+      is_published: shouldPublish,
+      published_at: shouldPublish ? new Date().toISOString() : null
     })
     .select()
     .single()
@@ -222,6 +227,17 @@ export async function createAnnouncement(
   if (error) {
     console.error('Error creating announcement:', error)
     return null
+  }
+
+  // If auto-publishing, also call the publish function to create notifications
+  if (shouldPublish && data) {
+    const { error: publishError } = await supabase.rpc('publish_announcement', {
+      p_announcement_id: data.id
+    })
+    if (publishError) {
+      console.error('Error publishing announcement:', publishError)
+      // Continue anyway - announcement is created
+    }
   }
 
   return data
@@ -330,15 +346,17 @@ export async function getTargetableSections(): Promise<Array<{
 
   const supabase = await createClient()
 
-  // Get sections the teacher is assigned to (via courses)
-  const { data: courses } = await supabase
-    .from('courses')
+  // Get sections the teacher is assigned to (via teacher_assignments)
+  const { data: assignments } = await supabase
+    .from('teacher_assignments')
     .select('section_id')
-    .eq('teacher_id', teacher.id)
+    .eq('teacher_profile_id', teacher.id)
 
-  if (!courses || courses.length === 0) return []
+  if (!assignments || assignments.length === 0) return []
 
-  const sectionIds = Array.from(new Set(courses.map(c => c.section_id)))
+  const sectionIds = Array.from(new Set(assignments.map(a => a.section_id).filter(Boolean)))
+
+  if (sectionIds.length === 0) return []
 
   const { data: sections, error } = await supabase
     .from('sections')
@@ -420,29 +438,35 @@ export async function getTargetableCourses(): Promise<Array<{
 
   const supabase = await createClient()
 
-  const { data: courses, error } = await supabase
-    .from('courses')
+  // Get courses the teacher is assigned to (via teacher_assignments)
+  const { data: assignments, error } = await supabase
+    .from('teacher_assignments')
     .select(`
-      id,
-      name,
-      sections!inner(name)
+      course_id,
+      course:courses!inner(id, name),
+      section:sections!inner(name)
     `)
-    .eq('teacher_id', teacher.id)
+    .eq('teacher_profile_id', teacher.id)
 
-  if (error || !courses) return []
+  if (error || !assignments) return []
 
   // Get enrollment counts
   const coursesWithCounts = await Promise.all(
-    courses.map(async (course: any) => {
+    assignments.map(async (assignment: any) => {
+      const courseId = assignment.course_id
       const { count } = await supabase
         .from('enrollments')
         .select('*', { count: 'exact', head: true })
-        .eq('course_id', course.id)
+        .eq('course_id', courseId)
+
+      // Handle both array and object formats from Supabase
+      const course = Array.isArray(assignment.course) ? assignment.course[0] : assignment.course
+      const section = Array.isArray(assignment.section) ? assignment.section[0] : assignment.section
 
       return {
-        id: course.id,
-        name: course.name,
-        section_name: course.sections?.name || '',
+        id: courseId,
+        name: course?.name || 'Unknown Course',
+        section_name: section?.name || '',
         student_count: count || 0
       }
     })

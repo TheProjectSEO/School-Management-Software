@@ -5,8 +5,8 @@
  * Manage Daily.co virtual classroom sessions
  */
 
-import { useState, useEffect, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 interface LiveSession {
   id: string;
@@ -17,8 +17,12 @@ interface LiveSession {
   scheduled_end: string | null;
   status: 'scheduled' | 'live' | 'ended' | 'cancelled';
   join_url: string | null;
+  daily_room_url?: string | null;
   recording_url?: string | null;
+  recording_enabled?: boolean;
+  recording_duration_seconds?: number;
   max_participants?: number;
+  has_transcript?: boolean;
   course?: {
     id: string;
     name: string;
@@ -31,16 +35,11 @@ interface LiveSession {
 }
 
 export default function LiveSessionsPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const preselectedCourseId = searchParams.get('courseId');
-
-  const studentJoinBaseUrl = useMemo(() => {
-    return process.env.NEXT_PUBLIC_STUDENT_URL || '';
-  }, []);
 
   useEffect(() => {
     fetchSessions();
@@ -69,44 +68,66 @@ export default function LiveSessionsPage() {
 
   async function startSession(sessionId: string) {
     try {
+      // Call API to create Daily.co room
       const response = await fetch(`/api/teacher/live-sessions/${sessionId}/start`, {
         method: 'POST',
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        // Open Daily.co room in new tab
-        window.open(data.roomUrl, '_blank');
-        fetchSessions(); // Refresh list
-      } else {
-        alert('Failed to start session');
+      if (!response.ok) {
+        const error = await response.json();
+        alert(`Failed to start session: ${error.error || 'Unknown error'}`);
+        return;
       }
+
+      const data = await response.json();
+
+      // Open the room URL returned by the API
+      if (data.roomUrl) {
+        window.open(data.roomUrl, '_blank');
+      }
+
+      fetchSessions(); // Refresh list
     } catch (error) {
       console.error('Failed to start session:', error);
       alert('Error starting session');
     }
   }
 
-  function getStudentJoinLink(sessionId: string) {
-    return studentJoinBaseUrl
-      ? `${studentJoinBaseUrl}/live-sessions/${sessionId}`
-      : `/live-sessions/${sessionId}`;
+  function getDailyRoomUrl(session: LiveSession): string | null {
+    // Return the Daily.co room URL if available
+    return session.join_url || session.daily_room_url || null;
   }
 
-  async function copyJoinLink(sessionId: string) {
-    const link = getStudentJoinLink(sessionId);
+  async function copyJoinLink(session: LiveSession) {
+    const dailyLink = getDailyRoomUrl(session);
+    if (!dailyLink) {
+      alert('Session has not been started yet. Start the session first to get the join link.');
+      return;
+    }
+
+    // Copy the Daily.co room URL directly for the teacher
     try {
-      await navigator.clipboard.writeText(link);
-      alert('Join link copied!');
+      await navigator.clipboard.writeText(dailyLink);
+      alert('Daily.co room link copied!');
     } catch (error) {
       console.error('Failed to copy link:', error);
-      alert(`Copy this link: ${link}`);
+      alert(`Copy this link: ${dailyLink}`);
     }
   }
 
   async function shareToStudents(session: LiveSession) {
+    // Check if session has been started (has a Daily room)
+    const dailyLink = getDailyRoomUrl(session);
+    if (!dailyLink) {
+      alert('Session has not been started yet. Start the session first to share with students.');
+      return;
+    }
+
+    // Share the Daily.co room URL directly to students
+    // Students can join directly via the Daily.co link
+    const appJoinLink = dailyLink;
+
     try {
-      const link = getStudentJoinLink(session.id);
       const response = await fetch('/api/announcements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -114,9 +135,11 @@ export default function LiveSessionsPage() {
           title: `Live Session: ${session.title}`,
           content: `Join the live session for ${session.course?.name || 'your course'} on ${new Date(
             session.scheduled_start
-          ).toLocaleString()}.\n\nJoin link: ${link}`,
+          ).toLocaleString()}.\n\nJoin here: ${appJoinLink}`,
           target_type: 'course',
           target_course_ids: session.course?.id ? [session.course.id] : [],
+          priority: 'high',
+          auto_publish: true,
         }),
       });
 
@@ -126,7 +149,7 @@ export default function LiveSessionsPage() {
         return;
       }
 
-      alert('Announcement sent to students.');
+      alert('Announcement sent to students!');
     } catch (error) {
       console.error('Failed to share session:', error);
       alert('Failed to share with students.');
@@ -149,6 +172,30 @@ export default function LiveSessionsPage() {
       }
     } catch (error) {
       console.error('Failed to end session:', error);
+    }
+  }
+
+  async function generateTranscript(sessionId: string) {
+    if (!confirm('Generate AI transcript for this recording? This may take a minute.')) return;
+
+    try {
+      const response = await fetch(`/api/teacher/live-sessions/${sessionId}/transcribe`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert(`Transcript generated successfully!\n\nLanguage: ${data.language || 'Unknown'}\nChunks created: ${data.chunksCreated}\n\nStudents can now use "Ask AI" to ask questions about this recording.`);
+        fetchSessions();
+      } else if (response.status === 409) {
+        alert('Transcript already exists for this session.');
+      } else {
+        alert(`Failed to generate transcript: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Failed to generate transcript:', error);
+      alert('Error generating transcript');
     }
   }
 
@@ -225,10 +272,10 @@ export default function LiveSessionsPage() {
                         Max {session.max_participants} participants
                       </span>
                     )}
-                    {!!session.recording_url && (
+                    {session.recording_enabled && (
                       <span className="flex items-center gap-1">
                         <span className="material-symbols-outlined text-base">videocam</span>
-                        Recording enabled
+                        Recording {session.recording_url ? 'available' : 'enabled'}
                       </span>
                     )}
                   </div>
@@ -269,7 +316,7 @@ export default function LiveSessionsPage() {
                   {session.status !== 'ended' && (
                     <>
                       <button
-                        onClick={() => copyJoinLink(session.id)}
+                        onClick={() => copyJoinLink(session)}
                         className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center gap-2"
                       >
                         <span className="material-symbols-outlined">content_copy</span>
@@ -286,10 +333,42 @@ export default function LiveSessionsPage() {
                     </>
                   )}
                   {session.status === 'ended' && (
-                    <span className="text-sm text-gray-500 flex items-center gap-1">
-                      <span className="material-symbols-outlined text-green-600">check_circle</span>
-                      Completed
-                    </span>
+                    <div className="flex flex-col gap-2">
+                      <span className="text-sm text-gray-500 flex items-center gap-1">
+                        <span className="material-symbols-outlined text-green-600">check_circle</span>
+                        Completed
+                      </span>
+                      {session.recording_url && (
+                        <>
+                          <button
+                            onClick={() => window.open(session.recording_url!, '_blank')}
+                            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+                          >
+                            <span className="material-symbols-outlined">play_circle</span>
+                            View Recording
+                            {session.recording_duration_seconds && (
+                              <span className="text-xs opacity-75">
+                                ({Math.floor(session.recording_duration_seconds / 60)}m)
+                              </span>
+                            )}
+                          </button>
+                          {session.has_transcript ? (
+                            <span className="px-4 py-2 bg-green-100 text-green-700 rounded-lg flex items-center gap-2 text-sm">
+                              <span className="material-symbols-outlined text-base">check_circle</span>
+                              Transcript Ready
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => generateTranscript(session.id)}
+                              className="px-4 py-2 border border-purple-200 text-purple-700 rounded-lg hover:bg-purple-50 flex items-center gap-2"
+                            >
+                              <span className="material-symbols-outlined">subtitles</span>
+                              Generate Transcript
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

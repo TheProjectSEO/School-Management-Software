@@ -188,7 +188,7 @@ export async function getConversationMessages(
   }
 
   const { data: profiles } = await supabase
-    .from('profiles')
+    .from('school_profiles')
     .select('id, full_name, avatar_url')
     .in('id', Array.from(profileIds))
 
@@ -343,7 +343,7 @@ export async function getStudentsForMessaging(
         id,
         profile_id,
         grade_level,
-        profile:profiles (
+        profile:school_profiles (
           id,
           full_name,
           avatar_url

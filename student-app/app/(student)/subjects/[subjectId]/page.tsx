@@ -138,19 +138,29 @@ export default async function SubjectDetailPage({
                   {new Date(session.scheduled_start).toLocaleString()}
                 </p>
                 <div className="mt-3">
-                  <Link
-                    href={`/live-sessions/${session.id}`}
-                    className={`inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold ${
-                      session.status === "live"
-                        ? "bg-green-600 text-white"
-                        : "border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[16px]">
-                      videocam
-                    </span>
-                    {session.status === "live" ? "Join Session" : "View Details"}
-                  </Link>
+                  {session.status === "live" && session.daily_room_url ? (
+                    <a
+                      href={session.daily_room_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold bg-green-600 text-white hover:bg-green-700"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">
+                        videocam
+                      </span>
+                      Join Session
+                    </a>
+                  ) : (
+                    <Link
+                      href={`/live-sessions/${session.id}`}
+                      className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">
+                        videocam
+                      </span>
+                      View Details
+                    </Link>
+                  )}
                 </div>
               </div>
             ))}

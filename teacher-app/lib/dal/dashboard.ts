@@ -173,7 +173,7 @@ export async function getTodaysLiveSessions(teacherId: string): Promise<TodaysLi
     .in('course_id', courseIds)
     .gte('scheduled_start', startOfDay)
     .lte('scheduled_start', endOfDay)
-    .neq('status', 'cancelled')
+    .in('status', ['scheduled', 'live'])
     .order('scheduled_start', { ascending: true })
 
   if (error) {
@@ -414,7 +414,7 @@ export async function getTodaysAbsentStudents(teacherId: string): Promise<Absent
     .select(`
       id,
       lrn,
-      profile:profiles!inner(full_name),
+      profile:school_profiles!inner(full_name),
       section:sections!inner(name)
     `)
     .in('section_id', sectionIds)

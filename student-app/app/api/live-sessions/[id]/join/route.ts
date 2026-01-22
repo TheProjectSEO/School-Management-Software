@@ -9,18 +9,17 @@ import { getCurrentProfile } from '@/lib/dal/auth';
 import { getDailyClient } from '@/lib/services/daily/client';
 
 export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: sessionId } = await params;
     const supabase = await createClient();
     const profile = await getCurrentProfile();
 
     if (!profile || profile.role !== 'student') {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const sessionId = params.id;
 
     // Get student profile
     const { data: student, error: studentError } = await supabase
@@ -112,7 +111,7 @@ export async function POST(
     });
 
     // Create or update participant record
-    const { data: participant, error: participantError } = await supabase
+    const { error: participantError } = await supabase
       .from('session_participants')
       .upsert(
         {
@@ -152,4 +151,4 @@ export async function POST(
       { status: 500 }
     );
   }
-}
+} 

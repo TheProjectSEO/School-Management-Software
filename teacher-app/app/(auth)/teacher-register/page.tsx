@@ -91,9 +91,9 @@ export default function TeacherRegisterPage() {
       if (authError) throw authError
       if (!authData.user) throw new Error('Registration failed')
 
-      // 2. Create profile in profiles table
+      // 2. Create profile in school_profiles table
       const { data: profile, error: profileError } = await supabase
-        .from('profiles')
+        .from('school_profiles')
         .insert({
           auth_user_id: authData.user.id,
           full_name: formData.fullName,

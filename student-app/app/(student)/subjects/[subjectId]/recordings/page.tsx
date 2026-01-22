@@ -9,10 +9,11 @@ import { getCurrentProfile } from '@/lib/dal/auth';
 import { RecordingsClient } from './RecordingsClient';
 
 interface PageProps {
-  params: { subjectId: string };
+  params: Promise<{ subjectId: string }>;
 }
 
 export default async function RecordingsPage({ params }: PageProps) {
+  const { subjectId } = await params;
   const supabase = await createClient();
   const profile = await getCurrentProfile();
 
@@ -42,7 +43,7 @@ export default async function RecordingsPage({ params }: PageProps) {
       section:sections(id, name, grade_level)
     `
     )
-    .eq('id', params.subjectId)
+    .eq('id', subjectId)
     .single();
 
   if (!course) {
@@ -84,25 +85,14 @@ export default async function RecordingsPage({ params }: PageProps) {
 
   const gradeLevel = course.section?.grade_level || '10';
 
-  const enrichedSessions = await Promise.all(
-    (sessions || []).map(async (session) => {
-      if (!session.recording_url) {
-        return session;
-      }
-      const { data } = await supabase.storage
-        .from('session-recordings')
-        .createSignedUrl(session.recording_url, 3600);
-      return {
-        ...session,
-        recording_url: data?.signedUrl || session.recording_url,
-      };
-    })
-  );
+  // The recording_url stored in the database is already a public URL from Supabase storage
+  // No need to create signed URLs - just pass the sessions directly
+  const validSessions = (sessions || []).filter(session => session.recording_url);
 
   return (
     <RecordingsClient
       course={course}
-      sessions={enrichedSessions}
+      sessions={validSessions}
       gradeLevel={gradeLevel}
     />
   );

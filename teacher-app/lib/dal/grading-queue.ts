@@ -141,7 +141,7 @@ export async function getGradingQueue(
         student:students!inner(
           id,
           lrn,
-          profile:profiles!inner(full_name)
+          profile:school_profiles!inner(full_name)
         ),
         assessment:assessments!inner(
           id,
@@ -242,7 +242,7 @@ export async function getQueueItem(itemId: string): Promise<GradingQueueItem | n
         student:students!inner(
           id,
           lrn,
-          profile:profiles!inner(full_name, avatar_url)
+          profile:school_profiles!inner(full_name, avatar_url)
         ),
         assessment:assessments!inner(
           id,
@@ -448,7 +448,7 @@ export async function getNextQueueItem(
         student:students!inner(
           id,
           lrn,
-          profile:profiles!inner(full_name)
+          profile:school_profiles!inner(full_name)
         ),
         assessment:assessments!inner(
           id,

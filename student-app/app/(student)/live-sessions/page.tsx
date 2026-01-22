@@ -10,6 +10,10 @@ type LiveSession = {
   status: "scheduled" | "live" | "ended" | "cancelled";
   scheduled_start: string;
   scheduled_end: string | null;
+  daily_room_url: string | null;
+  recording_url: string | null;
+  recording_duration_seconds: number | null;
+  has_transcript: boolean;
   course: {
     id: string;
     name: string;
@@ -20,6 +24,10 @@ type LiveSession = {
       grade_level: string | null;
     } | null;
   } | null;
+};
+
+type Enrollment = {
+  course_id: string;
 };
 
 const formatDateTime = (value: string | null) => {
@@ -35,7 +43,7 @@ const statusStyles: Record<LiveSession["status"], string> = {
 };
 
 export default async function LiveSessionsPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const profile = await getCurrentProfile();
 
   if (!profile || profile.role !== "student") {
@@ -72,7 +80,7 @@ export default async function LiveSessionsPage() {
     .eq("student_id", student.id);
 
   const courseIds = (enrollments || [])
-    .map((enrollment) => enrollment.course_id)
+    .map((enrollment: Enrollment) => enrollment.course_id)
     .filter(Boolean) as string[];
 
   let sessions: LiveSession[] = [];
@@ -88,13 +96,59 @@ export default async function LiveSessionsPage() {
           status,
           scheduled_start,
           scheduled_end,
+          daily_room_url,
+          recording_url,
+          recording_duration_seconds,
           course:courses(id, name, subject_code, section:sections(id, name, grade_level))
         `
       )
       .in("course_id", courseIds)
-      .order("scheduled_start", { ascending: true });
+      .order("scheduled_start", { ascending: false });
 
-    sessions = (sessionRows || []) as LiveSession[];
+    // Get transcript status for all sessions
+    const sessionIds = (sessionRows || []).map((s: any) => s.id);
+    let transcriptMap: Record<string, boolean> = {};
+
+    if (sessionIds.length > 0) {
+      const { data: transcripts } = await supabase
+        .from("session_transcripts")
+        .select("session_id")
+        .in("session_id", sessionIds);
+
+      if (transcripts) {
+        transcripts.forEach((t: any) => {
+          transcriptMap[t.session_id] = true;
+        });
+      }
+    }
+
+    // Transform the data to match the LiveSession type
+    sessions = (sessionRows || []).map((row: any) => ({
+      id: row.id,
+      title: row.title,
+      description: row.description,
+      status: row.status,
+      scheduled_start: row.scheduled_start,
+      scheduled_end: row.scheduled_end,
+      daily_room_url: row.daily_room_url,
+      recording_url: row.recording_url,
+      recording_duration_seconds: row.recording_duration_seconds,
+      has_transcript: transcriptMap[row.id] || false,
+      course: Array.isArray(row.course) && row.course.length > 0
+        ? {
+            id: row.course[0].id,
+            name: row.course[0].name,
+            subject_code: row.course[0].subject_code,
+            section: Array.isArray(row.course[0].section) && row.course[0].section.length > 0
+              ? {
+                  id: row.course[0].section[0].id,
+                  name: row.course[0].section[0].name,
+                  grade_level: row.course[0].section[0].grade_level,
+                }
+              : null,
+          }
+        : null,
+    })) as LiveSession[];
   }
 
   return (
@@ -171,16 +225,63 @@ export default async function LiveSessionsPage() {
                 </div>
 
                 <div className="mt-4 flex items-center gap-3">
-                  {session.status === "live" ? (
-                    <Link
-                      href={`/live-sessions/${session.id}`}
-                      className="inline-flex items-center rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90"
+                  {session.status === "live" && session.daily_room_url && (
+                    <a
+                      href={session.daily_room_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
                     >
+                      <span className="material-symbols-outlined text-base">videocam</span>
                       Join Live
-                    </Link>
-                  ) : (
+                    </a>
+                  )}
+                  {session.status === "ended" && session.recording_url && (
+                    <>
+                      <a
+                        href={session.recording_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700"
+                      >
+                        <span className="material-symbols-outlined text-base">play_circle</span>
+                        Watch Recording
+                        {session.recording_duration_seconds && (
+                          <span className="text-xs opacity-75">
+                            ({Math.floor(session.recording_duration_seconds / 60)}m)
+                          </span>
+                        )}
+                      </a>
+                      {session.course?.id && session.has_transcript && (
+                        <Link
+                          href={`/subjects/${session.course.id}/recordings`}
+                          className="inline-flex items-center gap-2 rounded-lg border border-purple-200 px-4 py-2 text-sm font-semibold text-purple-700 hover:bg-purple-50"
+                        >
+                          <span className="material-symbols-outlined text-base">smart_toy</span>
+                          Ask AI
+                        </Link>
+                      )}
+                      {session.has_transcript && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+                          <span className="material-symbols-outlined text-sm">check_circle</span>
+                          Transcript Ready
+                        </span>
+                      )}
+                    </>
+                  )}
+                  {session.status === "ended" && !session.recording_url && (
                     <span className="text-xs text-slate-500">
-                      Join button appears when the session is live.
+                      Recording not available yet.
+                    </span>
+                  )}
+                  {session.status === "scheduled" && (
+                    <span className="text-xs text-slate-500">
+                      Session starts {formatDateTime(session.scheduled_start)}
+                    </span>
+                  )}
+                  {session.status === "cancelled" && (
+                    <span className="text-xs text-red-500">
+                      This session was cancelled.
                     </span>
                   )}
                 </div>

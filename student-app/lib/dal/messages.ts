@@ -99,12 +99,21 @@ export async function getConversationMessages(
   const supabase = await createClient();
 
   // Get student's profile_id using RPC to bypass RLS
-  const { data: studentData } = await supabase.rpc("get_student_profile_by_id", {
+  const { data: studentData, error: studentError } = await supabase.rpc("get_student_profile_by_id", {
     p_student_id: studentId,
   });
 
-  if (!studentData || studentData.length === 0) return [];
+  if (studentError) {
+    console.error("[Messages DAL] Error getting student profile via RPC:", studentError);
+    return [];
+  }
+
+  if (!studentData || studentData.length === 0) {
+    console.error("[Messages DAL] No student data found for ID:", studentId);
+    return [];
+  }
   const student = studentData[0];
+  console.log("[Messages DAL] Got student profile_id:", student.profile_id);
 
   // Use database function to get conversation
   const { data: messages, error } = await supabase.rpc("get_conversation", {
@@ -115,9 +124,11 @@ export async function getConversationMessages(
   });
 
   if (error) {
-    console.error("Error fetching messages:", error);
+    console.error("[Messages DAL] Error fetching messages via get_conversation:", error);
     return [];
   }
+
+  console.log("[Messages DAL] get_conversation returned", messages?.length || 0, "messages");
 
   // Enrich with profile data
   const enrichedMessages: DirectMessage[] = [];
@@ -327,7 +338,7 @@ export async function getAvailableTeachers(
         profile_id,
         created_at,
         updated_at,
-        profile:profiles (
+        profile:school_profiles (
           id,
           full_name,
           avatar_url

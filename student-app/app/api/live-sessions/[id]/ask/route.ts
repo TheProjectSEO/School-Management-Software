@@ -1,20 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { callOpenAIChatCompletions, callOpenAIEmbeddings } from "@/lib/ai/openai";
+import { getCurrentProfile } from "@/lib/dal/auth";
 
 type ConversationMessage = { role: "user" | "assistant"; content: string };
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: sessionId } = await params;
     const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
 
-    if (!user) {
+    // Use getCurrentProfile which handles RPC and fallback properly
+    const profile = await getCurrentProfile();
+
+    if (!profile) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -22,18 +24,7 @@ export async function POST(
     if (!question || typeof question !== "string") {
       return NextResponse.json({ error: "Question is required" }, { status: 400 });
     }
-
-    const { data: profile } = await supabase
-      .from("school_profiles")
-      .select("id, role, full_name")
-      .eq("auth_user_id", user.id)
-      .single();
-
-    if (!profile) {
-      return NextResponse.json({ error: "Profile not found" }, { status: 404 });
-    }
-
-    const sessionId = params.id;
+    // Simplified query - live_sessions may not have direct section relation
     const { data: session, error: sessionError } = await supabase
       .from("live_sessions")
       .select(
@@ -43,14 +34,14 @@ export async function POST(
         title,
         description,
         teacher_profile_id,
-        course:courses(name, subject_code),
-        section:sections(grade_level)
+        course:courses(id, name, subject_code, section_id)
       `
       )
       .eq("id", sessionId)
       .single();
 
     if (sessionError || !session) {
+      console.error("Session query error:", sessionError, "sessionId:", sessionId);
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
@@ -69,7 +60,7 @@ export async function POST(
       }
 
       studentId = student.id;
-      gradeLevel = student.grade_level ?? session.section?.grade_level ?? null;
+      gradeLevel = student.grade_level ?? null;
 
       const { data: enrollment } = await supabase
         .from("enrollments")
@@ -120,6 +111,11 @@ export async function POST(
       ? chunks.map((c: { content: string }) => c.content).join("\n\n")
       : "";
 
+    // Handle course data - could be object or array depending on Supabase response
+    const courseData = Array.isArray(session.course) ? session.course[0] : session.course;
+    const courseName = courseData?.name ?? "Course";
+    const subjectCode = courseData?.subject_code ?? "N/A";
+
     const systemPrompt = `
 You are a friendly K-12 STEM learning assistant. Be clear, concise, and age-appropriate.
 If a question is outside K-12/STEM, give a brief helpful response and gently steer back to STEM/K-12 topics.
@@ -128,7 +124,7 @@ Avoid mentioning internal tools or sources.
 
 Session:
 - Title: ${session.title}
-- Course: ${session.course?.name ?? "Course"} (${session.course?.subject_code ?? "N/A"})
+- Course: ${courseName} (${subjectCode})
 ${gradeLevel ? `- Grade Level: ${gradeLevel}` : ""}
 
 Transcript context:

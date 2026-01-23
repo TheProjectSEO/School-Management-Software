@@ -1,10 +1,10 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "buildCommand": "cd klase-landing && npm run build",
-  "devCommand": "cd klase-landing && npm run dev",
-  "installCommand": "cd klase-landing && npm install",
+  "buildCommand": "npx turbo run build --filter=@repo/landing",
+  "devCommand": "cd apps/landing && npm run dev",
+  "installCommand": "npm install",
   "framework": null,
-  "outputDirectory": "klase-landing/.next",
+  "outputDirectory": "apps/landing/.next",
   "env": {
     "NEXT_PUBLIC_APP_URL": "https://klase.ph"
   }

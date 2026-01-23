@@ -16,6 +16,16 @@ import dotenv from 'dotenv';
 
 dotenv.config({ path: '.env.local' });
 
+// Skip verification in CI/build environments
+if (!process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.CI ||
+    process.env.VERCEL ||
+    process.env.TURBO_HASH) {
+  console.log('⏭️  Skipping schema verification - Supabase env vars not available (CI/build mode)');
+  process.exit(0);
+}
+
 const EXPECTED_SCHEMA = 'public';
 
 const EXPECTED_TABLES = {

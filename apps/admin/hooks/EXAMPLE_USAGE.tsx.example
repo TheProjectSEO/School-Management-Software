@@ -69,19 +69,19 @@ export function SimpleConversation({
           <div
             key={msg.id}
             className={`mb-4 ${
-              msg.sender_profile_id === adminProfileId
+              msg.from_profile_id === adminProfileId
                 ? "text-right"
                 : "text-left"
             }`}
           >
             <div
               className={`inline-block max-w-md p-3 rounded-lg ${
-                msg.sender_profile_id === adminProfileId
+                msg.from_profile_id === adminProfileId
                   ? "bg-blue-500 text-white"
                   : "bg-gray-200"
               }`}
             >
-              <p>{msg.message}</p>
+              <p>{msg.body}</p>
               <span className="text-xs opacity-70">
                 {new Date(msg.created_at).toLocaleTimeString()}
               </span>
@@ -170,14 +170,14 @@ export function ConversationList({
               c.profile_id === update.profile_id
                 ? {
                     ...c,
-                    last_message: update.message.message,
+                    last_message: update.message.body,
                     last_message_time: update.message.created_at,
                     unread_count:
-                      update.message.receiver_profile_id === adminProfileId
+                      update.message.to_profile_id === adminProfileId
                         ? c.unread_count + 1
                         : c.unread_count,
                     is_sender:
-                      update.message.sender_profile_id === adminProfileId,
+                      update.message.from_profile_id === adminProfileId,
                   }
                 : c
             );
@@ -198,12 +198,12 @@ export function ConversationList({
                   update.message.sender?.avatar_url ||
                   update.message.receiver?.avatar_url ||
                   null,
-                last_message: update.message.message,
+                last_message: update.message.body,
                 last_message_time: update.message.created_at,
                 unread_count:
-                  update.message.receiver_profile_id === adminProfileId ? 1 : 0,
+                  update.message.to_profile_id === adminProfileId ? 1 : 0,
                 is_sender:
-                  update.message.sender_profile_id === adminProfileId,
+                  update.message.from_profile_id === adminProfileId,
               },
               ...prev,
             ];
@@ -376,10 +376,10 @@ export function MessagingWithNotifications({
       playSound: true,
       onNewMessage: (message) => {
         // Only show notification if message is TO admin
-        if (message.receiver_profile_id === adminProfileId) {
+        if (message.to_profile_id === adminProfileId) {
           const toast = {
             id: message.id,
-            message: message.message,
+            message: message.body,
             sender: message.sender?.full_name || "Unknown",
           };
 
@@ -514,7 +514,7 @@ export function CompleteMessagingApp({
               c.profile_id === update.profile_id
                 ? {
                     ...c,
-                    last_message: update.message.message,
+                    last_message: update.message.body,
                     last_message_time: update.message.created_at,
                   }
                 : c
@@ -587,19 +587,19 @@ export function CompleteMessagingApp({
                 <div
                   key={msg.id}
                   className={`mb-4 ${
-                    msg.sender_profile_id === adminProfileId
+                    msg.from_profile_id === adminProfileId
                       ? "text-right"
                       : "text-left"
                   }`}
                 >
                   <div
                     className={`inline-block p-3 rounded-lg ${
-                      msg.sender_profile_id === adminProfileId
+                      msg.from_profile_id === adminProfileId
                         ? "bg-blue-500 text-white"
                         : "bg-gray-200"
                     }`}
                   >
-                    <p>{msg.message}</p>
+                    <p>{msg.body}</p>
                   </div>
                 </div>
               ))}

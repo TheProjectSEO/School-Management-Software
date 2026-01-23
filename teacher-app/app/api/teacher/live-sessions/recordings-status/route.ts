@@ -67,7 +67,7 @@ export async function GET() {
       id: s.id,
       title: s.title,
       status: s.status,
-      courseName: s.course?.name,
+      courseName: (s.course as unknown as { id: string; name: string } | null)?.name,
       scheduledStart: s.scheduled_start,
       actualStart: s.actual_start,
       actualEnd: s.actual_end,

@@ -9,6 +9,8 @@ import {
   QuestionType,
   QUESTION_TYPE_CONFIG,
   DifficultyLevel,
+  QuestionImportRow,
+  ImportResult,
 } from '@/lib/types/assessment-builder';
 import {
   getBankQuestions,
@@ -97,13 +99,34 @@ export default function QuestionBankDetailPage() {
   };
 
   // Import questions
-  const handleImport = async (importedQuestions: CreateQuestionInput[]) => {
-    const result = await importQuestionsToBank(bankId, importedQuestions, 'json');
+  const handleImport = async (importedQuestions: QuestionImportRow[]): Promise<ImportResult> => {
+    // Convert QuestionImportRow to CreateQuestionInput
+    const questionsToImport = importedQuestions.map(q => ({
+      prompt: q.prompt,
+      content: {
+        type: q.type,
+        options: q.options ? JSON.parse(q.options) : undefined,
+        correctAnswer: q.correctAnswer,
+      },
+      points: q.points || 1,
+      difficulty: q.difficulty || 'medium',
+      tags: q.tags?.split(',').map(t => t.trim()).filter(Boolean) || [],
+      explanation: q.explanation,
+    })) as CreateQuestionInput[];
+
+    const result = await importQuestionsToBank(bankId, questionsToImport, 'json');
     if (!result.error) {
       // Reload questions after import
       loadData();
     }
     setShowImportModal(false);
+
+    return result.data || {
+      success: !result.error,
+      imported: 0,
+      failed: result.error ? importedQuestions.length : 0,
+      errors: result.error ? [{ row: 0, error: result.error }] : [],
+    };
   };
 
   // Toggle question expansion
@@ -428,6 +451,8 @@ export default function QuestionBankDetailPage() {
       {/* Import Modal */}
       {showImportModal && (
         <QuestionImportModal
+          isOpen={showImportModal}
+          bankName={bank?.name || 'Question Bank'}
           onImport={handleImport}
           onClose={() => setShowImportModal(false)}
         />

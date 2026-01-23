@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     return authResult.response;
   }
 
-  const { teacherId, schoolId } = authResult.context;
+  const { teacherId, schoolId } = authResult.teacher;
 
   try {
     const supabase = await createClient();

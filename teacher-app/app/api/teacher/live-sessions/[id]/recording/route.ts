@@ -51,7 +51,7 @@ export async function GET(
         id: r.id,
         status: r.status,
         duration: r.duration,
-        hasDownloadUrl: !!r.download_url,
+        isReady: r.status === 'finished',
       }));
     } catch (dailyErr) {
       console.error('Error fetching Daily.co recordings:', dailyErr);

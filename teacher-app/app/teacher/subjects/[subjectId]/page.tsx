@@ -116,7 +116,7 @@ export default async function SubjectWorkspacePage({ params }: PageProps) {
           <AIPlannerQuickModal
             courseId={params.subjectId}
             courseName={course?.name || 'Course'}
-            gradeLevel={course?.section?.grade_level || null}
+            gradeLevel={(course?.section as { grade_level?: string } | null)?.grade_level || null}
           />
           <Link
             href={`/teacher/live-sessions?courseId=${params.subjectId}&openCreate=1`}

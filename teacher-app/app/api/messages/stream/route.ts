@@ -10,6 +10,15 @@ import { NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 
+interface DirectMessage {
+  id: string;
+  from_profile_id: string;
+  to_profile_id: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -106,7 +115,7 @@ export async function GET(request: NextRequest) {
           (payload) => {
             console.log(`[SSE Messages] Received ${payload.eventType}:`, payload);
 
-            const message = payload.new || payload.old;
+            const message = (payload.new || payload.old) as DirectMessage;
             if (!message) return;
 
             // Filter: only process messages TO or FROM this user

@@ -22,6 +22,7 @@ async function AssessmentBuilderContent({ assessmentId }: { assessmentId: string
   }
 
   redirect(`/teacher/assessments/${assessmentId}/builder`)
+  return null // Never reached, but satisfies TypeScript
 }
 
 export default function AssessmentBuilderPage({ params }: PageProps) {

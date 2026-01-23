@@ -8,6 +8,7 @@ import {
   AssessmentType,
   AssessmentStatus,
   BankRule,
+  BankRuleInput,
   CreateQuestionInput,
   QuestionBank,
   BankQuestion,
@@ -269,9 +270,15 @@ export function AssessmentBuilderPage({
   }, [assessmentId, questions.length]);
 
   // Bank rules handlers
-  const handleAddBankRule = useCallback((rule: Omit<BankRule, 'id' | 'assessmentId' | 'createdAt'>) => {
+  const handleAddBankRule = useCallback((rule: BankRuleInput) => {
     const newRule: BankRule = {
-      ...rule,
+      bankId: rule.bankId,
+      pickCount: rule.pickCount,
+      tagFilters: rule.tagFilters || [],
+      difficultyFilter: rule.difficultyFilter || [],
+      shuffleQuestions: rule.shuffleQuestions ?? true,
+      shuffleChoices: rule.shuffleChoices ?? true,
+      seedMode: rule.seedMode ?? 'per_student',
       id: generateId(),
       assessmentId,
       createdAt: new Date().toISOString(),
@@ -552,7 +559,7 @@ export function AssessmentBuilderPage({
   const renderBankRulesTab = () => (
     <BankRulesPanel
       rules={bankRules}
-      availableBanks={availableBanks}
+      banks={availableBanks}
       onAddRule={handleAddBankRule}
       onUpdateRule={handleUpdateBankRule}
       onDeleteRule={handleDeleteBankRule}

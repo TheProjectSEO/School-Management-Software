@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     insertedQuestions.forEach((question, index) => {
       const draft = questions[index];
       if (question.question_type === "multiple_choice" && draft?.options) {
-        draft.options.forEach((opt, optIndex) => {
+        draft.options.forEach((opt: { text: string; isCorrect: boolean }, optIndex: number) => {
           optionRows.push({
             question_id: question.id,
             option_text: opt.text,

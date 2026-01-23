@@ -870,27 +870,26 @@ export function AssessmentBuilderPage({
       </div>
 
       {/* Question Editor Modal */}
-      {showQuestionEditor && (
-        <QuestionEditor
-          initialQuestion={
-            editingQuestion
-              ? {
-                  prompt: editingQuestion.prompt,
-                  content: editingQuestion.content,
-                  explanation: editingQuestion.explanation,
-                  points: editingQuestion.points,
-                  difficulty: editingQuestion.difficulty,
-                  tags: editingQuestion.tags,
-                }
-              : null
-          }
-          onSave={handleSaveQuestion}
-          onCancel={() => {
-            setShowQuestionEditor(false);
-            setEditingQuestion(null);
-          }}
-        />
-      )}
+      <QuestionEditor
+        isOpen={showQuestionEditor}
+        initialValue={
+          editingQuestion
+            ? {
+                prompt: editingQuestion.prompt,
+                content: editingQuestion.content,
+                explanation: editingQuestion.explanation,
+                points: editingQuestion.points,
+                difficulty: editingQuestion.difficulty,
+                tags: editingQuestion.tags,
+              }
+            : null
+        }
+        onSave={handleSaveQuestion}
+        onClose={() => {
+          setShowQuestionEditor(false);
+          setEditingQuestion(null);
+        }}
+      />
 
       {/* Bank Selector Modal */}
       {showBankSelector && (

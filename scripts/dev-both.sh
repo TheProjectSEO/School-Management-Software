@@ -12,10 +12,10 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-(cd student-app && npm run dev) &
+(cd apps/student && npm run dev) &
 STUDENT_PID=$!
 
-(cd teacher-app && npm run dev) &
+(cd apps/teacher && npm run dev) &
 TEACHER_PID=$!
 
 wait -n "$STUDENT_PID" "$TEACHER_PID"

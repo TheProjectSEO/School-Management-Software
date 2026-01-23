@@ -1,23 +1,21 @@
 {
   "name": "school-management-monorepo",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "dev:student": "cd student-app && npm run dev",
-    "dev:teacher": "cd teacher-app && npm run dev",
-    "dev": "bash scripts/dev-both.sh",
-    "install:student": "cd student-app && npm install",
-    "install:teacher": "cd teacher-app && npm install",
-    "install:all": "npm run install:student && npm run install:teacher",
-    "build:student": "cd student-app && npm install && npm run build",
-    "build:teacher": "cd teacher-app && npm install && npm run build",
-    "build": "npm run build:student && npm run build:teacher",
-    "start:student": "cd student-app && npm start",
-    "start:teacher": "cd teacher-app && npm start",
-    "lint:student": "cd student-app && npm run lint",
-    "lint:teacher": "cd teacher-app && npm run lint",
-    "lint": "npm run lint:student && npm run lint:teacher",
-    "typecheck": "cd teacher-app && npm run type-check",
-    "smoke": "npm run lint && npm run build"
+    "dev:student": "npm run dev -w apps/student",
+    "dev:teacher": "npm run dev -w apps/teacher",
+    "build:student": "npm run build -w apps/student",
+    "build:teacher": "npm run build -w apps/teacher",
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run type-check"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.0"
   }
 }
-

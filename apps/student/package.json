@@ -1,5 +1,5 @@
 {
-  "name": "msu-student-app",
+  "name": "@repo/student",
   "version": "1.0.0",
   "private": true,
   "scripts": {

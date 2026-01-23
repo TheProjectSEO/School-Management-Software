@@ -130,6 +130,9 @@ After deployment:
 **"Type error in route handlers"**
 → Already fixed! Async params updated for Next.js 16
 
+**"DndContext type error" or "Cached dependency issues"**
+→ Run clean install: `rm -rf node_modules apps/*/node_modules apps/*/.next && npm install`
+
 **Build fails on Vercel**
 → Check environment variables are set correctly
 

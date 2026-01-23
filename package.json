@@ -1,6 +1,7 @@
 {
   "name": "school-management-monorepo",
   "private": true,
+  "packageManager": "npm@10.2.4",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -19,5 +20,8 @@
   },
   "devDependencies": {
     "turbo": "^2.0.0"
+  },
+  "dependencies": {
+    "glob": "^13.0.0"
   }
 }

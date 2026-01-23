@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string
-  }
+  }>
 }
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const supabase = await createClient()
-    const { id } = params
+    const { id } = await params
 
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const supabase = await createClient()
-    const { id } = params
+    const { id } = await params
     const body = await request.json()
 
     // Check authentication
@@ -161,7 +161,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const supabase = await createClient()
-    const { id } = params
+    const { id } = await params
 
     // Check authentication
     const { data: { user }, error: authError } = await supabase.auth.getUser()

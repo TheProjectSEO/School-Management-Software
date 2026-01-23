@@ -3,7 +3,7 @@ import { getTeacherProfile, updateLiveSession, deleteLiveSession } from '@/lib/d
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const teacherProfile = await getTeacherProfile()
@@ -16,7 +16,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const sessionId = params.id
+    const sessionId = (await params).id
 
     // Update the session
     const session = await updateLiveSession(sessionId, teacherProfile.id, body)
@@ -33,7 +33,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const teacherProfile = await getTeacherProfile()
@@ -45,7 +45,7 @@ export async function DELETE(
       )
     }
 
-    const sessionId = params.id
+    const sessionId = (await params).id
 
     // Delete the session
     await deleteLiveSession(sessionId, teacherProfile.id)

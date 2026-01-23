@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd apps/student && npm run build",
+  "devCommand": "cd apps/student && npm run dev",
+  "installCommand": "npm install",
+  "framework": null,
+  "outputDirectory": "apps/student/.next",
+  "env": {
+    "NEXT_PUBLIC_SUPABASE_URL": "@supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@supabase_anon_key",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
+    "DAILY_API_KEY": "@daily_api_key",
+    "DAILY_DOMAIN": "@daily_domain",
+    "RESEND_API_KEY": "@resend_api_key",
+    "NEXT_PUBLIC_APP_URL": "https://student.klase.ph"
+  }
+}

@@ -12,6 +12,7 @@ import {
   CreateQuestionInput,
   QuestionBank,
   BankQuestion,
+  QuestionFilters,
   generateId,
 } from '@/lib/types/assessment-builder';
 import { QuestionList } from './QuestionList';
@@ -248,6 +249,42 @@ export function AssessmentBuilderPage({
   const handleAddFromBank = useCallback(() => {
     setShowBankSelector(true);
   }, []);
+
+  const handleLoadBankQuestions = useCallback(async (bankId: string, filters?: QuestionFilters): Promise<BankQuestion[]> => {
+    // Find the bank to get its questions
+    const bank = availableBanks.find((b) => b.id === bankId);
+    if (!bank || !bank.questions) {
+      return [];
+    }
+
+    let filteredQuestions = [...bank.questions];
+
+    // Apply type filter
+    if (filters?.types && filters.types.length > 0) {
+      filteredQuestions = filteredQuestions.filter((q) =>
+        filters.types!.includes(q.content.type)
+      );
+    }
+
+    // Apply difficulty filter
+    if (filters?.difficulties && filters.difficulties.length > 0) {
+      filteredQuestions = filteredQuestions.filter((q) =>
+        filters.difficulties!.includes(q.difficulty)
+      );
+    }
+
+    // Apply search filter
+    if (filters?.searchQuery && filters.searchQuery.trim()) {
+      const query = filters.searchQuery.toLowerCase();
+      filteredQuestions = filteredQuestions.filter(
+        (q) =>
+          q.prompt.toLowerCase().includes(query) ||
+          q.tags.some((tag) => tag.toLowerCase().includes(query))
+      );
+    }
+
+    return filteredQuestions;
+  }, [availableBanks]);
 
   const handleImportFromBank = useCallback((bankQuestions: BankQuestion[]) => {
     const newQuestions: AssessmentQuestion[] = bankQuestions.map((bq, idx) => ({
@@ -892,13 +929,13 @@ export function AssessmentBuilderPage({
       />
 
       {/* Bank Selector Modal */}
-      {showBankSelector && (
-        <QuestionBankSelector
-          banks={availableBanks}
-          onSelect={handleImportFromBank}
-          onClose={() => setShowBankSelector(false)}
-        />
-      )}
+      <QuestionBankSelector
+        isOpen={showBankSelector}
+        banks={availableBanks}
+        onSelectQuestions={handleImportFromBank}
+        onClose={() => setShowBankSelector(false)}
+        onLoadBankQuestions={handleLoadBankQuestions}
+      />
     </div>
   );
 }

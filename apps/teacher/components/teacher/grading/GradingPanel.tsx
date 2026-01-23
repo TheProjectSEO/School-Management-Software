@@ -8,6 +8,18 @@ import Badge from '@/components/ui/Badge'
 import GradingRubric from './GradingRubric'
 import { GradingQueueItem } from '@/lib/dal/grading-queue'
 
+interface AIGradingSuggestion {
+  suggested_points: number
+  max_points: number
+  percentage: number
+  feedback: string
+  strengths: string[]
+  improvements: string[]
+  rubric_scores: Record<string, number> | null
+  confidence: 'high' | 'medium' | 'low'
+  reasoning: string
+}
+
 interface GradingPanelProps {
   item: GradingQueueItem | null
   questionDetails?: {
@@ -191,6 +203,15 @@ export default function GradingPanel({
   const [flagReason, setFlagReason] = useState('')
   const [isSaving, setIsSaving] = useState(false)
 
+  // AI Grading state
+  const [aiSuggestion, setAiSuggestion] = useState<AIGradingSuggestion | null>(null)
+  const [isLoadingAI, setIsLoadingAI] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
+  const [showAISuggestion, setShowAISuggestion] = useState(false)
+
+  // Check if AI grading is available for this question type
+  const isAIGradingAvailable = item && ['essay', 'short_answer'].includes(item.question_type)
+
   // Reset form when item changes
   useEffect(() => {
     if (item) {
@@ -198,8 +219,50 @@ export default function GradingPanel({
       setFeedback(item.feedback ?? '')
       setFlagReason('')
       setShowFlagModal(false)
+      setAiSuggestion(null)
+      setAiError(null)
+      setShowAISuggestion(false)
     }
   }, [item?.id])
+
+  // AI Grading handler
+  const handleAIGrade = useCallback(async () => {
+    if (!item) return
+
+    setIsLoadingAI(true)
+    setAiError(null)
+
+    try {
+      const response = await fetch('/api/teacher/ai/grade-response', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ queueItemId: item.id })
+      })
+
+      const data = await response.json()
+
+      if (!data.success) {
+        setAiError(data.error || 'Failed to get AI suggestion')
+        return
+      }
+
+      setAiSuggestion(data.suggestion)
+      setShowAISuggestion(true)
+    } catch (error) {
+      console.error('AI grading error:', error)
+      setAiError('An error occurred while getting AI suggestion')
+    } finally {
+      setIsLoadingAI(false)
+    }
+  }, [item])
+
+  // Apply AI suggestion
+  const handleApplyAISuggestion = useCallback(() => {
+    if (!aiSuggestion) return
+    setPoints(aiSuggestion.suggested_points)
+    setFeedback(aiSuggestion.feedback)
+    setShowAISuggestion(false)
+  }, [aiSuggestion])
 
   const handleGrade = useCallback(async () => {
     if (!item) return
@@ -374,6 +437,168 @@ export default function GradingPanel({
             onQuickScore={handleQuickScore}
           />
         </div>
+
+        {/* AI Grading Section */}
+        {isAIGradingAvailable && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                <span className="material-symbols-rounded text-lg text-purple-500">auto_awesome</span>
+                AI Grading Assistant
+              </h4>
+              {!aiSuggestion && !isLoadingAI && (
+                <Button
+                  variant="outline"
+                  onClick={handleAIGrade}
+                  disabled={isLoadingAI}
+                  className="text-purple-600 border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+                >
+                  <span className="material-symbols-rounded mr-2">smart_toy</span>
+                  Get AI Suggestion
+                </Button>
+              )}
+            </div>
+
+            {/* Loading state */}
+            {isLoadingAI && (
+              <Card className="p-4 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
+                <div className="flex items-center gap-3">
+                  <div className="animate-spin rounded-full h-5 w-5 border-2 border-purple-500 border-t-transparent" />
+                  <span className="text-purple-700 dark:text-purple-300">
+                    Analyzing student response...
+                  </span>
+                </div>
+              </Card>
+            )}
+
+            {/* Error state */}
+            {aiError && (
+              <Card className="p-4 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+                <div className="flex items-center gap-2 text-red-700 dark:text-red-300">
+                  <span className="material-symbols-rounded">error</span>
+                  <span>{aiError}</span>
+                  <button
+                    onClick={handleAIGrade}
+                    className="ml-auto text-sm underline hover:no-underline"
+                  >
+                    Try again
+                  </button>
+                </div>
+              </Card>
+            )}
+
+            {/* AI Suggestion display */}
+            {aiSuggestion && showAISuggestion && (
+              <Card className="p-4 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border-purple-200 dark:border-purple-800">
+                <div className="space-y-4">
+                  {/* Header with score */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "text-2xl font-bold",
+                        aiSuggestion.percentage >= 80 ? "text-green-600" :
+                        aiSuggestion.percentage >= 60 ? "text-yellow-600" :
+                        "text-red-600"
+                      )}>
+                        {aiSuggestion.suggested_points}/{aiSuggestion.max_points}
+                      </div>
+                      <Badge variant={
+                        aiSuggestion.confidence === 'high' ? 'success' :
+                        aiSuggestion.confidence === 'medium' ? 'warning' : 'danger'
+                      }>
+                        {aiSuggestion.confidence} confidence
+                      </Badge>
+                    </div>
+                    <button
+                      onClick={() => setShowAISuggestion(false)}
+                      className="p-1 rounded hover:bg-white/50 dark:hover:bg-black/20"
+                    >
+                      <span className="material-symbols-rounded text-slate-400">close</span>
+                    </button>
+                  </div>
+
+                  {/* Reasoning */}
+                  {aiSuggestion.reasoning && (
+                    <p className="text-sm text-slate-600 dark:text-slate-400 italic">
+                      {aiSuggestion.reasoning}
+                    </p>
+                  )}
+
+                  {/* Strengths */}
+                  {aiSuggestion.strengths.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-green-700 dark:text-green-400 mb-1">Strengths:</p>
+                      <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
+                        {aiSuggestion.strengths.map((s, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="material-symbols-rounded text-green-500 text-base">check</span>
+                            {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Improvements */}
+                  {aiSuggestion.improvements.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 mb-1">Areas for improvement:</p>
+                      <ul className="text-sm text-slate-600 dark:text-slate-400 space-y-1">
+                        {aiSuggestion.improvements.map((s, i) => (
+                          <li key={i} className="flex items-start gap-2">
+                            <span className="material-symbols-rounded text-amber-500 text-base">arrow_right</span>
+                            {s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {/* Suggested feedback preview */}
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Suggested feedback:</p>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 bg-white/50 dark:bg-black/20 p-2 rounded">
+                      {aiSuggestion.feedback}
+                    </p>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 pt-2 border-t border-purple-200 dark:border-purple-700">
+                    <Button
+                      onClick={handleApplyAISuggestion}
+                      className="flex-1 bg-purple-600 hover:bg-purple-700"
+                    >
+                      <span className="material-symbols-rounded mr-2">check</span>
+                      Apply Suggestion
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={handleAIGrade}
+                      className="text-purple-600 border-purple-300"
+                    >
+                      <span className="material-symbols-rounded">refresh</span>
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {/* Collapsed suggestion indicator */}
+            {aiSuggestion && !showAISuggestion && (
+              <button
+                onClick={() => setShowAISuggestion(true)}
+                className="w-full p-3 rounded-lg bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 text-left hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-purple-700 dark:text-purple-300">
+                    AI suggested: <strong>{aiSuggestion.suggested_points}/{aiSuggestion.max_points}</strong> points
+                  </span>
+                  <span className="material-symbols-rounded text-purple-500">expand_more</span>
+                </div>
+              </button>
+            )}
+          </div>
+        )}
 
         {/* Grading Form */}
         <div className="space-y-4">

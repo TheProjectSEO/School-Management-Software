@@ -55,6 +55,15 @@ const getNavGroups = (unreadCount: number): NavGroup[] => [
     ],
   },
   {
+    title: "Finance",
+    items: [
+      { href: "/finance/setup", icon: "settings", label: "Fee Setup" },
+      { href: "/finance/accounts", icon: "account_balance_wallet", label: "Student Accounts" },
+      { href: "/finance/payments", icon: "payments", label: "Record Payment" },
+      { href: "/finance/collection", icon: "auto_awesome", label: "AI Collection" },
+    ],
+  },
+  {
     title: "Reports",
     items: [
       { href: "/reports/attendance", icon: "event_available", label: "Attendance" },

@@ -25,9 +25,11 @@ const navItems: NavItem[] = [
   { name: 'Question Banks', href: '/teacher/question-banks', icon: 'library_books' },
   { name: 'Submissions', href: '/teacher/submissions', icon: 'assignment_turned_in' },
   { name: 'Grading Queue', href: '/teacher/grading', icon: 'grading' },
+  { name: 'Feedback Templates', href: '/teacher/feedback-templates', icon: 'content_paste' },
   { name: 'Gradebook', href: '/teacher/gradebook', icon: 'score' },
   { name: 'Report Cards', href: '/teacher/report-cards', icon: 'description' },
   { name: 'Attendance', href: '/teacher/attendance', icon: 'fact_check' },
+  { name: 'Student Alerts', href: '/teacher/alerts', icon: 'notification_important' },
   { name: 'Calendar', href: '/teacher/calendar', icon: 'calendar_month' },
   { name: 'Messages', href: '/teacher/messages', icon: 'chat', showMessageBadge: true },
   { name: 'Students', href: '/teacher/students', icon: 'school' },
@@ -61,7 +63,7 @@ export default function TeacherSidebar() {
 
         // Get profile
         const { data: profile } = await supabase
-          .from('school_profiles')
+          .from('profiles')
           .select('id, full_name, avatar_url')
           .eq('auth_user_id', user.id)
           .single()

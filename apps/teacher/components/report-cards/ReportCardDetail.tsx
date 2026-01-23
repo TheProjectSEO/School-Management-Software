@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import type {
   ReportCard,
@@ -8,6 +8,23 @@ import type {
   ReportCardStatus,
   TeacherRemark,
 } from "@/lib/types/report-card";
+
+// AI Progress Report types
+interface AIProgressReport {
+  narrative: string;
+  summary: string | null;
+  strengths: string[];
+  areas_for_growth: string[];
+  recommendations: string[];
+}
+
+interface AIReportMetadata {
+  student_name: string;
+  grading_period: string;
+  subject: string;
+  tone: string;
+  generated_at: string;
+}
 
 interface ReportCardDetailProps {
   reportCard: ReportCard;
@@ -234,6 +251,7 @@ export function ReportCardDetail({
             remarks={teacher_remarks || []}
             canEdit={canEdit && status === "draft"}
             onAddRemarks={onAddRemarks}
+            reportCardId={reportCard.id}
           />
         )}
       </div>
@@ -414,14 +432,24 @@ function RemarksTab({
   remarks,
   canEdit,
   onAddRemarks,
+  reportCardId,
 }: {
   remarks: TeacherRemark[];
   canEdit: boolean;
   onAddRemarks?: (remarks: string, subject: string) => Promise<void>;
+  reportCardId: string;
 }) {
   const [newRemarks, setNewRemarks] = useState("");
   const [subject, setSubject] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // AI Progress Report state
+  const [aiReport, setAiReport] = useState<AIProgressReport | null>(null);
+  const [aiMetadata, setAiMetadata] = useState<AIReportMetadata | null>(null);
+  const [isLoadingAI, setIsLoadingAI] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const [showAIReport, setShowAIReport] = useState(false);
+  const [selectedTone, setSelectedTone] = useState<string>("professional");
 
   const handleSubmit = async () => {
     if (!newRemarks.trim() || !subject.trim() || !onAddRemarks) return;
@@ -433,6 +461,48 @@ function RemarksTab({
       setSubject("");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Generate AI Progress Report
+  const handleGenerateAIReport = useCallback(async () => {
+    setIsLoadingAI(true);
+    setAiError(null);
+
+    try {
+      const response = await fetch("/api/teacher/ai/generate-progress-report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reportCardId,
+          subject: subject || undefined,
+          tone: selectedTone,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "Failed to generate progress report");
+      }
+
+      setAiReport(data.report);
+      setAiMetadata(data.metadata);
+      setShowAIReport(true);
+    } catch (error) {
+      setAiError(error instanceof Error ? error.message : "Failed to generate report");
+    } finally {
+      setIsLoadingAI(false);
+    }
+  }, [reportCardId, subject, selectedTone]);
+
+  // Apply AI narrative to remarks
+  const handleApplyAINarrative = () => {
+    if (aiReport?.narrative) {
+      setNewRemarks(aiReport.narrative);
+      if (aiMetadata?.subject && aiMetadata.subject !== "All Subjects") {
+        setSubject(aiMetadata.subject);
+      }
     }
   };
 
@@ -476,9 +546,157 @@ function RemarksTab({
       {/* Add Remarks Form */}
       {canEdit && onAddRemarks && (
         <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
-          <h4 className="font-medium text-slate-900 dark:text-white mb-4">
-            Add Your Remarks
-          </h4>
+          <div className="flex items-center justify-between mb-4">
+            <h4 className="font-medium text-slate-900 dark:text-white">
+              Add Your Remarks
+            </h4>
+            {/* AI Generate Button */}
+            <button
+              onClick={handleGenerateAIReport}
+              disabled={isLoadingAI}
+              className="inline-flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium rounded-lg transition-colors disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-[16px]">
+                {isLoadingAI ? "sync" : "auto_awesome"}
+              </span>
+              {isLoadingAI ? "Generating..." : "Generate with AI"}
+            </button>
+          </div>
+
+          {/* AI Error */}
+          {aiError && (
+            <div className="mb-4 p-3 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+              <p className="text-sm text-red-700 dark:text-red-400">{aiError}</p>
+            </div>
+          )}
+
+          {/* AI Report Panel */}
+          {showAIReport && aiReport && (
+            <div className="mb-6 p-4 rounded-xl border-2 border-purple-200 dark:border-purple-800/50 bg-purple-50 dark:bg-purple-900/10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="material-symbols-outlined text-purple-600 dark:text-purple-400 text-[20px]">
+                    auto_awesome
+                  </span>
+                  <span className="font-medium text-purple-900 dark:text-purple-200 text-sm">
+                    AI-Generated Progress Report
+                  </span>
+                </div>
+                <button
+                  onClick={() => setShowAIReport(false)}
+                  className="text-slate-400 hover:text-slate-600"
+                >
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+
+              {/* Summary */}
+              {aiReport.summary && (
+                <div className="mb-4 p-3 rounded-lg bg-white dark:bg-slate-800">
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                    Summary
+                  </p>
+                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                    {aiReport.summary}
+                  </p>
+                </div>
+              )}
+
+              {/* Narrative */}
+              <div className="mb-4 p-3 rounded-lg bg-white dark:bg-slate-800">
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
+                  Narrative
+                </p>
+                <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                  {aiReport.narrative}
+                </p>
+              </div>
+
+              {/* Strengths & Areas for Growth */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                {aiReport.strengths.length > 0 && (
+                  <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50">
+                    <p className="text-xs font-medium text-green-700 dark:text-green-400 mb-2">
+                      Strengths
+                    </p>
+                    <ul className="space-y-1">
+                      {aiReport.strengths.map((s, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-green-800 dark:text-green-300">
+                          <span className="material-symbols-outlined text-[14px] mt-0.5">check_circle</span>
+                          {s}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {aiReport.areas_for_growth.length > 0 && (
+                  <div className="p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50">
+                    <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-2">
+                      Areas for Growth
+                    </p>
+                    <ul className="space-y-1">
+                      {aiReport.areas_for_growth.map((a, i) => (
+                        <li key={i} className="flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
+                          <span className="material-symbols-outlined text-[14px] mt-0.5">trending_up</span>
+                          {a}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+
+              {/* Recommendations */}
+              {aiReport.recommendations.length > 0 && (
+                <div className="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800/50">
+                  <p className="text-xs font-medium text-blue-700 dark:text-blue-400 mb-2">
+                    Recommendations
+                  </p>
+                  <ul className="space-y-1">
+                    {aiReport.recommendations.map((r, i) => (
+                      <li key={i} className="flex items-start gap-2 text-sm text-blue-800 dark:text-blue-300">
+                        <span className="material-symbols-outlined text-[14px] mt-0.5">lightbulb</span>
+                        {r}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Apply Button */}
+              <div className="flex items-center justify-between pt-3 border-t border-purple-200 dark:border-purple-800/50">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Generated: {aiMetadata?.generated_at ? new Date(aiMetadata.generated_at).toLocaleString() : "Just now"}
+                </p>
+                <button
+                  onClick={handleApplyAINarrative}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <span className="material-symbols-outlined text-[16px]">content_paste</span>
+                  Use as Remarks
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Tone selector (appears when AI panel is closed) */}
+          {!showAIReport && (
+            <div className="mb-4 flex items-center gap-3">
+              <label className="text-xs text-slate-500 dark:text-slate-400">AI Tone:</label>
+              <select
+                value={selectedTone}
+                onChange={(e) => setSelectedTone(e.target.value)}
+                className="px-2 py-1 text-xs rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300"
+              >
+                <option value="professional">Professional</option>
+                <option value="encouraging">Encouraging</option>
+                <option value="constructive">Constructive</option>
+                <option value="detailed">Detailed</option>
+              </select>
+            </div>
+          )}
+
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-slate-600 dark:text-slate-300 mb-1">
@@ -488,7 +706,7 @@ function RemarksTab({
                 type="text"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                placeholder="e.g., Mathematics"
+                placeholder="e.g., Mathematics (optional for AI, required for manual)"
                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0d1520] text-slate-900 dark:text-white placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               />
             </div>

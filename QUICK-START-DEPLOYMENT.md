@@ -133,6 +133,9 @@ After deployment:
 **"DndContext type error" or "Cached dependency issues"**
 → Run clean install: `rm -rf node_modules apps/*/node_modules apps/*/.next && npm install`
 
+**"routes-manifest.json couldn't be found" on Vercel**
+→ Already fixed! Using `npx turbo run build --filter=@repo/X` in Vercel configs
+
 **Build fails on Vercel**
 → Check environment variables are set correctly
 

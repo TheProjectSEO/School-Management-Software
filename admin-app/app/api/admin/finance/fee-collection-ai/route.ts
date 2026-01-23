@@ -184,9 +184,13 @@ export async function GET(request: NextRequest) {
       .eq("financial_responsibility", true);
 
     // Group payments and schedules by account
-    const paymentsByAccount = new Map<string, typeof payments>();
-    const schedulesByAccount = new Map<string, typeof schedules>();
-    const guardiansByStudent = new Map<string, (typeof guardians)[0]>();
+    type PaymentType = NonNullable<typeof payments>[number];
+    type ScheduleType = NonNullable<typeof schedules>[number];
+    type GuardianType = NonNullable<typeof guardians>[number];
+
+    const paymentsByAccount = new Map<string, PaymentType[]>();
+    const schedulesByAccount = new Map<string, ScheduleType[]>();
+    const guardiansByStudent = new Map<string, GuardianType>();
 
     payments?.forEach((p) => {
       const existing = paymentsByAccount.get(p.student_fee_account_id) || [];

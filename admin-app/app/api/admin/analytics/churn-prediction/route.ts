@@ -179,10 +179,12 @@ export async function GET(request: NextRequest) {
       // 2. Academic Performance Analysis
       const studentSubmissions = (submissions || []).filter(s => s.student_id === studentId);
       if (studentSubmissions.length > 0) {
-        const gradedSubmissions = studentSubmissions.filter(s => s.status === 'graded' && s.assessment?.total_points);
+        // assessment is an array from the join, get first element
+        const gradedSubmissions = studentSubmissions.filter(s => s.status === 'graded' && (s.assessment as any)?.[0]?.total_points);
         if (gradedSubmissions.length >= 3) {
           const avgScore = gradedSubmissions.reduce((sum, s) => {
-            const pct = (s.score / s.assessment.total_points) * 100;
+            const assessment = (s.assessment as any)?.[0];
+            const pct = (s.score / assessment.total_points) * 100;
             return sum + pct;
           }, 0) / gradedSubmissions.length;
 

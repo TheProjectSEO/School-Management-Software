@@ -125,6 +125,7 @@ export interface QuestionBank {
   tags: string[];
   createdAt: string;
   updatedAt: string;
+  questions?: BankQuestion[];
 }
 
 // ============================================================================

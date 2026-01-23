@@ -6,8 +6,10 @@
     "packages/*"
   ],
   "scripts": {
+    "dev:admin": "npm run dev -w apps/admin",
     "dev:student": "npm run dev -w apps/student",
     "dev:teacher": "npm run dev -w apps/teacher",
+    "build:admin": "npm run build -w apps/admin",
     "build:student": "npm run build -w apps/student",
     "build:teacher": "npm run build -w apps/teacher",
     "build": "turbo run build",

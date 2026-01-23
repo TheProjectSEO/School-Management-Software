@@ -7,6 +7,8 @@ import { NextResponse } from 'next/server'
 import { getTeacherProfile } from '@/lib/dal/teacher'
 import { getStudentsForMessaging } from '@/lib/dal/messages'
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const teacherProfile = await getTeacherProfile()

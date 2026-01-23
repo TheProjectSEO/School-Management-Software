@@ -10,6 +10,8 @@ import {
   getUnreadMessageCount,
 } from "@/lib/dal/messages";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const teacherProfile = await getTeacherProfile();

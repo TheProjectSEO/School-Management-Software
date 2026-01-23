@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/teacher/subjects
  * Returns the list of section-subject assignments the current teacher can teach.

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getQueueStats } from '@/lib/dal/grading-queue'
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/teacher/grading/queue/stats
  * Get grading queue statistics for the authenticated teacher

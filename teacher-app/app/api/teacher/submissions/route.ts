@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireTeacher } from "@/lib/auth/requireTeacher";
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/teacher/submissions
  * Get submissions (grading inbox)

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getAssessmentsWithPendingGrading } from '@/lib/dal/grading-queue'
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/teacher/grading/queue/assessments
  * Get assessments that have pending grading items for the authenticated teacher

@@ -51,7 +51,7 @@ export default function WrongAppPage() {
         {/* Actions */}
         <div className="space-y-3">
           <a
-            href="http://localhost:3001"
+            href={process.env.NEXT_PUBLIC_TEACHER_APP_URL || "https://teacher.klase.ph"}
             className="block w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors"
           >
             Go to Teacher App

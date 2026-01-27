@@ -95,6 +95,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             {children}
           </main>
         </div>
+        {/* @ts-expect-error Server Component */}
         <Toaster position="top-right" richColors />
       </AdminNotificationProvider>
     </AdminGuard>

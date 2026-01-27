@@ -74,3 +74,11 @@ temp/
 # package-lock.json
 # yarn.lock
 # pnpm-lock.yaml
+
+# Additional security exclusions
+DEMO_CREDENTIALS.md
+LOGIN_CREDENTIALS.md
+*.backup
+cookies*.txt
+.mcp.json
+nul

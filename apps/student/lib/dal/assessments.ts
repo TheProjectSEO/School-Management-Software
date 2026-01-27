@@ -1,8 +1,9 @@
 /**
  * Assessments data access functions
+ * Uses service client to bypass RLS for student data access
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import type { Assessment, AssessmentSubmission, Course, QueryOptions } from "./types";
 
 /**
@@ -12,7 +13,7 @@ export async function getUpcomingAssessments(
   studentId: string,
   limit: number = 10
 ): Promise<(Assessment & { course: Course; submission?: AssessmentSubmission })[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Get student's enrolled course IDs
   const { data: enrollments } = await supabase
@@ -67,7 +68,7 @@ export async function getCourseAssessments(
   courseId: string,
   studentId: string
 ): Promise<(Assessment & { submission?: AssessmentSubmission })[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data: assessments, error } = await supabase
     .from("assessments")
@@ -105,7 +106,7 @@ export const getSubjectAssessments = getCourseAssessments;
  * Get a single assessment with course details
  */
 export async function getAssessmentById(assessmentId: string): Promise<(Assessment & { course?: Course }) | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("assessments")
@@ -133,7 +134,7 @@ export async function getAssessmentSubmission(
   assessmentId: string,
   studentId: string
 ): Promise<AssessmentSubmission | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("submissions")
@@ -160,7 +161,7 @@ export async function submitAssessment(
   studentId: string,
   _answers: Record<string, unknown>
 ): Promise<AssessmentSubmission | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("submissions")
@@ -192,7 +193,7 @@ export async function getGradedAssessments(
     assessment: Assessment & { course: Course };
   })[]
 > {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const pageSize = options?.pageSize || 20;
   const page = options?.page || 1;
@@ -231,7 +232,7 @@ export async function getAssessmentStats(studentId: string): Promise<{
   pending: number;
   averageScore: number | null;
 }> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Get total assessments for enrolled courses
   const { data: enrollments } = await supabase

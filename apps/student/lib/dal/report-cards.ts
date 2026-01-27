@@ -7,7 +7,7 @@
  * Data source: "public".report_cards table
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import type {
   ReportCard,
   ReportCardGrade,
@@ -39,7 +39,7 @@ export async function getStudentReportCards(
   studentId: string
 ): Promise<ReportCard[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("report_cards")
@@ -100,7 +100,7 @@ export async function getReportCard(
   studentId: string
 ): Promise<ReportCard | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("report_cards")
@@ -168,7 +168,7 @@ export async function getLatestReportCard(
   studentId: string
 ): Promise<ReportCard | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("report_cards")
@@ -233,7 +233,7 @@ export async function getReportCardByPeriod(
   gradingPeriodId: string
 ): Promise<ReportCard | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("report_cards")
@@ -297,7 +297,7 @@ export async function getAvailableReportCardPeriods(
   studentId: string
 ): Promise<{ id: string; name: string; academic_year: string }[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("report_cards")
@@ -355,7 +355,7 @@ export async function getAvailableReportCardPeriods(
  */
 export async function countStudentReportCards(studentId: string): Promise<number> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { count, error } = await supabase
       .from("report_cards")

@@ -1,8 +1,10 @@
 /**
  * Student data access functions
+ * Uses service client to bypass RLS for student data access
  */
 
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import type { Student, Profile } from "./types";
 
 /**
@@ -75,7 +77,7 @@ export async function getCurrentStudent(): Promise<(Student & { profile: Profile
 export async function getStudentById(
   studentId: string
 ): Promise<(Student & { profile: Profile }) | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("students")
@@ -106,7 +108,7 @@ export async function updateStudentProfile(
   profileId: string,
   updates: Partial<Pick<Profile, "full_name" | "phone" | "avatar_url">>
 ): Promise<Profile | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   console.log("Updating profile:", { profileId, updates });
 
@@ -150,7 +152,7 @@ export async function getStudentProgressStats(studentId: string): Promise<{
   completedLessons: number;
   inProgressLessons: number;
 }> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Get enrollments count
   const { count: totalCourses } = await supabase
@@ -185,7 +187,7 @@ export async function getStudentProgressStats(studentId: string): Promise<{
 export async function getStudentSkillMastery(
   studentId: string
 ): Promise<{ courseId: string; courseName: string; masteryPercent: number }[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("enrollments")

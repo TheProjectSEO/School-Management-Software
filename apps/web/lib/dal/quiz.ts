@@ -1,9 +1,9 @@
 /**
  * Quiz data access functions
- * Uses service client to bypass RLS for student data access
  */
 
-import { createServiceClient } from "@/lib/supabase/service";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { generateAiDraftEvaluation } from "@/lib/ai/assessment-grader";
 import type {
   Question,
@@ -23,11 +23,13 @@ function isTableNotFoundError(error: { code?: string }): boolean {
 
 /**
  * Get assessment with full details including questions (without correct answers for students)
+ * Uses admin client to bypass RLS since students need to read published assessments
  */
 export async function getAssessmentForQuiz(
   assessmentId: string
 ): Promise<AssessmentWithDetails | null> {
-  const supabase = createServiceClient();
+  // Use admin client to bypass RLS - students need to read assessments
+  const supabase = createAdminClient();
 
   const { data: assessment, error } = await supabase
     .from("assessments")
@@ -50,32 +52,69 @@ export async function getAssessmentForQuiz(
 
 /**
  * Get questions for an assessment (without correct answers - for taking quiz)
+ * Checks both 'questions' table and 'teacher_assessment_questions' table as fallback
+ * Uses admin client to bypass RLS since students need to read teacher-created questions
  */
 export async function getQuestionsForQuiz(
   assessmentId: string
 ): Promise<Question[]> {
-  const supabase = createServiceClient();
+  // Use admin client to bypass RLS - students need to read questions
+  const supabase = createAdminClient();
 
-  // First get questions
-  const { data: questions, error: questionsError } = await supabase
+  // First try the 'questions' table (used by AI save-assessment)
+  let { data: questions, error: questionsError } = await supabase
     .from("questions")
     .select("id, assessment_id, question_text, question_type, points, order_index, created_at")
     .eq("assessment_id", assessmentId)
     .order("order_index", { ascending: true });
 
-  if (questionsError) {
-    // Only log error if it's not a table-not-found error (quiz tables may not exist yet)
-    if (!isTableNotFoundError(questionsError)) {
-      console.error("Error fetching questions:", questionsError);
+  if (questionsError && !isTableNotFoundError(questionsError)) {
+    console.error("Error fetching questions:", questionsError);
+  }
+
+  // If no questions found, try 'teacher_assessment_questions' table as fallback
+  if (!questions || questions.length === 0) {
+    const { data: taqQuestions, error: taqError } = await supabase
+      .from("teacher_assessment_questions")
+      .select("id, assessment_id, question_text, question_type, points, order_index, choices_json, created_at")
+      .eq("assessment_id", assessmentId)
+      .order("order_index", { ascending: true });
+
+    if (taqError && !isTableNotFoundError(taqError)) {
+      console.error("Error fetching teacher_assessment_questions:", taqError);
+    }
+
+    if (taqQuestions && taqQuestions.length > 0) {
+      // Convert teacher_assessment_questions format to Question format
+      return taqQuestions.map((q: any) => {
+        const options: AnswerOption[] = [];
+        if (q.choices_json && Array.isArray(q.choices_json)) {
+          q.choices_json.forEach((choice: any, idx: number) => {
+            options.push({
+              id: `${q.id}-opt-${idx}`,
+              question_id: q.id,
+              option_text: typeof choice === 'string' ? choice : choice.text || choice.label || String(choice),
+              is_correct: false, // Don't expose correct answers
+              order_index: idx,
+            });
+          });
+        }
+        return {
+          id: q.id,
+          assessment_id: q.assessment_id,
+          question_text: q.question_text,
+          question_type: q.question_type,
+          points: q.points,
+          order_index: q.order_index,
+          created_at: q.created_at,
+          options,
+        } as Question;
+      });
     }
     return [];
   }
 
-  if (!questions || questions.length === 0) {
-    return [];
-  }
-
-  // Get options for all questions
+  // Get options for questions from answer_options table
   const questionIds = questions.map((q) => q.id);
   const { data: options, error: optionsError } = await supabase
     .from("answer_options")
@@ -106,31 +145,73 @@ export async function getQuestionsForQuiz(
 
 /**
  * Get questions with correct answers (for grading/review)
+ * Checks both 'questions' table and 'teacher_assessment_questions' table as fallback
+ * Uses admin client to bypass RLS
  */
 export async function getQuestionsWithAnswers(
   assessmentId: string
 ): Promise<Question[]> {
-  const supabase = createServiceClient();
+  const supabase = createAdminClient();
 
-  const { data: questions, error: questionsError } = await supabase
+  // First try the 'questions' table
+  let { data: questions, error: questionsError } = await supabase
     .from("questions")
     .select("*")
     .eq("assessment_id", assessmentId)
     .order("order_index", { ascending: true });
 
-  if (questionsError) {
-    // Only log error if it's not a table-not-found error (quiz tables may not exist yet)
-    if (!isTableNotFoundError(questionsError)) {
-      console.error("Error fetching questions:", questionsError);
+  if (questionsError && !isTableNotFoundError(questionsError)) {
+    console.error("Error fetching questions:", questionsError);
+  }
+
+  // If no questions found, try 'teacher_assessment_questions' table as fallback
+  if (!questions || questions.length === 0) {
+    const { data: taqQuestions, error: taqError } = await supabase
+      .from("teacher_assessment_questions")
+      .select("*")
+      .eq("assessment_id", assessmentId)
+      .order("order_index", { ascending: true });
+
+    if (taqError && !isTableNotFoundError(taqError)) {
+      console.error("Error fetching teacher_assessment_questions:", taqError);
+    }
+
+    if (taqQuestions && taqQuestions.length > 0) {
+      // Convert teacher_assessment_questions format to Question format
+      return taqQuestions.map((q: any) => {
+        const options: AnswerOption[] = [];
+        if (q.choices_json && Array.isArray(q.choices_json)) {
+          q.choices_json.forEach((choice: any, idx: number) => {
+            const isCorrect = q.answer_key_json?.correctIndex === idx ||
+              q.answer_key_json?.correct === idx ||
+              (Array.isArray(q.answer_key_json) && q.answer_key_json.includes(idx));
+            options.push({
+              id: `${q.id}-opt-${idx}`,
+              question_id: q.id,
+              option_text: typeof choice === 'string' ? choice : choice.text || choice.label || String(choice),
+              is_correct: Boolean(isCorrect),
+              order_index: idx,
+            });
+          });
+        }
+        return {
+          id: q.id,
+          assessment_id: q.assessment_id,
+          question_text: q.question_text,
+          question_type: q.question_type,
+          points: q.points,
+          correct_answer: q.answer_key_json?.answer || null,
+          explanation: null,
+          order_index: q.order_index,
+          created_at: q.created_at,
+          options,
+        } as Question;
+      });
     }
     return [];
   }
 
-  if (!questions || questions.length === 0) {
-    return [];
-  }
-
-  // Get all options with is_correct
+  // Get all options with is_correct from answer_options table
   const questionIds = questions.map((q) => q.id);
   const { data: options, error: optionsError } = await supabase
     .from("answer_options")
@@ -157,13 +238,14 @@ export async function getQuestionsWithAnswers(
 
 /**
  * Start a quiz - creates a pending submission
+ * Uses admin client to bypass RLS for creating submissions
  */
 export async function startQuiz(
   assessmentId: string,
   studentId: string,
   schoolId: string
 ): Promise<{ submissionId: string } | null> {
-  const supabase = createServiceClient();
+  const supabase = createAdminClient();
 
   // Check for existing pending submission
   const { data: existing } = await supabase
@@ -211,6 +293,7 @@ export async function startQuiz(
 
 /**
  * Save a single answer (auto-save during quiz)
+ * Uses admin client to bypass RLS for saving student answers
  */
 export async function saveAnswer(
   submissionId: string,
@@ -218,7 +301,7 @@ export async function saveAnswer(
   selectedOptionId?: string,
   textAnswer?: string
 ): Promise<boolean> {
-  const supabase = createServiceClient();
+  const supabase = createAdminClient();
 
   const { data: submission, error: statusError } = await supabase
     .from("submissions")
@@ -259,11 +342,12 @@ export async function saveAnswer(
 
 /**
  * Get saved answers for a submission
+ * Uses admin client to bypass RLS for reading student answers
  */
 export async function getSavedAnswers(
   submissionId: string
 ): Promise<Map<string, { selectedOptionId?: string; textAnswer?: string }>> {
-  const supabase = createServiceClient();
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from("student_answers")
@@ -291,13 +375,14 @@ export async function getSavedAnswers(
 
 /**
  * Submit quiz and calculate score
+ * Uses admin client to bypass RLS for updating submission data
  */
 export async function submitQuiz(
   submissionId: string,
   assessmentId: string,
   payload: QuizSubmissionPayload
 ): Promise<QuizResult | null> {
-  const supabase = createServiceClient();
+  const supabase = createAdminClient();
 
   const { data: submission, error: submissionError } = await supabase
     .from("submissions")
@@ -347,9 +432,16 @@ export async function submitQuiz(
       isCorrect = correctOption?.id === answer.selected_option_id;
       pointsEarned = isCorrect ? question.points : 0;
     } else if (question.question_type === "true_false") {
-      // For true/false, check against correct_answer
-      const studentAnswer = answer.selected_option_id?.toLowerCase();
-      isCorrect = studentAnswer === question.correct_answer?.toLowerCase();
+      // For true/false, check if options exist (custom choices) or use standard true/false
+      if (question.options && question.options.length > 0) {
+        // Check against the correct option (like multiple_choice)
+        const correctOption = question.options.find((o) => o.is_correct);
+        isCorrect = correctOption?.id === answer.selected_option_id;
+      } else {
+        // Standard true/false - check against correct_answer string
+        const studentAnswer = answer.selected_option_id?.toLowerCase();
+        isCorrect = studentAnswer === question.correct_answer?.toLowerCase();
+      }
       pointsEarned = isCorrect ? question.points : 0;
     } else if (question.question_type === "short_answer" || question.question_type === "essay") {
       subjectivePoints += question.points;
@@ -483,11 +575,12 @@ export async function submitQuiz(
 
 /**
  * Get quiz result for a submission
+ * Uses admin client to bypass RLS for reading submission and answers
  */
 export async function getQuizResult(
   submissionId: string
 ): Promise<QuizResult | null> {
-  const supabase = createServiceClient();
+  const supabase = createAdminClient();
 
   // Get submission
   const { data: submission, error: subError } = await supabase
@@ -538,12 +631,13 @@ export async function getQuizResult(
 
 /**
  * Check if student can take assessment (hasn't exceeded max attempts)
+ * Uses admin client to bypass RLS for reading assessment and submission data
  */
 export async function canTakeAssessment(
   assessmentId: string,
   studentId: string
 ): Promise<{ canTake: boolean; reason?: string; attemptCount: number }> {
-  const supabase = createServiceClient();
+  const supabase = createAdminClient();
 
   // Get assessment max attempts
   const { data: assessment } = await supabase
@@ -585,12 +679,13 @@ export async function canTakeAssessment(
 
 /**
  * Get pending submission for a student (in-progress quiz)
+ * Uses admin client to bypass RLS for reading submission data
  */
 export async function getPendingSubmission(
   assessmentId: string,
   studentId: string
 ): Promise<{ submissionId: string; startedAt: string } | null> {
-  const supabase = createServiceClient();
+  const supabase = createAdminClient();
 
   const { data, error } = await supabase
     .from("submissions")

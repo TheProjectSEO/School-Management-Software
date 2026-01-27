@@ -10,7 +10,7 @@
  * - notes, created_at
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import type {
   DailyAttendance,
   AttendanceSummary,
@@ -41,7 +41,7 @@ export async function getStudentDailyAttendance(
   filters?: AttendanceFilters
 ): Promise<DailyAttendance[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase
       .from('teacher_attendance')
@@ -113,7 +113,7 @@ export async function getAttendanceSummary(
   filters?: Pick<AttendanceFilters, 'startDate' | 'endDate'>
 ): Promise<AttendanceSummary> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase
       .from('teacher_attendance')
@@ -219,7 +219,7 @@ export async function getAttendanceCalendar(
   month: number
 ): Promise<AttendanceCalendarEntry[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Calculate date range for the month
     const startDate = `${year}-${String(month).padStart(2, '0')}-01`;

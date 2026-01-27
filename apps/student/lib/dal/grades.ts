@@ -3,12 +3,13 @@
  *
  * Provides type-safe database queries for student grades, GPA records,
  * and report cards. All queries use the "public" schema.
+ * Uses service client to bypass RLS for student data access.
  *
  * IMPORTANT: Students should only see grades where is_released = true.
- * RLS policies enforce this at the database level.
+ * This is enforced via explicit filters.
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import type {
   CourseGrade,
   SemesterGPA,
@@ -40,7 +41,7 @@ export async function getStudentCourseGrades(
   gradingPeriodId?: string
 ): Promise<CourseGrade[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase
       .from("course_grades")
@@ -96,7 +97,7 @@ export async function getCourseGradeHistory(
   courseId: string
 ): Promise<CourseGrade[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("course_grades")
@@ -148,7 +149,7 @@ export async function getCurrentGPA(
   studentId: string
 ): Promise<SemesterGPA | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("semester_gpa")
@@ -190,7 +191,7 @@ export async function getCurrentGPA(
  */
 export async function getGPAHistory(studentId: string): Promise<SemesterGPA[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("semester_gpa")
@@ -229,7 +230,7 @@ export async function getGPAHistory(studentId: string): Promise<SemesterGPA[]> {
  */
 export async function getGPATrend(studentId: string): Promise<GPATrendPoint[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("semester_gpa")
@@ -288,7 +289,7 @@ export async function getStudentReportCards(
   studentId: string
 ): Promise<ReportCard[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("report_cards")
@@ -332,7 +333,7 @@ export async function getReportCard(
   studentId: string
 ): Promise<ReportCard | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("report_cards")
@@ -381,7 +382,7 @@ export async function getGradeSummary(
   gradingPeriodId: string
 ): Promise<GradeSummary | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get course grades for the period
     const { data: grades, error: gradesError } = await supabase
@@ -477,7 +478,7 @@ export async function getStudentGradingPeriods(
   studentId: string
 ): Promise<{ id: string; name: string; academic_year: string }[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get distinct grading periods from released grades
     const { data, error } = await supabase

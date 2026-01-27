@@ -1,8 +1,9 @@
 /**
  * Subjects (Courses) and modules data access functions
+ * Uses service client to bypass RLS for student data access
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import type { Course, Module, Lesson, Enrollment, Progress, QueryOptions } from "./types";
 
 /**
@@ -12,7 +13,7 @@ export async function getStudentSubjects(
   studentId: string,
   options?: QueryOptions
 ): Promise<(Enrollment & { course: Course; progress_percent: number })[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("enrollments")
@@ -55,7 +56,7 @@ export async function getSubjectWithModules(courseId: string): Promise<
     })
   | null
 > {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data: course, error: courseError } = await supabase
     .from("courses")
@@ -99,7 +100,7 @@ export async function getSubjectWithModules(courseId: string): Promise<
 export async function getModuleWithLessons(
   moduleId: string
 ): Promise<(Module & { lessons: Lesson[]; course: Course }) | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("modules")
@@ -126,7 +127,7 @@ export async function getModuleWithLessons(
  * Get student's progress for a course
  */
 export async function getSubjectProgress(studentId: string, courseId: string): Promise<Progress[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("student_progress")
@@ -151,7 +152,7 @@ export async function updateLessonProgress(
   lessonId: string,
   progressPercent: number
 ): Promise<boolean> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { error } = await supabase.from("student_progress").upsert(
     {
@@ -182,7 +183,7 @@ export async function getRecentSubjects(
   studentId: string,
   limit: number = 5
 ): Promise<(Course & { last_accessed: string; progress_percent: number })[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("student_progress")
@@ -221,7 +222,7 @@ export async function getRecentSubjects(
  * Get a single subject/course by ID
  */
 export async function getSubjectById(courseId: string): Promise<Course | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("courses")
@@ -241,7 +242,7 @@ export async function getSubjectById(courseId: string): Promise<Course | null> {
  * Get all modules for a subject/course
  */
 export async function getModulesBySubject(courseId: string): Promise<Module[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("modules")
@@ -262,7 +263,7 @@ export async function getModulesBySubject(courseId: string): Promise<Module[]> {
  * Get a single module by ID
  */
 export async function getModuleById(moduleId: string): Promise<Module | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("modules")
@@ -282,7 +283,7 @@ export async function getModuleById(moduleId: string): Promise<Module | null> {
  * Get all lessons for a module
  */
 export async function getLessonsByModule(moduleId: string): Promise<Lesson[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("lessons")
@@ -303,7 +304,7 @@ export async function getLessonsByModule(moduleId: string): Promise<Lesson[]> {
  * Get a single lesson by ID
  */
 export async function getLessonById(lessonId: string): Promise<Lesson | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("lessons")
@@ -326,7 +327,7 @@ export async function getLessonWithProgress(
   lessonId: string,
   studentId: string
 ): Promise<(Lesson & { progress_percent: number; completed: boolean }) | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data: lesson, error: lessonError } = await supabase
     .from("lessons")

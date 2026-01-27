@@ -1,0 +1,21 @@
+{
+  "name": "MSU School Management System",
+  "short_name": "MSU SMS",
+  "description": "Unified school management platform for Mindanao State University",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#7B1113",
+  "icons": [
+    {
+      "src": "/brand/logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/brand/logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

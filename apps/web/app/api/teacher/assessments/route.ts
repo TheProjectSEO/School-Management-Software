@@ -1,0 +1,135 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { requireTeacher } from '@/lib/auth/requireTeacher'
+
+export async function GET(request: NextRequest) {
+  try {
+    const authResult = await requireTeacher()
+    if (!authResult.success) {
+      return authResult.response
+    }
+
+    const { teacherId } = authResult.teacher
+    const supabase = createAdminClient()
+    const { searchParams } = new URL(request.url)
+    const courseId = searchParams.get('course_id')
+
+    // Build query
+    let query = supabase
+      .from('assessments')
+      .select(`
+        *,
+        courses:course_id (
+          id,
+          name,
+          subject_code
+        )
+      `)
+      .eq('created_by', teacherId)
+      .order('created_at', { ascending: false })
+
+    if (courseId) {
+      query = query.eq('course_id', courseId)
+    }
+
+    const { data: assessments, error } = await query
+
+    if (error) {
+      console.error('Error fetching assessments:', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ assessments })
+  } catch (error) {
+    console.error('Error in GET /api/teacher/assessments:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const authResult = await requireTeacher()
+    if (!authResult.success) {
+      return authResult.response
+    }
+
+    const { teacherId, schoolId } = authResult.teacher
+    const supabase = createAdminClient()
+    const body = await request.json()
+
+    const {
+      title,
+      type,
+      course_id,
+      section_id,
+      instructions,
+      due_date,
+      time_limit_minutes,
+      max_attempts,
+      total_points,
+      status,
+      questions
+    } = body
+
+    // Create assessment
+    const { data: assessment, error: assessmentError } = await supabase
+      .from('assessments')
+      .insert({
+        title,
+        type,
+        course_id,
+        section_id,
+        school_id: schoolId,
+        instructions,
+        due_date,
+        time_limit_minutes,
+        max_attempts,
+        total_points,
+        status: status || 'draft',
+        created_by: teacherId
+      })
+      .select()
+      .single()
+
+    if (assessmentError) {
+      console.error('Error creating assessment:', assessmentError)
+      return NextResponse.json({ error: assessmentError.message }, { status: 500 })
+    }
+
+    // If questions are provided, create them
+    if (questions && questions.length > 0) {
+      // Map 'multiple_choice' to 'true_false' since DB constraint doesn't include 'multiple_choice'
+      const mapQuestionType = (type: string) => type === 'multiple_choice' ? 'true_false' : (type || 'true_false')
+
+      const questionsToInsert = questions.map((q: any, index: number) => ({
+        assessment_id: assessment.id,
+        question_text: q.question_text,
+        question_type: mapQuestionType(q.question_type),
+        choices_json: q.choices_json || null,
+        answer_key_json: q.answer_key_json || null,
+        points: q.points || 1,
+        order_index: q.order_index !== undefined ? q.order_index : (q.order !== undefined ? q.order : index)
+      }))
+
+      const { error: questionsError } = await supabase
+        .from('teacher_assessment_questions')
+        .insert(questionsToInsert)
+
+      if (questionsError) {
+        console.error('Error creating questions:', questionsError)
+        // Rollback assessment creation
+        await supabase
+          .from('assessments')
+          .delete()
+          .eq('id', assessment.id)
+
+        return NextResponse.json({ error: questionsError.message }, { status: 500 })
+      }
+    }
+
+    return NextResponse.json({ assessment }, { status: 201 })
+  } catch (error) {
+    console.error('Error in POST /api/teacher/assessments:', error)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}

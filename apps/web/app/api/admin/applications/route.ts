@@ -1,0 +1,45 @@
+import { NextRequest, NextResponse } from "next/server";
+import { getCurrentAdmin, hasPermission } from "@/lib/dal/admin";
+import { createAdminClient } from "@/lib/supabase/admin";
+
+export async function GET(req: NextRequest) {
+  try {
+    const admin = await getCurrentAdmin();
+    if (!admin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const canRead = await hasPermission("enrollments:read");
+    if (!canRead) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    const supabase = createAdminClient();
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get("status");
+    const limit = Number(searchParams.get("limit") || 50);
+
+    let query = supabase
+      .from("student_applications")
+      .select(
+        "id, first_name, last_name, email, phone, applying_for_grade, preferred_track, status, submitted_at, updated_at, qr_code_id"
+      )
+      .order("submitted_at", { ascending: false })
+      .limit(Math.min(limit, 200));
+
+    if (status) {
+      query = query.eq("status", status);
+    }
+
+    const { data, error } = await query;
+    if (error) {
+      console.error("admin applications list error", error);
+      return NextResponse.json({ error: "Failed to list applications" }, { status: 500 });
+    }
+
+    return NextResponse.json({ applications: data });
+  } catch (error) {
+    console.error("Error in GET /api/admin/applications:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+  }
+}

@@ -1,0 +1,109 @@
+/**
+ * Recording Playback Page
+ * View past live session recordings
+ */
+
+import { notFound, redirect } from 'next/navigation';
+import { createClient } from '@/lib/supabase/server';
+import { getCurrentProfile } from '@/lib/dal/auth';
+import { RecordingsClient } from './RecordingsClient';
+
+interface PageProps {
+  params: Promise<{ subjectId: string }>;
+}
+
+export default async function RecordingsPage({ params }: PageProps) {
+  const { subjectId } = await params;
+  const supabase = await createClient();
+  const profile = await getCurrentProfile();
+
+  if (!profile || profile.role !== 'student') {
+    redirect('/login');
+  }
+
+  // Get student profile
+  const { data: student } = await supabase
+    .from('students')
+    .select('id')
+    .eq('profile_id', profile.id)
+    .single();
+
+  if (!student) {
+    return notFound();
+  }
+
+  // Get course (subjectId is actually courseId in the URL)
+  const { data: course } = await supabase
+    .from('courses')
+    .select(
+      `
+      id,
+      name,
+      subject_code,
+      section:sections(id, name, grade_level)
+    `
+    )
+    .eq('id', subjectId)
+    .single();
+
+  if (!course) {
+    return notFound();
+  }
+
+  // Verify enrollment
+  const { data: enrollment } = await supabase
+    .from('enrollments')
+    .select('id')
+    .eq('student_id', student.id)
+    .eq('course_id', course.id)
+    .single();
+
+  if (!enrollment) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-800 mb-2">Not Enrolled</h1>
+          <p className="text-gray-600">You are not enrolled in this course.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Get all recorded sessions for this course
+  const { data: sessions } = await supabase
+    .from('live_sessions')
+    .select(
+      `
+      *,
+      module:modules(id, title)
+    `
+    )
+    .eq('course_id', course.id)
+    .eq('status', 'ended')
+    .not('recording_url', 'is', null)
+    .order('actual_start', { ascending: false });
+
+  // Handle section being returned as array from Supabase join
+  const section = Array.isArray(course.section) ? course.section[0] : course.section;
+  const gradeLevel = section?.grade_level || '10';
+
+  // The recording_url stored in the database is already a public URL from Supabase storage
+  // No need to create signed URLs - just pass the sessions directly
+  const validSessions = (sessions || []).filter(session => session.recording_url);
+
+  // Normalize the course object for the client component
+  const normalizedCourse = {
+    id: course.id,
+    name: course.name,
+    subject_code: course.subject_code,
+    section: section ? { id: section.id, name: section.name, grade_level: section.grade_level } : undefined,
+  };
+
+  return (
+    <RecordingsClient
+      course={normalizedCourse}
+      sessions={validSessions}
+      gradeLevel={gradeLevel}
+    />
+  );
+}

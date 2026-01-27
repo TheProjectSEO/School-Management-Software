@@ -351,6 +351,7 @@ export default function AttendanceReportPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Attendance Trend */}
           <ChartCard title="Attendance Trend" subtitle="Daily attendance rate over time">
+            {/* @ts-expect-error React type mismatch with recharts */}
             <ResponsiveContainer width="100%" height={300}>
               <AreaChart data={summary.trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -378,6 +379,7 @@ export default function AttendanceReportPage() {
 
           {/* Attendance by Section */}
           <ChartCard title="Attendance by Section" subtitle="Comparison across sections">
+            {/* @ts-expect-error React type mismatch with recharts */}
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={summary.bySection} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />

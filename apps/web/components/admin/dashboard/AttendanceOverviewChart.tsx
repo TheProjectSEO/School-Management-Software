@@ -10,6 +10,7 @@ export default function AttendanceOverviewChart({
   data,
 }: AttendanceOverviewChartProps) {
   return (
+    // @ts-expect-error React type mismatch with recharts
     <ResponsiveContainer width="100%" height={300}>
       <PieChart>
         <Pie

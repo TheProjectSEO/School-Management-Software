@@ -372,6 +372,7 @@ export default function GradesReportPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Grade Distribution Pie Chart */}
           <ChartCard title="Grade Distribution" subtitle={`${filters.gradingPeriod} - All Sections`}>
+            {/* @ts-expect-error React type mismatch with recharts */}
             <ResponsiveContainer width="100%" height={280}>
               <PieChart>
                 <Pie
@@ -405,6 +406,7 @@ export default function GradesReportPage() {
 
           {/* Average by Course */}
           <ChartCard title="Average by Course" subtitle="Comparison across subjects">
+            {/* @ts-expect-error React type mismatch with recharts */}
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={summary.byCourse} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -424,6 +426,7 @@ export default function GradesReportPage() {
 
           {/* Grade Trend */}
           <ChartCard title="Performance Trend" subtitle="Average grade over time">
+            {/* @ts-expect-error React type mismatch with recharts */}
             <ResponsiveContainer width="100%" height={280}>
               <LineChart data={summary.trend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />

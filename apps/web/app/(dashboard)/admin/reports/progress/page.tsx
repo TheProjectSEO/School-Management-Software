@@ -343,6 +343,7 @@ export default function ProgressReportPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Enrollment Trend */}
           <ChartCard title="Enrollment & Completion Trend" subtitle="Monthly progression through the academic year">
+            {/* @ts-expect-error React type mismatch with recharts */}
             <ResponsiveContainer width="100%" height={300}>
               <ComposedChart data={summary.enrollmentTrend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -379,6 +380,7 @@ export default function ProgressReportPage() {
 
           {/* Performance Distribution */}
           <ChartCard title="Student Performance Distribution" subtitle="Categorized by academic standing">
+            {/* @ts-expect-error React type mismatch with recharts */}
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={summary.performanceDistribution}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />

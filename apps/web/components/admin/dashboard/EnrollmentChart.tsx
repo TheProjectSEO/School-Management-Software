@@ -16,6 +16,7 @@ interface EnrollmentChartProps {
 
 export default function EnrollmentChart({ data }: EnrollmentChartProps) {
   return (
+    // @ts-expect-error React type mismatch with recharts
     <ResponsiveContainer width="100%" height={300}>
       <AreaChart
         data={data}

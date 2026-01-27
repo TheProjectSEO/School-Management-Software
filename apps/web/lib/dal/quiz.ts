@@ -201,7 +201,7 @@ export async function getQuestionsWithAnswers(
           question_type: q.question_type,
           points: q.points,
           correct_answer: q.answer_key_json?.answer || null,
-          explanation: null,
+          explanation: undefined,
           order_index: q.order_index,
           created_at: q.created_at,
           options,

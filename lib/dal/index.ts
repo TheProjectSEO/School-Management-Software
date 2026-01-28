@@ -88,8 +88,6 @@ export {
   getStudentUnreadMessageCount,
   getAvailableTeachers,
   getTeacherIdByProfileId,
-  getAvailableAdmins,
-  type Admin,
 } from "./student-messages";
 
 // Export teacher assessment functions

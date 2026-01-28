@@ -1,12 +1,30 @@
 {
   "permissions": {
     "allow": [
+      "Bash(cd:*)",
+      "Bash(git status)",
+      "Bash(git diff)",
+      "Bash(git log:*)",
+      "Bash(git branch:*)",
+      "Bash(git checkout:*)",
+      "Bash(git pull)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git push:*)",
-      "Bash(npm run build:student-app:*)",
-      "Bash(npm run build:student:*)",
-      "Bash(npm run:*)"
+      "Bash(npm install)",
+      "Bash(npm ci)",
+      "Bash(npm run build:*)",
+      "Bash(npm run dev)",
+      "Bash(npm run lint)",
+      "Bash(npm run test:*)",
+      "Bash(npx create-next-app@latest . --typescript --tailwind --eslint --app --src-dir=false --import-alias=\"@/*\" --use-npm --no-git)",
+      "Bash(timeout:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(curl:*)",
+      "Bash(python3:*)",
+      "Bash(tree:*)",
+      "Bash(find:*)",
+      "Bash(xcopy /E /I /Y \"apps\\\\admin\\\\app\\\\\\(admin\\)\\\\*\" \"apps\\\\web\\\\app\\\\\\(dashboard\\)\\\\admin\"\")"
     ]
   }
 }

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 
@@ -12,7 +11,8 @@ export async function POST(request: NextRequest) {
   const { teacherId } = authResult.teacher;
 
   try {
-    const supabase = await createClient();
+    // Use service client to bypass RLS for all operations
+    const supabase = createServiceClient();
     const body = await request.json();
 
     const {
@@ -48,10 +48,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
-    // Use service client to bypass RLS for modules/lessons
-    const serviceClient = createServiceClient();
-
-    const { data: existing } = await serviceClient
+    const { data: existing } = await supabase
       .from("modules")
       .select("order")
       .eq("course_id", courseId)
@@ -67,7 +64,7 @@ export async function POST(request: NextRequest) {
         )
       : 0;
 
-    const { data: module, error: moduleError } = await serviceClient
+    const { data: module, error: moduleError } = await supabase
       .from("modules")
       .insert({
         course_id: courseId,
@@ -106,13 +103,13 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    const { error: lessonsError } = await serviceClient
+    const { error: lessonsError } = await supabase
       .from("lessons")
       .insert(lessonRows);
 
     if (lessonsError) {
       console.error("Lessons insert error:", lessonsError);
-      await serviceClient.from("modules").delete().eq("id", module.id);
+      await supabase.from("modules").delete().eq("id", module.id);
       return NextResponse.json(
         { error: "Failed to create lessons" },
         { status: 500 }

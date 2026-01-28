@@ -45,6 +45,28 @@ interface SearchStudent {
   grade_level?: string;
 }
 
+interface GroupChat {
+  id: string;
+  section_id: string;
+  name: string;
+  description?: string;
+  section_name: string;
+  member_count: number;
+  last_message_body?: string;
+  last_message_at?: string;
+  last_message_sender?: string;
+}
+
+interface GroupMessage {
+  id: string;
+  sender_profile_id: string;
+  sender_name: string;
+  sender_avatar_url?: string;
+  sender_role: string;
+  body: string;
+  created_at: string;
+}
+
 interface MessagesInterfaceProps {
   userId?: string;
   teacherId?: string;
@@ -70,6 +92,10 @@ export default function MessagesInterface({
   const [studentSearch, setStudentSearch] = useState("");
   const [searchResults, setSearchResults] = useState<SearchStudent[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [groupChats, setGroupChats] = useState<GroupChat[]>([]);
+  const [selectedGroupChat, setSelectedGroupChat] = useState<GroupChat | null>(null);
+  const [groupMessages, setGroupMessages] = useState<GroupMessage[]>([]);
+  const [activeTab, setActiveTab] = useState<"direct" | "groups">("direct");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabaseRef = useRef(createClient());
   const selectedConversationRef = useRef<Conversation | null>(null);
@@ -111,6 +137,114 @@ export default function MessagesInterface({
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
+
+  // Fetch group chats
+  const fetchGroupChats = useCallback(async () => {
+    try {
+      const response = await fetchWithAuth("/api/teacher/messages/groups");
+      if (response.ok) {
+        const data = await response.json();
+        setGroupChats(data.groupChats || []);
+      }
+    } catch (err) {
+      console.error("Error fetching group chats:", err);
+    }
+  }, []);
+
+  // Sync/create group chats for teacher's sections
+  const syncGroupChats = useCallback(async () => {
+    try {
+      const response = await fetchWithAuth("/api/teacher/messages/groups", {
+        method: "POST",
+      });
+      if (response.ok) {
+        // Refresh group chats after sync
+        fetchGroupChats();
+      }
+    } catch (err) {
+      console.error("Error syncing group chats:", err);
+    }
+  }, [fetchGroupChats]);
+
+  // Fetch group chats on mount and sync
+  useEffect(() => {
+    syncGroupChats();
+  }, [syncGroupChats]);
+
+  // Fetch messages for selected group chat
+  const fetchGroupMessages = useCallback(async (groupId: string) => {
+    try {
+      const response = await fetchWithAuth(`/api/teacher/messages/groups/${groupId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setGroupMessages(data.messages || []);
+      }
+    } catch (err) {
+      console.error("Error fetching group messages:", err);
+    }
+  }, []);
+
+  // Handle group chat selection
+  useEffect(() => {
+    if (selectedGroupChat) {
+      fetchGroupMessages(selectedGroupChat.id);
+      setSelectedConversation(null); // Deselect direct conversation
+    }
+  }, [selectedGroupChat, fetchGroupMessages]);
+
+  // Handle direct conversation selection
+  const handleSelectConversation = (conversation: Conversation) => {
+    setSelectedConversation(conversation);
+    setSelectedGroupChat(null); // Deselect group chat
+  };
+
+  // Handle sending group message
+  const handleSendGroupMessage = async () => {
+    if (!newMessage.trim() || !selectedGroupChat || isSending) return;
+
+    const messageContent = newMessage.trim();
+    const tempId = `temp-${Date.now()}`;
+
+    // Optimistic update
+    const optimisticMessage: GroupMessage = {
+      id: tempId,
+      sender_profile_id: profileId || "",
+      sender_name: "You",
+      sender_role: "teacher",
+      body: messageContent,
+      created_at: new Date().toISOString(),
+    };
+
+    setGroupMessages((prev) => [...prev, optimisticMessage]);
+    setNewMessage("");
+    setIsSending(true);
+
+    try {
+      const response = await fetchWithAuth(`/api/teacher/messages/groups/${selectedGroupChat.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: messageContent }),
+      });
+
+      if (!response.ok) {
+        setGroupMessages((prev) => prev.filter((m) => m.id !== tempId));
+        throw new Error("Failed to send message");
+      }
+
+      const data = await response.json();
+      setGroupMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, id: data.message_id } : m))
+      );
+
+      // Refresh group chats to update last message
+      fetchGroupChats();
+    } catch (err) {
+      console.error("Error sending group message:", err);
+      setError("Failed to send message");
+    } finally {
+      setIsSending(false);
+    }
+  };
 
   // Search for students to start new conversation
   const searchStudents = useCallback(async (query: string) => {
@@ -460,15 +594,40 @@ export default function MessagesInterface({
                   {isConnected ? "Live" : "..."}
                 </span>
               </div>
-              {/* New Message Button */}
-              <button
-                onClick={() => setShowNewConversation(true)}
-                className="p-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-                title="New Message"
-              >
-                <span className="material-symbols-outlined text-lg">add</span>
-              </button>
+              {/* New Message Button (only for direct messages) */}
+              {activeTab === "direct" && (
+                <button
+                  onClick={() => setShowNewConversation(true)}
+                  className="p-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                  title="New Message"
+                >
+                  <span className="material-symbols-outlined text-lg">add</span>
+                </button>
+              )}
             </div>
+          </div>
+          {/* Tabs */}
+          <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 rounded-lg p-1">
+            <button
+              onClick={() => setActiveTab("direct")}
+              className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-colors ${
+                activeTab === "direct"
+                  ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+              }`}
+            >
+              Direct
+            </button>
+            <button
+              onClick={() => setActiveTab("groups")}
+              className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-colors ${
+                activeTab === "groups"
+                  ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+              }`}
+            >
+              Groups
+            </button>
           </div>
         </div>
 
@@ -484,47 +643,99 @@ export default function MessagesInterface({
           </div>
         )}
 
-        <div className="overflow-y-auto" style={{ maxHeight: "calc(600px - 57px)" }}>
-          {conversations.length === 0 ? (
-            <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">
-              No conversations yet
-            </div>
-          ) : (
-            conversations.map((conversation) => (
-              <button
-                key={conversation.id}
-                onClick={() => setSelectedConversation(conversation)}
-                className={`w-full border-b border-slate-100 p-4 text-left transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-700 ${
-                  selectedConversation?.id === conversation.id
-                    ? "bg-slate-100 dark:bg-slate-700"
-                    : ""
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <p className="font-medium text-slate-900 dark:text-white">
-                      {conversation.participantName}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {conversation.participantRole}
-                    </p>
+        <div className="overflow-y-auto flex-1">
+          {activeTab === "direct" ? (
+            // Direct Messages List
+            conversations.length === 0 ? (
+              <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">
+                No conversations yet
+              </div>
+            ) : (
+              conversations.map((conversation) => (
+                <button
+                  key={conversation.id}
+                  onClick={() => handleSelectConversation(conversation)}
+                  className={`w-full border-b border-slate-100 p-4 text-left transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-700 ${
+                    selectedConversation?.id === conversation.id
+                      ? "bg-slate-100 dark:bg-slate-700"
+                      : ""
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-medium text-slate-900 dark:text-white">
+                        {conversation.participantName}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        {conversation.participantRole}
+                      </p>
+                    </div>
+                    {conversation.unreadCount > 0 && (
+                      <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-white">
+                        {conversation.unreadCount}
+                      </span>
+                    )}
                   </div>
-                  {conversation.unreadCount > 0 && (
-                    <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-white">
-                      {conversation.unreadCount}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 truncate text-sm text-slate-600 dark:text-slate-300">
-                  {conversation.lastMessage}
-                </p>
-                {conversation.lastMessageTime && (
-                  <p className="mt-1 text-xs text-slate-400">
-                    {new Date(conversation.lastMessageTime).toLocaleDateString()}
+                  <p className="mt-1 truncate text-sm text-slate-600 dark:text-slate-300">
+                    {conversation.lastMessage}
                   </p>
-                )}
-              </button>
-            ))
+                  {conversation.lastMessageTime && (
+                    <p className="mt-1 text-xs text-slate-400">
+                      {new Date(conversation.lastMessageTime).toLocaleDateString()}
+                    </p>
+                  )}
+                </button>
+              ))
+            )
+          ) : (
+            // Group Chats List
+            groupChats.length === 0 ? (
+              <div className="p-4 text-center text-sm text-slate-500 dark:text-slate-400">
+                <span className="material-symbols-outlined text-3xl mb-2 block">groups</span>
+                No section group chats yet
+              </div>
+            ) : (
+              groupChats.map((group) => (
+                <button
+                  key={group.id}
+                  onClick={() => setSelectedGroupChat(group)}
+                  className={`w-full border-b border-slate-100 p-4 text-left transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-700 ${
+                    selectedGroupChat?.id === group.id
+                      ? "bg-slate-100 dark:bg-slate-700"
+                      : ""
+                  }`}
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                        <span className="material-symbols-outlined text-purple-600 dark:text-purple-400 text-sm">
+                          groups
+                        </span>
+                      </div>
+                      <div>
+                        <p className="font-medium text-slate-900 dark:text-white">
+                          {group.section_name || group.name}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {group.member_count} members
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  {group.last_message_body && (
+                    <p className="mt-2 truncate text-sm text-slate-600 dark:text-slate-300">
+                      <span className="font-medium">{group.last_message_sender}: </span>
+                      {group.last_message_body}
+                    </p>
+                  )}
+                  {group.last_message_at && (
+                    <p className="mt-1 text-xs text-slate-400">
+                      {new Date(group.last_message_at).toLocaleDateString()}
+                    </p>
+                  )}
+                </button>
+              ))
+            )
           )}
         </div>
       </div>
@@ -532,6 +743,7 @@ export default function MessagesInterface({
       {/* Messages Area */}
       <div className="flex flex-1 flex-col">
         {selectedConversation ? (
+          // Direct Message View
           <>
             {/* Header */}
             <div className="border-b border-slate-200 p-4 dark:border-slate-700">
@@ -581,7 +793,6 @@ export default function MessagesInterface({
                             <p className="text-xs opacity-75">
                               {new Date(message.timestamp).toLocaleTimeString()}
                             </p>
-                            {/* Read receipt ticks for own messages */}
                             {isOwnMessage && messageStatus && (
                               <ReadReceiptTicks
                                 status={messageStatus}
@@ -617,12 +828,11 @@ export default function MessagesInterface({
                   value={newMessage}
                   onChange={(e) => {
                     setNewMessage(e.target.value);
-                    // Notify partner that we're typing
                     notifyTyping(e.target.value.length > 0);
                   }}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
-                      notifyTyping(false); // Stop typing indicator
+                      notifyTyping(false);
                       handleSendMessage();
                     }
                   }}
@@ -644,9 +854,124 @@ export default function MessagesInterface({
               </div>
             </div>
           </>
+        ) : selectedGroupChat ? (
+          // Group Chat View
+          <>
+            {/* Header */}
+            <div className="border-b border-slate-200 p-4 dark:border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-purple-600 dark:text-purple-400">
+                    groups
+                  </span>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-slate-900 dark:text-white">
+                    {selectedGroupChat.section_name || selectedGroupChat.name}
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {selectedGroupChat.member_count} members
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Group Messages */}
+            <div className="flex-1 overflow-y-auto p-4">
+              {groupMessages.length === 0 ? (
+                <div className="flex h-full items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+                  <div className="text-center">
+                    <span className="material-symbols-outlined text-4xl mb-2 block">forum</span>
+                    No messages yet. Start the conversation!
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {groupMessages.map((message) => {
+                    const isOwnMessage = message.sender_profile_id === profileId;
+
+                    return (
+                      <div
+                        key={message.id}
+                        className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
+                      >
+                        <div className={`max-w-xs ${isOwnMessage ? "" : "flex gap-2"}`}>
+                          {!isOwnMessage && (
+                            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center flex-shrink-0">
+                              {message.sender_avatar_url ? (
+                                <img
+                                  src={message.sender_avatar_url}
+                                  alt={message.sender_name}
+                                  className="w-full h-full rounded-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                                  {message.sender_name?.split(" ").map((n) => n[0]).join("").slice(0, 2)}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          <div
+                            className={`rounded-lg px-4 py-2 ${
+                              isOwnMessage
+                                ? "bg-primary text-white"
+                                : "bg-slate-100 text-slate-900 dark:bg-slate-700 dark:text-white"
+                            }`}
+                          >
+                            {!isOwnMessage && (
+                              <p className="text-xs font-medium mb-1 opacity-75">
+                                {message.sender_name}
+                                {message.sender_role === "teacher" && (
+                                  <span className="ml-1 text-purple-600 dark:text-purple-400">(Teacher)</span>
+                                )}
+                              </p>
+                            )}
+                            <p className="text-sm">{message.body}</p>
+                            <p className="mt-1 text-xs opacity-75 text-right">
+                              {new Date(message.created_at).toLocaleTimeString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </div>
+
+            {/* Group Input */}
+            <div className="border-t border-slate-200 p-4 dark:border-slate-700">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      handleSendGroupMessage();
+                    }
+                  }}
+                  placeholder="Type a message to the group..."
+                  disabled={isSending}
+                  className="flex-1 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-primary focus:outline-none disabled:bg-slate-100 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+                />
+                <button
+                  onClick={handleSendGroupMessage}
+                  disabled={!newMessage.trim() || isSending}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {isSending ? "..." : "Send"}
+                </button>
+              </div>
+            </div>
+          </>
         ) : (
           <div className="flex h-full items-center justify-center text-slate-500 dark:text-slate-400">
-            Select a conversation to start messaging
+            <div className="text-center">
+              <span className="material-symbols-outlined text-5xl mb-2 block">chat</span>
+              Select a conversation to start messaging
+            </div>
           </div>
         )}
       </div>

@@ -31,6 +31,18 @@ interface Conversation {
   lastMessageTime: string;
   unreadCount: number;
   studentProfileId?: string;
+  isGroupChat?: boolean;
+  sectionId?: string;
+  sectionName?: string;
+}
+
+interface SearchStudent {
+  id: string;
+  profile_id: string;
+  full_name: string;
+  avatar_url?: string;
+  section_name?: string;
+  grade_level?: string;
 }
 
 interface MessagesInterfaceProps {
@@ -43,6 +55,7 @@ interface MessagesInterfaceProps {
 export default function MessagesInterface({
   teacherId,
   profileId,
+  schoolId,
 }: MessagesInterfaceProps) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -53,6 +66,10 @@ export default function MessagesInterface({
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [showNewConversation, setShowNewConversation] = useState(false);
+  const [studentSearch, setStudentSearch] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchStudent[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabaseRef = useRef(createClient());
   const selectedConversationRef = useRef<Conversation | null>(null);
@@ -94,6 +111,78 @@ export default function MessagesInterface({
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
+
+  // Search for students to start new conversation
+  const searchStudents = useCallback(async (query: string) => {
+    if (!query.trim() || !teacherId) {
+      setSearchResults([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetchWithAuth(
+        `/api/teacher/messages/search?q=${encodeURIComponent(query)}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setSearchResults(data.students || []);
+      }
+    } catch (err) {
+      console.error("Error searching students:", err);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [teacherId]);
+
+  // Debounced search
+  useEffect(() => {
+    if (!showNewConversation) return;
+    if (!studentSearch.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      searchStudents(studentSearch);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [studentSearch, showNewConversation, searchStudents]);
+
+  // Start new conversation with a student
+  const startNewConversation = (student: SearchStudent) => {
+    // Check if conversation already exists
+    const existing = conversations.find(
+      (c) => c.studentProfileId === student.profile_id || c.participantId === student.profile_id
+    );
+    if (existing) {
+      setSelectedConversation(existing);
+      setShowNewConversation(false);
+      setStudentSearch("");
+      setSearchResults([]);
+      return;
+    }
+
+    // Create new conversation object
+    const newConv: Conversation = {
+      id: `new-${student.profile_id}`,
+      participantId: student.profile_id,
+      participantName: student.full_name,
+      participantRole: "Student",
+      lastMessage: "",
+      lastMessageTime: new Date().toISOString(),
+      unreadCount: 0,
+      studentProfileId: student.profile_id,
+    };
+
+    setConversations([newConv, ...conversations]);
+    setSelectedConversation(newConv);
+    setMessages([]);
+    setShowNewConversation(false);
+    setStudentSearch("");
+    setSearchResults([]);
+  };
 
   // Fetch messages for selected conversation
   const fetchMessages = useCallback(async (studentProfileId: string) => {
@@ -355,19 +444,31 @@ export default function MessagesInterface({
   return (
     <div className="flex h-[600px] overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
       {/* Conversations List */}
-      <div className="w-80 border-r border-slate-200 dark:border-slate-700">
-        <div className="border-b border-slate-200 p-4 dark:border-slate-700 flex items-center justify-between">
-          <h2 className="font-bold text-slate-900 dark:text-white">Messages</h2>
-          {/* Connection indicator */}
-          <div className="flex items-center gap-1.5">
-            <div
-              className={`h-2 w-2 rounded-full ${
-                isConnected ? "bg-green-500" : "bg-yellow-500"
-              }`}
-            />
-            <span className="text-xs text-slate-500">
-              {isConnected ? "Live" : "Connecting..."}
-            </span>
+      <div className="w-80 border-r border-slate-200 dark:border-slate-700 flex flex-col">
+        <div className="border-b border-slate-200 p-4 dark:border-slate-700">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-bold text-slate-900 dark:text-white">Messages</h2>
+            <div className="flex items-center gap-2">
+              {/* Connection indicator */}
+              <div className="flex items-center gap-1">
+                <div
+                  className={`h-2 w-2 rounded-full ${
+                    isConnected ? "bg-green-500" : "bg-yellow-500"
+                  }`}
+                />
+                <span className="text-xs text-slate-500">
+                  {isConnected ? "Live" : "..."}
+                </span>
+              </div>
+              {/* New Message Button */}
+              <button
+                onClick={() => setShowNewConversation(true)}
+                className="p-1.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+                title="New Message"
+              >
+                <span className="material-symbols-outlined text-lg">add</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -549,6 +650,105 @@ export default function MessagesInterface({
           </div>
         )}
       </div>
+
+      {/* New Conversation Modal */}
+      {showNewConversation && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-slate-800 rounded-xl max-w-md w-full max-h-[80vh] overflow-hidden shadow-xl">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                New Message
+              </h2>
+              <button
+                onClick={() => {
+                  setShowNewConversation(false);
+                  setStudentSearch("");
+                  setSearchResults([]);
+                }}
+                className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
+              >
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <div className="p-4">
+              <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
+                Search for a student in your sections to start a conversation:
+              </p>
+
+              <input
+                type="text"
+                value={studentSearch}
+                onChange={(e) => setStudentSearch(e.target.value)}
+                placeholder="Search student name..."
+                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary mb-4"
+                autoFocus
+              />
+
+              <div className="max-h-[50vh] overflow-y-auto">
+                {isSearching ? (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  <div className="text-center py-8 text-slate-500">
+                    {studentSearch.trim() ? (
+                      <>
+                        <span className="material-symbols-outlined text-4xl mb-2">person_off</span>
+                        <p>No students found</p>
+                      </>
+                    ) : (
+                      <>
+                        <span className="material-symbols-outlined text-4xl mb-2">search</span>
+                        <p>Type a name to search</p>
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {searchResults.map((student) => (
+                      <button
+                        key={student.id}
+                        onClick={() => startNewConversation(student)}
+                        className="w-full p-3 text-left rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            {student.avatar_url ? (
+                              <img
+                                src={student.avatar_url}
+                                alt={student.full_name}
+                                className="w-full h-full rounded-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-primary font-semibold text-sm">
+                                {student.full_name
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")
+                                  .toUpperCase()
+                                  .slice(0, 2)}
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900 dark:text-white">
+                              {student.full_name}
+                            </h3>
+                            <p className="text-sm text-slate-500">
+                              {student.section_name || student.grade_level || "Student"}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

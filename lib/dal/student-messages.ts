@@ -426,3 +426,55 @@ export async function getTeacherIdByProfileId(
   if (error || !data) return null;
   return data.id;
 }
+
+// ============================================================================
+// GET AVAILABLE ADMINS
+// ============================================================================
+
+export type Admin = {
+  id: string;
+  profile_id: string;
+  school_id: string;
+  role?: string;
+  profile: {
+    full_name: string;
+    avatar_url?: string | null;
+  };
+};
+
+/**
+ * Get admins the student can message (from their school)
+ */
+export async function getAvailableAdmins(schoolId: string): Promise<Admin[]> {
+  const supabase = await createClient();
+
+  const { data: admins, error } = await supabase
+    .from("admins")
+    .select(`
+      id,
+      profile_id,
+      school_id,
+      role,
+      profile:school_profiles!inner (
+        full_name,
+        avatar_url
+      )
+    `)
+    .eq("school_id", schoolId);
+
+  if (error) {
+    console.error("Error fetching admins:", error);
+    return [];
+  }
+
+  return (admins || []).map((admin) => {
+    const profile = admin.profile as unknown as { full_name: string; avatar_url?: string | null };
+    return {
+      id: admin.id,
+      profile_id: admin.profile_id,
+      school_id: admin.school_id,
+      role: admin.role,
+      profile,
+    };
+  });
+}

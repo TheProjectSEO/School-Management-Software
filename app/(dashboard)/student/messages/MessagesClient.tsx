@@ -11,11 +11,13 @@ import { ReadReceiptTicks, getMessageStatus } from "@/components/ui/ReadReceiptT
 import { OnlineStatus } from "@/components/ui/OnlineIndicator";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import { playMessageSound } from "@/lib/utils/notificationSound";
+import type { Admin } from "@/lib/dal";
 
 interface MessagesClientProps {
   conversations: Conversation[];
   unreadCount: number;
   availableTeachers: (Teacher & { course_name?: string })[];
+  availableAdmins: Admin[];
   studentId: string;
   schoolId: string;
   profileId: string;
@@ -25,6 +27,7 @@ export function MessagesClient({
   conversations: initialConversations,
   unreadCount: initialUnreadCount,
   availableTeachers,
+  availableAdmins,
   studentId,
   schoolId,
   profileId,
@@ -438,6 +441,35 @@ export function MessagesClient({
     setTeacherSearch("");
   };
 
+  const startAdminConversation = async (admin: Admin) => {
+    // Check if conversation already exists
+    const existing = conversations.find((c) => c.partner_profile_id === admin.profile_id);
+    if (existing) {
+      setSelectedConversation(existing);
+      setShowNewConversation(false);
+      return;
+    }
+
+    // Create new conversation object
+    const newConversation: Conversation = {
+      partner_profile_id: admin.profile_id,
+      partner_name: admin.profile?.full_name || "Administrator",
+      partner_avatar_url: admin.profile?.avatar_url || undefined,
+      partner_role: "teacher", // Use "teacher" for now as the messaging system expects this
+      last_message_body: "",
+      last_message_at: new Date().toISOString(),
+      last_message_sender_type: "student",
+      unread_count: 0,
+      total_messages: 0,
+    };
+
+    setConversations([newConversation, ...conversations]);
+    setSelectedConversation(newConversation);
+    setMessages([]);
+    setShowNewConversation(false);
+    setTeacherSearch("");
+  };
+
   const formatTime = (timestamp: string) => {
     const date = new Date(timestamp);
     const now = new Date();
@@ -468,6 +500,12 @@ export function MessagesClient({
       teacher.profile?.full_name?.toLowerCase().includes(query) ||
       teacher.course_name?.toLowerCase().includes(query)
     );
+  });
+
+  const filteredAdmins = availableAdmins.filter((admin) => {
+    if (!teacherSearch.trim()) return true;
+    const query = teacherSearch.toLowerCase();
+    return admin.profile?.full_name?.toLowerCase().includes(query);
   });
 
   return (
@@ -739,54 +777,104 @@ export function MessagesClient({
 
             <div className="p-4 overflow-y-auto max-h-[60vh]">
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                Select a teacher from your enrolled courses:
+                Select a teacher or administrator to message:
               </p>
 
               <input
                 type="text"
                 value={teacherSearch}
                 onChange={(e) => setTeacherSearch(e.target.value)}
-                placeholder="Start typing a teacher name or course..."
+                placeholder="Search by name..."
                 className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary mb-4"
               />
 
-              {filteredTeachers.length === 0 ? (
+              {/* Administrators Section */}
+              {filteredAdmins.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                    Administrators
+                  </h3>
+                  <div className="space-y-2">
+                    {filteredAdmins.map((admin) => (
+                      <button
+                        key={admin.id}
+                        onClick={() => startAdminConversation(admin)}
+                        className="w-full p-4 text-left rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                            {admin.profile?.avatar_url ? (
+                              <img
+                                src={admin.profile.avatar_url}
+                                alt={admin.profile.full_name}
+                                className="w-full h-full rounded-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-purple-600 dark:text-purple-400 font-semibold text-sm">
+                                {getInitials(admin.profile?.full_name || "A")}
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900 dark:text-white">
+                              {admin.profile?.full_name || "Administrator"}
+                            </h3>
+                            <p className="text-sm text-purple-600 dark:text-purple-400">
+                              {admin.role || "Admin"}
+                            </p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Teachers Section */}
+              {filteredTeachers.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">
+                    Teachers
+                  </h3>
+                  <div className="space-y-2">
+                    {filteredTeachers.map((teacher) => (
+                      <button
+                        key={teacher.id}
+                        onClick={() => startNewConversation(teacher)}
+                        className="w-full p-4 text-left rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            {teacher.profile?.avatar_url ? (
+                              <img
+                                src={teacher.profile.avatar_url}
+                                alt={teacher.profile.full_name}
+                                className="w-full h-full rounded-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-primary font-semibold text-sm">
+                                {getInitials(teacher.profile?.full_name || "T")}
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900 dark:text-white">
+                              {teacher.profile?.full_name || "Teacher"}
+                            </h3>
+                            <p className="text-sm text-slate-500">{teacher.course_name}</p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {filteredTeachers.length === 0 && filteredAdmins.length === 0 && (
                 <div className="text-center py-8 text-slate-500">
                   <span className="material-symbols-outlined text-4xl mb-2">person_off</span>
-                  <p>No teachers available</p>
+                  <p>No contacts available</p>
                   <p className="text-sm mt-1">You need to be enrolled in courses first</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredTeachers.map((teacher) => (
-                    <button
-                      key={teacher.id}
-                      onClick={() => startNewConversation(teacher)}
-                      className="w-full p-4 text-left rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          {teacher.profile?.avatar_url ? (
-                            <img
-                              src={teacher.profile.avatar_url}
-                              alt={teacher.profile.full_name}
-                              className="w-full h-full rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-primary font-semibold text-sm">
-                              {getInitials(teacher.profile?.full_name || "T")}
-                            </span>
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-slate-900 dark:text-white">
-                            {teacher.profile?.full_name || "Teacher"}
-                          </h3>
-                          <p className="text-sm text-slate-500">{teacher.course_name}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
                 </div>
               )}
             </div>

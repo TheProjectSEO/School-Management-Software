@@ -4,6 +4,7 @@ import {
   getStudentConversations,
   getUnreadMessageCount,
   getAvailableTeachers,
+  getAvailableAdmins,
 } from "@/lib/dal";
 import { MessagesClient } from "./MessagesClient";
 
@@ -18,11 +19,12 @@ export default async function MessagesPage() {
     redirect("/login");
   }
 
-  // Fetch conversations, unread count, and available teachers
-  const [conversations, unreadCount, availableTeachers] = await Promise.all([
+  // Fetch conversations, unread count, available teachers, and admins
+  const [conversations, unreadCount, availableTeachers, availableAdmins] = await Promise.all([
     getStudentConversations(student.id),
     getUnreadMessageCount(student.id),
     getAvailableTeachers(student.id),
+    getAvailableAdmins(student.school_id),
   ]);
 
   return (
@@ -30,6 +32,7 @@ export default async function MessagesPage() {
       conversations={conversations}
       unreadCount={unreadCount}
       availableTeachers={availableTeachers}
+      availableAdmins={availableAdmins}
       studentId={student.id}
       schoolId={student.school_id}
       profileId={student.profile_id}

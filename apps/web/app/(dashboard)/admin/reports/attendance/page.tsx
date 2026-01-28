@@ -351,9 +351,10 @@ export default function AttendanceReportPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Attendance Trend */}
           <ChartCard title="Attendance Trend" subtitle="Daily attendance rate over time">
-            {/* @ts-ignore React type mismatch with recharts */}
-            <ResponsiveContainer width="100%" height={300}>
-              <AreaChart data={summary.trendData}>
+            {
+              // @ts-ignore React type mismatch with recharts
+              <ResponsiveContainer width="100%" height={300}>
+                <AreaChart data={summary.trendData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} stroke="#9CA3AF" />
                   <YAxis domain={[85, 100]} tick={{ fontSize: 12 }} stroke="#9CA3AF" />
@@ -374,14 +375,16 @@ export default function AttendanceReportPage() {
                     name="Attendance Rate (%)"
                   />
                 </AreaChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
+            }
           </ChartCard>
 
           {/* Attendance by Section */}
           <ChartCard title="Attendance by Section" subtitle="Comparison across sections">
-            {/* @ts-ignore React type mismatch with recharts */}
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={summary.bySection} layout="vertical">
+            {
+              // @ts-ignore React type mismatch with recharts
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={summary.bySection} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                   <XAxis type="number" domain={[85, 100]} tick={{ fontSize: 12 }} stroke="#9CA3AF" />
                   <YAxis type="category" dataKey="name" tick={{ fontSize: 12 }} stroke="#9CA3AF" width={100} />
@@ -394,7 +397,8 @@ export default function AttendanceReportPage() {
                   />
                   <Bar dataKey="rate" fill="#7B1113" name="Attendance Rate (%)" radius={[0, 4, 4, 0]} />
                 </BarChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
+            }
           </ChartCard>
         </div>
       )}

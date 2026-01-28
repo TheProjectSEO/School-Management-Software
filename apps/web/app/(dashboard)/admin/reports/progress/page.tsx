@@ -343,71 +343,75 @@ export default function ProgressReportPage() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Enrollment Trend */}
           <ChartCard title="Enrollment & Completion Trend" subtitle="Monthly progression through the academic year">
-            {/* @ts-ignore React type mismatch with recharts */}
-            <ResponsiveContainer width="100%" height={300}>
-              <ComposedChart data={summary.enrollmentTrend}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#9CA3AF" />
-                <YAxis tick={{ fontSize: 12 }} stroke="#9CA3AF" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                  }}
-                />
-                <Legend verticalAlign="bottom" height={36} />
-                <Area
-                  type="monotone"
-                  dataKey="enrollments"
-                  fill="#7B1113"
-                  fillOpacity={0.1}
-                  stroke="#7B1113"
-                  strokeWidth={2}
-                  name="Active Enrollments"
-                />
-                <Line
-                  type="monotone"
-                  dataKey="completions"
-                  stroke="#FDB913"
-                  strokeWidth={3}
-                  dot={{ fill: "#FDB913", strokeWidth: 2 }}
-                  name="Course Completions"
-                />
+            {
+              // @ts-ignore React type mismatch with recharts
+              <ResponsiveContainer width="100%" height={300}>
+                <ComposedChart data={summary.enrollmentTrend}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="month" tick={{ fontSize: 12 }} stroke="#9CA3AF" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="#9CA3AF" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                    }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} />
+                  <Area
+                    type="monotone"
+                    dataKey="enrollments"
+                    fill="#7B1113"
+                    fillOpacity={0.1}
+                    stroke="#7B1113"
+                    strokeWidth={2}
+                    name="Active Enrollments"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="completions"
+                    stroke="#FDB913"
+                    strokeWidth={3}
+                    dot={{ fill: "#FDB913", strokeWidth: 2 }}
+                    name="Course Completions"
+                  />
                 </ComposedChart>
-            </ResponsiveContainer>
+              </ResponsiveContainer>
+            }
           </ChartCard>
 
           {/* Performance Distribution */}
           <ChartCard title="Student Performance Distribution" subtitle="Categorized by academic standing">
-            {/* @ts-ignore React type mismatch with recharts */}
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={summary.performanceDistribution}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="category" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
-                <YAxis tick={{ fontSize: 12 }} stroke="#9CA3AF" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "white",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "8px",
-                  }}
-                  formatter={(value: number, name: string, props: any) => {
-                    const percentage = props?.payload?.percentage || 0
-                    return [`${value} students (${percentage}%)`, "Count"]
-                  }}
-                />
-                <Bar dataKey="count" name="Students" radius={[4, 4, 0, 0]}>
-                  {summary.performanceDistribution.map((entry, index) => (
-                    <Bar
-                      key={`bar-${index}`}
-                      dataKey="count"
-                      fill={performanceColors[entry.category as keyof typeof performanceColors]}
-                    />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            {
+              // @ts-ignore React type mismatch with recharts
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={summary.performanceDistribution}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="category" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
+                  <YAxis tick={{ fontSize: 12 }} stroke="#9CA3AF" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "white",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                    }}
+                    formatter={(value: number, _name: string, props: any) => {
+                      const percentage = props?.payload?.percentage || 0
+                      return [`${value} students (${percentage}%)`, "Count"]
+                    }}
+                  />
+                  <Bar dataKey="count" name="Students" radius={[4, 4, 0, 0]}>
+                    {summary.performanceDistribution.map((entry, index) => (
+                      <Bar
+                        key={`bar-${index}`}
+                        dataKey="count"
+                        fill={performanceColors[entry.category as keyof typeof performanceColors]}
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            }
             {/* Custom Legend */}
             <div className="flex justify-center gap-4 mt-2">
               {summary.performanceDistribution.map((item) => (

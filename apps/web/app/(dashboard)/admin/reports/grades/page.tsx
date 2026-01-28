@@ -372,10 +372,9 @@ export default function GradesReportPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Grade Distribution Pie Chart */}
           <ChartCard title="Grade Distribution" subtitle={`${filters.gradingPeriod} - All Sections`}>
+            {/* @ts-ignore React type mismatch with recharts */}
             <ResponsiveContainer width="100%" height={280}>
-              {
-                // @ts-ignore React type mismatch with recharts
-                <PieChart>
+              <PieChart>
                 <Pie
                   data={summary.distribution}
                   cx="50%"
@@ -402,16 +401,14 @@ export default function GradesReportPage() {
                 />
                 <Legend verticalAlign="bottom" height={36} />
               </PieChart>
-              }
             </ResponsiveContainer>
           </ChartCard>
 
           {/* Average by Course */}
           <ChartCard title="Average by Course" subtitle="Comparison across subjects">
+            {/* @ts-ignore React type mismatch with recharts */}
             <ResponsiveContainer width="100%" height={280}>
-              {
-                // @ts-ignore React type mismatch with recharts
-                <BarChart data={summary.byCourse} layout="vertical">
+              <BarChart data={summary.byCourse} layout="vertical">
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis type="number" domain={[70, 100]} tick={{ fontSize: 12 }} stroke="#9CA3AF" />
                 <YAxis type="category" dataKey="name" tick={{ fontSize: 11 }} stroke="#9CA3AF" width={90} />
@@ -424,16 +421,14 @@ export default function GradesReportPage() {
                 />
                 <Bar dataKey="average" fill="#7B1113" name="Average Grade" radius={[0, 4, 4, 0]} />
               </BarChart>
-              }
             </ResponsiveContainer>
           </ChartCard>
 
           {/* Grade Trend */}
           <ChartCard title="Performance Trend" subtitle="Average grade over time">
+            {/* @ts-ignore React type mismatch with recharts */}
             <ResponsiveContainer width="100%" height={280}>
-              {
-                // @ts-ignore React type mismatch with recharts
-                <LineChart data={summary.trend}>
+              <LineChart data={summary.trend}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="period" tick={{ fontSize: 11 }} stroke="#9CA3AF" />
                 <YAxis domain={[75, 95]} tick={{ fontSize: 12 }} stroke="#9CA3AF" />
@@ -462,7 +457,6 @@ export default function GradesReportPage() {
                   name="Pass Rate %"
                 />
               </LineChart>
-              }
             </ResponsiveContainer>
           </ChartCard>
         </div>

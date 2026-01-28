@@ -95,7 +95,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             {children}
           </main>
         </div>
-        <Toaster position="top-right" richColors />
+        {
+          // @ts-ignore React type mismatch with sonner
+          <Toaster position="top-right" richColors />
+        }
       </AdminNotificationProvider>
     </AdminGuard>
   );

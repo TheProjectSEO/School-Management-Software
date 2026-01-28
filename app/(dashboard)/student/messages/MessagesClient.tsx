@@ -111,6 +111,12 @@ export function MessagesClient({
 
           // Handle INSERT events (new messages)
           if (payload.eventType === "INSERT") {
+            // If message is FROM this user (outgoing), skip - already handled by optimistic update
+            if (msg.from_profile_id === profileId) {
+              console.log("[MessagesClient] Skipping own message (handled by optimistic update)");
+              return;
+            }
+
             // If message is TO this user (incoming from teacher), play sound and update unread
             if (msg.to_profile_id === profileId) {
               playMessageSound();
@@ -133,8 +139,7 @@ export function MessagesClient({
             // If this message belongs to the current conversation, add it to the list
             if (
               currentConversation &&
-              (msg.from_profile_id === currentConversation.partner_profile_id ||
-                msg.to_profile_id === currentConversation.partner_profile_id)
+              msg.from_profile_id === currentConversation.partner_profile_id
             ) {
               setMessages((prev) => {
                 // Check if message already exists
@@ -155,10 +160,8 @@ export function MessagesClient({
                 return [...prev, newMsg];
               });
 
-              // If incoming message, mark as read immediately since user is viewing
-              if (msg.from_profile_id === currentConversation.partner_profile_id) {
-                markAsRead(currentConversation.partner_profile_id);
-              }
+              // Mark as read immediately since user is viewing
+              markAsRead(currentConversation.partner_profile_id);
             }
           }
 

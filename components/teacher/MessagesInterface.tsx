@@ -434,6 +434,14 @@ export default function MessagesInterface({
 
           // Handle INSERT events (new messages)
           if (payload.eventType === "INSERT") {
+            // If message is FROM this user (outgoing), skip - already handled by optimistic update
+            if (msg.from_profile_id === profileId) {
+              console.log("[MessagesInterface] Skipping own message (handled by optimistic update)");
+              // Still refresh conversations to update last message display
+              fetchConversations();
+              return;
+            }
+
             // If message is TO this user (incoming), play sound
             if (msg.to_profile_id === profileId) {
               playMessageSound();
@@ -441,10 +449,10 @@ export default function MessagesInterface({
 
             // If this message belongs to the current conversation, add it to the list
             if (partnerId && (msg.from_profile_id === partnerId || msg.to_profile_id === partnerId)) {
-              console.log("[MessagesInterface] Adding message to current conversation");
+              console.log("[MessagesInterface] Adding incoming message to current conversation");
 
               setMessages((prev) => {
-                // Check if message already exists (avoid duplicates from optimistic updates)
+                // Check if message already exists (avoid duplicates)
                 if (prev.some(m => m.id === msg.id)) {
                   return prev;
                 }
@@ -452,7 +460,7 @@ export default function MessagesInterface({
                 const transformedMessage: Message = {
                   id: msg.id,
                   senderId: msg.from_profile_id,
-                  senderName: msg.from_profile_id === profileId ? "You" : (currentConversation?.participantName || "Student"),
+                  senderName: currentConversation?.participantName || "Student",
                   senderRole: msg.sender_type as "teacher" | "student",
                   content: msg.body,
                   timestamp: msg.created_at,

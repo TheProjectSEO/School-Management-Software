@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { getTeacherProfile, getTeacherSections } from '@/lib/dal/teacher'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
@@ -30,7 +30,7 @@ interface Student {
 }
 
 async function getTeacherStudents(teacherId: string): Promise<Student[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get all sections the teacher is assigned to
   const { data: assignments } = await supabase

@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from '@/lib/supabase/service';
 import StatCard from "@/components/admin/ui/StatCard";
 import ChartCard from "@/components/admin/ui/ChartCard";
 import EnrollmentChart from "@/components/admin/dashboard/EnrollmentChart";
@@ -18,7 +18,7 @@ interface DashboardStats {
 }
 
 async function getDashboardStats(): Promise<DashboardStats> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const [
     { count: totalStudents },
@@ -54,7 +54,7 @@ async function getDashboardStats(): Promise<DashboardStats> {
 }
 
 async function getEnrollmentTrends() {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const currentYear = new Date().getFullYear();
 
@@ -80,7 +80,7 @@ async function getEnrollmentTrends() {
 }
 
 async function getGradeDistribution() {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Get grade distribution from submissions/grades
   const { data: grades } = await supabase
@@ -121,7 +121,7 @@ async function getGradeDistribution() {
 }
 
 async function getAttendanceOverview() {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Get attendance summary for current month
   const startOfMonth = new Date();
@@ -163,7 +163,7 @@ async function getAttendanceOverview() {
 }
 
 async function getRecentActivity() {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data } = await supabase
     .from("audit_logs")

@@ -6,7 +6,7 @@
  * once generated - they represent a point-in-time record.
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from '@/lib/supabase/service';
 import type {
   ReportCard,
   ReportCardGrade,
@@ -92,7 +92,7 @@ export async function createReportCardSnapshot(
   generatedBy: string
 ): Promise<string | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Check if report card already exists for this student/period
     const { data: existing } = await supabase
@@ -171,7 +171,7 @@ async function fetchStudentInfo(
   studentId: string
 ): Promise<ReportCardStudentInfo | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("students")
@@ -226,7 +226,7 @@ async function fetchStudentGrades(
   gradingPeriodId: string
 ): Promise<ReportCardGrade[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("course_grades")
@@ -294,7 +294,7 @@ async function fetchStudentGrades(
  */
 async function fetchTeacherName(teacherId: string): Promise<string> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("teacher_profiles")
@@ -327,7 +327,7 @@ async function fetchStudentGPA(
   gradingPeriodId: string
 ): Promise<ReportCardGPA> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Try to get existing GPA record
     const { data: gpaRecord, error } = await supabase
@@ -369,7 +369,7 @@ async function calculateGPAFromGrades(
   gradingPeriodId: string
 ): Promise<ReportCardGPA> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get current term grades
     const { data: termGrades } = await supabase
@@ -455,7 +455,7 @@ async function fetchStudentAttendance(
   gradingPeriodId: string
 ): Promise<ReportCardAttendance> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get grading period dates
     const { data: period } = await supabase
@@ -602,7 +602,7 @@ export async function batchGenerateReportCards(
   };
 
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get all students in the section
     const { data: students, error } = await supabase

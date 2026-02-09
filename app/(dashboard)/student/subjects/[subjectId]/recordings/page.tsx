@@ -4,7 +4,7 @@
  */
 
 import { notFound, redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { getCurrentProfile } from '@/lib/dal/auth';
 import { RecordingsClient } from './RecordingsClient';
 
@@ -18,7 +18,7 @@ export default async function RecordingsPage({ params, searchParams }: PageProps
     params,
     searchParams,
   ]);
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const profile = await getCurrentProfile();
 
   if (!profile || profile.role !== 'student') {

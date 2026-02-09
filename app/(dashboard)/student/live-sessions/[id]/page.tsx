@@ -5,7 +5,6 @@
 
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { getCurrentProfile } from '@/lib/dal/auth';
 import { LiveSessionClient } from './LiveSessionClient';
@@ -16,7 +15,7 @@ interface PageProps {
 
 export default async function LiveSessionPage({ params }: PageProps) {
   const { id: sessionId } = await params;
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const profile = await getCurrentProfile();
 
   if (!profile || profile.role !== 'student') {

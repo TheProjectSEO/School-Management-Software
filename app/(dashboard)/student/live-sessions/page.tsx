@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentProfile } from "@/lib/dal/auth";
 
@@ -44,7 +43,7 @@ const statusStyles: Record<LiveSession["status"], string> = {
 };
 
 export default async function LiveSessionsPage() {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const profile = await getCurrentProfile();
 
   if (!profile || profile.role !== "student") {

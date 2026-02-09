@@ -3,7 +3,7 @@
  * Handles automatic grading of various question types
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 // ============================================
 // Types
@@ -688,7 +688,7 @@ export function autoGradeQuestion(
  * Auto-grade an entire submission
  */
 export async function autoGradeSubmission(submissionId: string): Promise<SubmissionGradeResult> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get submission with assessment questions
   const { data: submission, error: submissionError } = await supabase
@@ -842,7 +842,7 @@ export async function queueForManualGrading(
     rubricJson?: any
   }[]
 ): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   let queuedCount = 0
 
@@ -904,7 +904,7 @@ export async function processSubmission(submissionId: string): Promise<{
  * Re-grade a submission (useful after answer key changes)
  */
 export async function regradeSubmission(submissionId: string): Promise<SubmissionGradeResult> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Clear existing grading queue items for this submission
   await supabase

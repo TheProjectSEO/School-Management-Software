@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import {
   getCurrentStudent,
   getModuleById,
@@ -46,7 +46,7 @@ export default async function ModulePage({
   }
 
   // Fetch section to get grade level
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const { data: courseWithSection } = await supabase
     .from('courses')
     .select('section:sections(grade_level)')

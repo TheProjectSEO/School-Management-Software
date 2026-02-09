@@ -2,7 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { getTeacherProfile } from '@/lib/dal/teacher'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
@@ -31,7 +31,7 @@ interface StudentDetails {
 }
 
 async function getStudentDetails(studentId: string, teacherId: string): Promise<StudentDetails | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get student with section info
   const { data: student, error } = await supabase
@@ -76,7 +76,7 @@ async function getStudentDetails(studentId: string, teacherId: string): Promise<
 }
 
 async function getStudentGrades(studentId: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data } = await supabase
     .from('grades')
@@ -105,7 +105,7 @@ async function getStudentGrades(studentId: string) {
 }
 
 async function getStudentAttendance(studentId: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data } = await supabase
     .from('attendance_records')

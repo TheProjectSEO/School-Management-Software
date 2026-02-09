@@ -157,7 +157,7 @@ export default async function SubjectDetailPage({
                     </a>
                   ) : (
                     <Link
-                      href={`/live-sessions/${session.id}`}
+                      href={`/student/live-sessions/${session.id}`}
                       className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
                     >
                       <span className="material-symbols-outlined text-[16px]">

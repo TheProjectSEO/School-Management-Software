@@ -247,7 +247,6 @@ export async function getModulesBySubject(courseId: string): Promise<Module[]> {
     .from("modules")
     .select("*")
     .eq("course_id", courseId)
-    .eq("is_published", true)
     .order("order", { ascending: true });
 
   if (error) {

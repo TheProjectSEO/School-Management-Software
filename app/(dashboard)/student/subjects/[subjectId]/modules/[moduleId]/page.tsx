@@ -45,18 +45,24 @@ export default async function ModulePage({
     redirect("/student/subjects");
   }
 
-  // Fetch section to get grade level
+  // Fetch grade level from the student's enrollment section
   const supabase = createServiceClient();
-  const { data: courseWithSection } = await supabase
-    .from('courses')
-    .select('section:sections(grade_level)')
-    .eq('id', subjectId)
-    .single();
+  let gradeLevel = '10';
+  const { data: enrollment } = await supabase
+    .from('enrollments')
+    .select('section_id')
+    .eq('student_id', student.id)
+    .eq('course_id', subjectId)
+    .maybeSingle();
 
-  // Handle section being returned as array from Supabase join
-  const sectionData = courseWithSection?.section;
-  const section = Array.isArray(sectionData) ? sectionData[0] : sectionData;
-  const gradeLevel = section?.grade_level || '10';
+  if (enrollment?.section_id) {
+    const { data: sectionData } = await supabase
+      .from('sections')
+      .select('grade_level')
+      .eq('id', enrollment.section_id)
+      .maybeSingle();
+    gradeLevel = sectionData?.grade_level || '10';
+  }
 
   // Fetch lessons for this module
   const lessons = await getLessonsByModule(moduleId);
@@ -68,7 +74,28 @@ export default async function ModulePage({
   const currentLesson = lessons[currentLessonIndex] || lessons[0];
 
   if (!currentLesson) {
-    redirect(`/student/subjects/${subjectId}`);
+    return (
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-wrap gap-2 items-center text-sm">
+          <Link href="/student" className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors">Home</Link>
+          <span className="text-slate-400 dark:text-slate-600 font-medium">/</span>
+          <Link href="/student/subjects" className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors">Subjects</Link>
+          <span className="text-slate-400 dark:text-slate-600 font-medium">/</span>
+          <Link href={`/student/subjects/${subjectId}`} className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors">{subject.name}</Link>
+          <span className="text-slate-400 dark:text-slate-600 font-medium">/</span>
+          <span className="text-primary dark:text-msu-gold font-medium">{module.title}</span>
+        </div>
+        <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+          <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-600 mb-3 block">menu_book</span>
+          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No Lessons Available Yet</h3>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">This module doesn&apos;t have any published lessons yet. Check back later.</p>
+          <Link href={`/student/subjects/${subjectId}`} className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            Back to {subject.name}
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   // Get lesson progress

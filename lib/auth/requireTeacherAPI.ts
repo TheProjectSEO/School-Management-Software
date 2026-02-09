@@ -3,7 +3,7 @@
  * Use this in API routes instead of the page-based requireTeacher
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { getCurrentUser } from '@/lib/auth/session';
 import { NextResponse } from 'next/server';
 
@@ -39,7 +39,7 @@ export async function requireTeacherAPI(): Promise<AuthResult> {
       };
     }
 
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Use RPC to get teacher profile (bypasses RLS)
     const { data, error } = await supabase.rpc('get_teacher_profile', {

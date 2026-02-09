@@ -3,7 +3,7 @@
  * Server-side utilities for teacher authentication and authorization
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getCurrentUser } from '@/lib/auth/session'
 import { redirect } from 'next/navigation'
 import { cache } from 'react'
@@ -49,7 +49,7 @@ export const getCurrentTeacher = cache(async (): Promise<TeacherWithProfile | nu
       return null
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Use RPC function that bypasses RLS for safe profile fetching
     const { data, error } = await supabase
@@ -123,7 +123,7 @@ export async function getTeacherRole(): Promise<'teacher' | 'student' | null> {
       return null
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Use RPC function that bypasses RLS for safe role detection
     const { data: roleData, error: roleError } = await supabase

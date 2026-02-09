@@ -21,12 +21,21 @@ export async function POST(request: Request) {
       );
     }
 
+    // Validate progress is a number in [0, 100]
+    const progressNum = Number(progress);
+    if (isNaN(progressNum) || progressNum < 0 || progressNum > 100) {
+      return NextResponse.json(
+        { error: "Progress must be a number between 0 and 100" },
+        { status: 400 }
+      );
+    }
+
     // Use the authenticated student's ID (not from request body)
     const result = await updateLessonProgress(
       studentId,
       courseId,
       lessonId,
-      progress
+      progressNum
     );
 
     if (!result.success) {

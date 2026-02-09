@@ -62,13 +62,15 @@ export function useLessonReactions(
       }));
       setMyReaction(null);
     } else {
-      // Adding/changing reaction
-      const newCounts = { ...counts };
-      if (myReaction) {
-        newCounts[myReaction] = Math.max((newCounts[myReaction] || 0) - 1, 0);
-      }
-      newCounts[type] = (newCounts[type] || 0) + 1;
-      setCounts(newCounts);
+      // Adding/changing reaction — use functional updater to avoid stale closure
+      setCounts(prev => {
+        const updated = { ...prev };
+        if (myReaction) {
+          updated[myReaction] = Math.max((updated[myReaction] || 0) - 1, 0);
+        }
+        updated[type] = (updated[type] || 0) + 1;
+        return updated;
+      });
       setMyReaction(type);
     }
 

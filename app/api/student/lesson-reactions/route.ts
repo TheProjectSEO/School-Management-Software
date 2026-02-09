@@ -124,12 +124,20 @@ export async function POST(request: NextRequest) {
     // Upsert failed, fall back to select-then-insert/update
     console.warn('Reaction upsert failed, trying fallback:', upsertError.message)
 
-    const { data: existing } = await supabase
+    const { data: existing, error: selectError } = await supabase
       .from('lesson_reactions')
       .select('id')
       .eq('lesson_id', lessonId)
       .eq('student_id', studentId)
       .maybeSingle()
+
+    if (selectError) {
+      console.error('Error selecting reaction:', selectError)
+      return NextResponse.json(
+        { error: `Failed to check reaction: ${selectError.message}`, code: selectError.code },
+        { status: 500 }
+      )
+    }
 
     if (existing) {
       const { error } = await supabase

@@ -30,8 +30,16 @@ export async function GET(request: NextRequest) {
       .eq('lesson_id', lessonId)
 
     if (error) {
+      // If table doesn't exist, return empty data instead of error
+      if (error.code === '42P01' || error.message?.includes('does not exist')) {
+        console.warn('lesson_reactions table not found, returning empty data')
+        return NextResponse.json({ counts: {}, myReaction: null })
+      }
       console.error('Error fetching reactions:', error)
-      return NextResponse.json({ error: 'Failed to fetch reactions' }, { status: 500 })
+      return NextResponse.json(
+        { error: `Failed to fetch reactions: ${error.message}`, code: error.code },
+        { status: 500 }
+      )
     }
 
     // Aggregate counts
@@ -48,7 +56,10 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ counts, myReaction })
   } catch (error) {
     console.error('Error in GET /api/student/lesson-reactions:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    )
   }
 }
 
@@ -84,13 +95,35 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         console.error('Error removing reaction:', error)
-        return NextResponse.json({ error: 'Failed to remove reaction' }, { status: 500 })
+        return NextResponse.json(
+          { error: `Failed to remove reaction: ${error.message}`, code: error.code },
+          { status: 500 }
+        )
       }
 
       return NextResponse.json({ success: true, myReaction: null })
     }
 
-    // Check if student already has a reaction on this lesson
+    // Upsert approach: try to insert, on conflict update
+    // The UNIQUE(lesson_id, student_id) constraint handles deduplication
+    const { error: upsertError } = await supabase
+      .from('lesson_reactions')
+      .upsert(
+        {
+          lesson_id: lessonId,
+          student_id: studentId,
+          reaction_type: reactionType,
+        },
+        { onConflict: 'lesson_id,student_id', ignoreDuplicates: false }
+      )
+
+    if (!upsertError) {
+      return NextResponse.json({ success: true, myReaction: reactionType })
+    }
+
+    // Upsert failed, fall back to select-then-insert/update
+    console.warn('Reaction upsert failed, trying fallback:', upsertError.message)
+
     const { data: existing } = await supabase
       .from('lesson_reactions')
       .select('id')
@@ -99,7 +132,6 @@ export async function POST(request: NextRequest) {
       .maybeSingle()
 
     if (existing) {
-      // Update existing reaction
       const { error } = await supabase
         .from('lesson_reactions')
         .update({ reaction_type: reactionType })
@@ -107,10 +139,12 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         console.error('Error updating reaction:', error)
-        return NextResponse.json({ error: 'Failed to update reaction' }, { status: 500 })
+        return NextResponse.json(
+          { error: `Failed to update reaction: ${error.message}`, code: error.code },
+          { status: 500 }
+        )
       }
     } else {
-      // Insert new reaction
       const { error } = await supabase
         .from('lesson_reactions')
         .insert({
@@ -121,13 +155,19 @@ export async function POST(request: NextRequest) {
 
       if (error) {
         console.error('Error inserting reaction:', error)
-        return NextResponse.json({ error: 'Failed to add reaction' }, { status: 500 })
+        return NextResponse.json(
+          { error: `Failed to add reaction: ${error.message}`, code: error.code },
+          { status: 500 }
+        )
       }
     }
 
     return NextResponse.json({ success: true, myReaction: reactionType })
   } catch (error) {
     console.error('Error in POST /api/student/lesson-reactions:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Internal server error' },
+      { status: 500 }
+    )
   }
 }

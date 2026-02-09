@@ -219,26 +219,54 @@ export async function getSubjectProgress(studentId: string, courseId: string): P
 
 /**
  * Update lesson progress
+ * Returns { success, error? } so API routes can surface the actual error.
  */
 export async function updateLessonProgress(
   studentId: string,
   courseId: string,
   lessonId: string,
   progressPercent: number
-): Promise<boolean> {
+): Promise<{ success: boolean; error?: string }> {
   const supabase = createServiceClient();
   const now = new Date().toISOString();
 
-  // Check if progress record already exists
-  const { data: existing } = await supabase
+  // Use upsert with the UNIQUE(student_id, lesson_id) constraint.
+  // This avoids race conditions from concurrent calls (e.g. video player
+  // updating progress while user clicks "Mark as Complete").
+  const { error: upsertError } = await supabase
+    .from("student_progress")
+    .upsert(
+      {
+        student_id: studentId,
+        course_id: courseId,
+        lesson_id: lessonId,
+        progress_percent: progressPercent,
+        last_accessed_at: now,
+        completed_at: progressPercent >= 100 ? now : null,
+      },
+      { onConflict: "student_id,lesson_id", ignoreDuplicates: false }
+    );
+
+  if (!upsertError) {
+    return { success: true };
+  }
+
+  // Upsert failed — fall back to select-then-insert/update
+  console.error("Upsert failed, trying fallback:", upsertError.message);
+
+  const { data: existing, error: selectError } = await supabase
     .from("student_progress")
     .select("id")
     .eq("student_id", studentId)
     .eq("lesson_id", lessonId)
     .maybeSingle();
 
+  if (selectError) {
+    console.error("Error selecting progress:", selectError);
+    return { success: false, error: `Select failed: ${selectError.message}` };
+  }
+
   if (existing) {
-    // Update existing record
     const { error } = await supabase
       .from("student_progress")
       .update({
@@ -250,10 +278,9 @@ export async function updateLessonProgress(
 
     if (error) {
       console.error("Error updating progress:", error);
-      return false;
+      return { success: false, error: `Update failed: ${error.message}` };
     }
   } else {
-    // Insert new record
     const { error } = await supabase.from("student_progress").insert({
       student_id: studentId,
       course_id: courseId,
@@ -265,11 +292,11 @@ export async function updateLessonProgress(
 
     if (error) {
       console.error("Error inserting progress:", error);
-      return false;
+      return { success: false, error: `Insert failed: ${error.message}` };
     }
   }
 
-  return true;
+  return { success: true };
 }
 
 /**
@@ -457,6 +484,6 @@ export async function markLessonComplete(
   studentId: string,
   courseId: string,
   lessonId: string
-): Promise<boolean> {
+): Promise<{ success: boolean; error?: string }> {
   return updateLessonProgress(studentId, courseId, lessonId, 100);
 }

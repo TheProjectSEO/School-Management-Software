@@ -22,11 +22,12 @@ export async function POST(request: Request) {
     }
 
     // Use the authenticated student's ID (not from request body)
-    const success = await markLessonComplete(studentId, courseId, lessonId);
+    const result = await markLessonComplete(studentId, courseId, lessonId);
 
-    if (!success) {
+    if (!result.success) {
+      console.error("Failed to mark lesson complete:", result.error);
       return NextResponse.json(
-        { error: "Failed to mark lesson as complete" },
+        { error: result.error || "Failed to mark lesson as complete" },
         { status: 500 }
       );
     }
@@ -35,7 +36,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error in lesson complete API:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     );
   }

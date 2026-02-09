@@ -22,16 +22,17 @@ export async function POST(request: Request) {
     }
 
     // Use the authenticated student's ID (not from request body)
-    const success = await updateLessonProgress(
+    const result = await updateLessonProgress(
       studentId,
       courseId,
       lessonId,
       progress
     );
 
-    if (!success) {
+    if (!result.success) {
+      console.error("Failed to update progress:", result.error);
       return NextResponse.json(
-        { error: "Failed to update progress" },
+        { error: result.error || "Failed to update progress" },
         { status: 500 }
       );
     }
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error in progress update API:", error);
     return NextResponse.json(
-      { error: "Internal server error" },
+      { error: error instanceof Error ? error.message : "Internal server error" },
       { status: 500 }
     );
   }

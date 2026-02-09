@@ -3,6 +3,7 @@
  * Student joins and participates in live virtual classroom
  */
 
+import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
@@ -87,10 +88,10 @@ export default async function LiveSessionPage({ params }: PageProps) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-4 md:p-8">
         <div className="max-w-2xl mx-auto">
-          <a href="/student/live-sessions" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-primary mb-6">
+          <Link href="/student/live-sessions" className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-primary mb-6">
             <span className="material-symbols-outlined text-[18px]">arrow_back</span>
             Back to Live Sessions
-          </a>
+          </Link>
           <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 md:p-8">
             <div className="flex items-center gap-2 mb-4">
               <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${

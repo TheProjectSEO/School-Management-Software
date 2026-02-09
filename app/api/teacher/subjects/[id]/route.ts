@@ -26,11 +26,7 @@ export async function GET(
     // Verify the teacher is assigned to this subject
     const { data: assignment, error: assignError } = await supabase
       .from("teacher_assignments")
-      .select(`
-        id,
-        section:sections(id, name, grade_level),
-        subject:courses(id, name, subject_code, description)
-      `)
+      .select("id, section_id, course_id")
       .eq("teacher_profile_id", teacher.teacherId)
       .eq("course_id", id)
       .maybeSingle();
@@ -50,30 +46,42 @@ export async function GET(
       );
     }
 
-    // Get module count
-    const { count: moduleCount } = await supabase
-      .from("modules")
-      .select("id", { count: "exact", head: true })
-      .eq("course_id", id);
+    // Fetch course, section, module count, and student count in parallel
+    const [courseResult, sectionResult, moduleResult, enrollmentResult] = await Promise.all([
+      supabase
+        .from("courses")
+        .select("id, name, subject_code, description")
+        .eq("id", id)
+        .maybeSingle(),
+      assignment.section_id
+        ? supabase
+            .from("sections")
+            .select("id, name, grade_level")
+            .eq("id", assignment.section_id)
+            .maybeSingle()
+        : Promise.resolve({ data: null, error: null }),
+      supabase
+        .from("modules")
+        .select("id", { count: "exact", head: true })
+        .eq("course_id", id),
+      supabase
+        .from("enrollments")
+        .select("id", { count: "exact", head: true })
+        .eq("course_id", id),
+    ]);
 
-    // Get student count (enrolled students)
-    const { count: studentCount } = await supabase
-      .from("enrollments")
-      .select("id", { count: "exact", head: true })
-      .eq("course_id", id);
-
-    const section = assignment.section as unknown as Record<string, unknown> | null;
-    const course = assignment.subject as unknown as Record<string, unknown> | null;
+    const course = courseResult.data;
+    const section = sectionResult.data;
 
     const subject = {
       id: course?.id ?? id,
       name: course?.name ?? "Unknown",
       subject_code: course?.subject_code ?? "",
       description: course?.description ?? null,
-      section_name: (section?.name as string) ?? "",
-      grade_level: (section?.grade_level as string) ?? "",
-      module_count: moduleCount ?? 0,
-      student_count: studentCount ?? 0,
+      section_name: section?.name ?? "",
+      grade_level: section?.grade_level ?? "",
+      module_count: moduleResult.count ?? 0,
+      student_count: enrollmentResult.count ?? 0,
     };
 
     return NextResponse.json({ subject });

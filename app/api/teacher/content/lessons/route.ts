@@ -26,7 +26,8 @@ export async function POST(request: NextRequest) {
       video_type,
       thumbnail_url,
       duration_minutes,
-      order
+      order,
+      is_published
     } = body
 
     if (!module_id || !title) {
@@ -99,7 +100,7 @@ export async function POST(request: NextRequest) {
         thumbnail_url: detectedThumbnail || null,
         duration_minutes: duration_minutes || null,
         order: lessonOrder,
-        is_published: false,
+        is_published: is_published === true,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })

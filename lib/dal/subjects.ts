@@ -117,10 +117,7 @@ export async function getSubjectWithModules(courseId: string): Promise<
 
   const { data: modules, error: modulesError } = await supabase
     .from("modules")
-    .select(`
-      *,
-      lessons(*)
-    `)
+    .select("*")
     .eq("course_id", courseId)
     .eq("is_published", true)
     .order("order", { ascending: true });
@@ -130,12 +127,30 @@ export async function getSubjectWithModules(courseId: string): Promise<
     return { ...course, modules: [] };
   }
 
+  // Fetch published lessons separately (nested queries don't support filtering)
+  const moduleIds = (modules || []).map((m) => m.id);
+  let lessonsMap = new Map<string, Lesson[]>();
+  if (moduleIds.length > 0) {
+    const { data: lessons } = await supabase
+      .from("lessons")
+      .select("*")
+      .in("module_id", moduleIds)
+      .eq("is_published", true)
+      .order("order", { ascending: true });
+
+    (lessons || []).forEach((l) => {
+      const arr = lessonsMap.get(l.module_id) || [];
+      arr.push(l as Lesson);
+      lessonsMap.set(l.module_id, arr);
+    });
+  }
+
   return {
     ...course,
     modules:
       modules?.map((m) => ({
         ...m,
-        lessons: (m.lessons as Lesson[])?.sort((a, b) => a.order - b.order) || [],
+        lessons: lessonsMap.get(m.id) || [],
       })) || [],
   };
 }
@@ -148,24 +163,37 @@ export async function getModuleWithLessons(
 ): Promise<(Module & { lessons: Lesson[]; course: Course }) | null> {
   const supabase = createServiceClient();
 
+  // Fetch module and course separately (no nested FK joins)
   const { data, error } = await supabase
     .from("modules")
-    .select(`
-      *,
-      lessons(*),
-      course:courses(*)
-    `)
+    .select("*")
     .eq("id", moduleId)
     .single();
 
-  if (error) {
+  if (error || !data) {
     console.error("Error fetching module:", error);
     return null;
   }
 
+  // Fetch course separately
+  const { data: course } = await supabase
+    .from("courses")
+    .select("*")
+    .eq("id", data.course_id)
+    .single();
+
+  // Fetch only published lessons separately
+  const { data: lessons } = await supabase
+    .from("lessons")
+    .select("*")
+    .eq("module_id", moduleId)
+    .eq("is_published", true)
+    .order("order", { ascending: true });
+
   return {
     ...data,
-    lessons: (data.lessons as Lesson[])?.sort((a, b) => a.order - b.order) || [],
+    lessons: (lessons as Lesson[]) || [],
+    course: course as Course,
   };
 }
 

@@ -33,29 +33,40 @@ export default async function ModulePage({
     redirect("/login");
   }
 
+  const supabase = createServiceClient();
+
+  // Verify student is enrolled in this course (security check)
+  const { data: enrollment } = await supabase
+    .from('enrollments')
+    .select('id, section_id')
+    .eq('student_id', student.id)
+    .eq('course_id', subjectId)
+    .maybeSingle();
+
+  if (!enrollment) {
+    redirect("/student/subjects");
+  }
+
   // Fetch module data
   const module = await getModuleById(moduleId);
   if (!module) {
     redirect(`/student/subjects/${subjectId}`);
   }
 
-  // Fetch subject data with section info
+  // Verify module belongs to this course (prevent URL manipulation)
+  if (module.course_id !== subjectId) {
+    redirect(`/student/subjects/${subjectId}`);
+  }
+
+  // Fetch subject data
   const subject = await getSubjectById(subjectId);
   if (!subject) {
     redirect("/student/subjects");
   }
 
-  // Fetch grade level from the student's enrollment section
-  const supabase = createServiceClient();
+  // Fetch grade level from enrollment section
   let gradeLevel = '10';
-  const { data: enrollment } = await supabase
-    .from('enrollments')
-    .select('section_id')
-    .eq('student_id', student.id)
-    .eq('course_id', subjectId)
-    .maybeSingle();
-
-  if (enrollment?.section_id) {
+  if (enrollment.section_id) {
     const { data: sectionData } = await supabase
       .from('sections')
       .select('grade_level')

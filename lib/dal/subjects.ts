@@ -30,20 +30,67 @@ export async function getStudentSubjects(
     return [];
   }
 
-  // Get progress for each course
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  // Calculate accurate progress per course:
+  // progress = (completed lessons / total published lessons) * 100
+  const courseIds = data.map((e) => e.course_id).filter(Boolean);
+
+  // Get published modules for enrolled courses
+  const { data: modules } = await supabase
+    .from("modules")
+    .select("id, course_id")
+    .in("course_id", courseIds)
+    .eq("is_published", true);
+
+  const moduleIds = (modules || []).map((m) => m.id);
+  const moduleToCourse = new Map((modules || []).map((m) => [m.id, m.course_id]));
+
+  // Get published lessons for those modules
+  const { data: lessons } = moduleIds.length > 0
+    ? await supabase
+        .from("lessons")
+        .select("id, module_id")
+        .in("module_id", moduleIds)
+        .eq("is_published", true)
+    : { data: [] as { id: string; module_id: string }[] };
+
+  // Map lesson IDs to their course
+  const lessonsByCourse = new Map<string, Set<string>>();
+  (lessons || []).forEach((l) => {
+    const courseId = moduleToCourse.get(l.module_id);
+    if (courseId) {
+      const set = lessonsByCourse.get(courseId) || new Set();
+      set.add(l.id);
+      lessonsByCourse.set(courseId, set);
+    }
+  });
+
+  // Get completed lessons for this student
   const { data: progressData } = await supabase
     .from("student_progress")
-    .select("course_id, progress_percent")
-    .eq("student_id", studentId);
+    .select("course_id, lesson_id, completed_at")
+    .eq("student_id", studentId)
+    .not("completed_at", "is", null);
 
-  const progressMap = new Map(progressData?.map((p) => [p.course_id, p.progress_percent]) || []);
+  const completedByCourse = new Map<string, number>();
+  (progressData || []).forEach((p) => {
+    if (p.lesson_id && lessonsByCourse.get(p.course_id)?.has(p.lesson_id)) {
+      completedByCourse.set(p.course_id, (completedByCourse.get(p.course_id) || 0) + 1);
+    }
+  });
 
-  return (
-    data?.map((e) => ({
+  return data.map((e) => {
+    const totalLessons = lessonsByCourse.get(e.course_id)?.size || 0;
+    const completedLessons = completedByCourse.get(e.course_id) || 0;
+    const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+    return {
       ...e,
-      progress_percent: progressMap.get(e.course_id) || 0,
-    })) || []
-  );
+      progress_percent: progress,
+    };
+  });
 }
 
 /**

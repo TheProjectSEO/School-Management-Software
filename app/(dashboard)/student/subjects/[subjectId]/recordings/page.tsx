@@ -5,7 +5,7 @@
 
 import { notFound, redirect } from 'next/navigation';
 import { createServiceClient } from '@/lib/supabase/service';
-import { getCurrentProfile } from '@/lib/dal/auth';
+import { getCurrentStudent } from '@/lib/dal';
 import { RecordingsClient } from './RecordingsClient';
 
 interface PageProps {
@@ -18,35 +18,37 @@ export default async function RecordingsPage({ params, searchParams }: PageProps
     params,
     searchParams,
   ]);
-  const supabase = createServiceClient();
-  const profile = await getCurrentProfile();
 
-  if (!profile || profile.role !== 'student') {
+  const student = await getCurrentStudent();
+  if (!student) {
     redirect('/login');
   }
 
-  // Get student profile
-  const { data: student } = await supabase
-    .from('students')
-    .select('id')
-    .eq('profile_id', profile.id)
-    .single();
+  const supabase = createServiceClient();
 
-  if (!student) {
-    return notFound();
+  // Verify enrollment (also gets section_id for grade level)
+  const { data: enrollment } = await supabase
+    .from('enrollments')
+    .select('id, section_id')
+    .eq('student_id', student.id)
+    .eq('course_id', subjectId)
+    .maybeSingle();
+
+  if (!enrollment) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-2">Not Enrolled</h1>
+          <p className="text-gray-600 dark:text-slate-400">You are not enrolled in this course.</p>
+        </div>
+      </div>
+    );
   }
 
-  // Get course (subjectId is actually courseId in the URL)
+  // Get course info (separate query, no FK join)
   const { data: course } = await supabase
     .from('courses')
-    .select(
-      `
-      id,
-      name,
-      subject_code,
-      section:sections(id, name, grade_level)
-    `
-    )
+    .select('id, name, subject_code')
     .eq('id', subjectId)
     .single();
 
@@ -54,53 +56,53 @@ export default async function RecordingsPage({ params, searchParams }: PageProps
     return notFound();
   }
 
-  // Verify enrollment
-  const { data: enrollment } = await supabase
-    .from('enrollments')
-    .select('id')
-    .eq('student_id', student.id)
-    .eq('course_id', course.id)
-    .single();
-
-  if (!enrollment) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-800 mb-2">Not Enrolled</h1>
-          <p className="text-gray-600">You are not enrolled in this course.</p>
-        </div>
-      </div>
-    );
+  // Get grade level from enrollment section (separate query, no FK join)
+  let gradeLevel = '10';
+  let sectionInfo: { id: string; name: string; grade_level: string } | undefined;
+  if (enrollment.section_id) {
+    const { data: section } = await supabase
+      .from('sections')
+      .select('id, name, grade_level')
+      .eq('id', enrollment.section_id)
+      .maybeSingle();
+    if (section) {
+      gradeLevel = section.grade_level || '10';
+      sectionInfo = { id: section.id, name: section.name, grade_level: section.grade_level };
+    }
   }
 
   // Get all recorded sessions for this course
   const { data: sessions } = await supabase
     .from('live_sessions')
-    .select(
-      `
-      *,
-      module:modules(id, title)
-    `
-    )
+    .select('*')
     .eq('course_id', course.id)
     .eq('status', 'ended')
     .not('recording_url', 'is', null)
     .order('actual_start', { ascending: false });
 
-  // Handle section being returned as array from Supabase join
-  const section = Array.isArray(course.section) ? course.section[0] : course.section;
-  const gradeLevel = section?.grade_level || '10';
+  // Get module info for sessions separately
+  const moduleIds = [...new Set((sessions || []).map(s => s.module_id).filter(Boolean))];
+  let modulesMap = new Map<string, { id: string; title: string }>();
+  if (moduleIds.length > 0) {
+    const { data: modules } = await supabase
+      .from('modules')
+      .select('id, title')
+      .in('id', moduleIds);
+    modulesMap = new Map((modules || []).map(m => [m.id, { id: m.id, title: m.title }]));
+  }
 
-  // The recording_url stored in the database is already a public URL from Supabase storage
-  // No need to create signed URLs - just pass the sessions directly
-  const validSessions = (sessions || []).filter(session => session.recording_url);
+  const validSessions = (sessions || [])
+    .filter(session => session.recording_url)
+    .map(session => ({
+      ...session,
+      module: session.module_id ? (modulesMap.get(session.module_id) || null) : null,
+    }));
 
-  // Normalize the course object for the client component
   const normalizedCourse = {
     id: course.id,
     name: course.name,
     subject_code: course.subject_code,
-    section: section ? { id: section.id, name: section.name, grade_level: section.grade_level } : undefined,
+    section: sectionInfo,
   };
 
   return (

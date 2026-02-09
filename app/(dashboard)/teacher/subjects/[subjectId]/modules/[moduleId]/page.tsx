@@ -30,6 +30,11 @@ async function ModuleEditorContent({ subjectId, moduleId }: { subjectId: string;
     redirect(`/teacher/subjects/${subjectId}`)
   }
 
+  // Verify module belongs to this subject/course (prevent URL manipulation)
+  if (moduleData.course_id !== subjectId) {
+    redirect(`/teacher/subjects/${subjectId}`)
+  }
+
   return <ModuleEditor module={moduleData} subjectId={subjectId} />
 }
 

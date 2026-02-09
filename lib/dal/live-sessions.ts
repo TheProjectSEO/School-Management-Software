@@ -30,23 +30,10 @@ export async function getUpcomingRoomSessions(studentId: string, limit = 3) {
 
   const courseIds = enrollments.map((enrollment) => enrollment.course_id);
 
+  // Fetch sessions with flat course columns (no nested FK joins)
   const { data, error } = await supabase
     .from("live_sessions")
-    .select(
-      `
-      id,
-      title,
-      scheduled_start,
-      scheduled_end,
-      status,
-      daily_room_url,
-      course:courses(
-        name,
-        subject_code,
-        section:sections(grade_level)
-      )
-    `
-    )
+    .select("id, title, scheduled_start, scheduled_end, status, daily_room_url, course_id")
     .in("course_id", courseIds)
     .in("status", ["scheduled", "live"])
     .order("scheduled_start", { ascending: true })
@@ -57,26 +44,29 @@ export async function getUpcomingRoomSessions(studentId: string, limit = 3) {
     return [];
   }
 
-  // Transform data to match StudentLiveSession type
-  const transformedData = (data || []).map((row: any) => ({
-    id: row.id,
-    title: row.title,
-    scheduled_start: row.scheduled_start,
-    scheduled_end: row.scheduled_end,
-    status: row.status,
-    daily_room_url: row.daily_room_url,
-    course: Array.isArray(row.course) && row.course.length > 0
-      ? {
-          name: row.course[0].name,
-          subject_code: row.course[0].subject_code,
-          section: Array.isArray(row.course[0].section) && row.course[0].section.length > 0
-            ? {
-                grade_level: row.course[0].section[0].grade_level,
-              }
-            : null,
-        }
-      : null,
-  }));
+  // Fetch course info separately
+  const sessionCourseIds = [...new Set((data || []).map((s) => s.course_id).filter(Boolean))];
+  let coursesMap = new Map<string, { name: string; subject_code: string | null }>();
+  if (sessionCourseIds.length > 0) {
+    const { data: courses } = await supabase
+      .from("courses")
+      .select("id, name, subject_code")
+      .in("id", sessionCourseIds);
+    coursesMap = new Map((courses || []).map((c) => [c.id, { name: c.name, subject_code: c.subject_code }]));
+  }
+
+  const transformedData = (data || []).map((row: any) => {
+    const courseInfo = coursesMap.get(row.course_id);
+    return {
+      id: row.id,
+      title: row.title,
+      scheduled_start: row.scheduled_start,
+      scheduled_end: row.scheduled_end,
+      status: row.status,
+      daily_room_url: row.daily_room_url,
+      course: courseInfo ? { name: courseInfo.name, subject_code: courseInfo.subject_code, section: null } : null,
+    };
+  });
 
   return transformedData as StudentLiveSession[];
 }
@@ -94,23 +84,10 @@ export async function getLiveSessionsForCourse(studentId: string, courseId: stri
     return [];
   }
 
+  // Fetch sessions with flat columns (no nested FK joins)
   const { data, error } = await supabase
     .from("live_sessions")
-    .select(
-      `
-      id,
-      title,
-      scheduled_start,
-      scheduled_end,
-      status,
-      daily_room_url,
-      course:courses(
-        name,
-        subject_code,
-        section:sections(grade_level)
-      )
-    `
-    )
+    .select("id, title, scheduled_start, scheduled_end, status, daily_room_url, course_id")
     .eq("course_id", courseId)
     .in("status", ["scheduled", "live", "ended"])
     .order("scheduled_start", { ascending: true });
@@ -120,7 +97,13 @@ export async function getLiveSessionsForCourse(studentId: string, courseId: stri
     return [];
   }
 
-  // Transform data to match StudentLiveSession type
+  // Fetch course name separately
+  const { data: course } = await supabase
+    .from("courses")
+    .select("name, subject_code")
+    .eq("id", courseId)
+    .maybeSingle();
+
   const transformedData = (data || []).map((row: any) => ({
     id: row.id,
     title: row.title,
@@ -128,17 +111,7 @@ export async function getLiveSessionsForCourse(studentId: string, courseId: stri
     scheduled_end: row.scheduled_end,
     status: row.status,
     daily_room_url: row.daily_room_url,
-    course: Array.isArray(row.course) && row.course.length > 0
-      ? {
-          name: row.course[0].name,
-          subject_code: row.course[0].subject_code,
-          section: Array.isArray(row.course[0].section) && row.course[0].section.length > 0
-            ? {
-                grade_level: row.course[0].section[0].grade_level,
-              }
-            : null,
-        }
-      : null,
+    course: course ? { name: course.name, subject_code: course.subject_code, section: null } : null,
   }));
 
   return transformedData as StudentLiveSession[];

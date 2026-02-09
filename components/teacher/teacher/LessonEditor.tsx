@@ -93,6 +93,12 @@ function getEmbedUrl(url: string, videoType: VideoType): string | null {
   if (videoType === 'upload') {
     return url // Direct URL for uploaded videos
   }
+  if (videoType === 'external' && url.match(/\.(mp4|webm|ogg|mov)(\?|$)/i)) {
+    return url // Direct video file URL
+  }
+  if (videoType === 'embed') {
+    return url // Already an embed URL
+  }
   return null
 }
 
@@ -536,7 +542,7 @@ export default function LessonEditor({
                     Video Preview
                   </label>
                   <div className="aspect-video rounded-lg overflow-hidden bg-black">
-                    {formData.video_type === 'upload' ? (
+                    {formData.video_type === 'upload' || (formData.video_type === 'external' && formData.video_url.match(/\.(mp4|webm|ogg|mov)(\?|$)/i)) ? (
                       <video
                         src={embedUrl}
                         controls

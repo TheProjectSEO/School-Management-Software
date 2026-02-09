@@ -8,7 +8,7 @@ import {
   getSubjectById,
   getLessonWithProgress,
 } from "@/lib/dal";
-import { extractYouTubeVideoId, getYouTubeEmbedUrl } from "@/lib/utils/video";
+import { resolveVideoSource } from "@/lib/utils/video";
 import VideoPlayer from "./VideoPlayer";
 import LessonNavigation from "./LessonNavigation";
 import NotesPanel from "./NotesPanel";
@@ -112,11 +112,10 @@ export default async function ModulePage({
   // Get lesson progress
   const lessonWithProgress = await getLessonWithProgress(currentLesson.id, student.id);
 
-  // Extract video ID if this is a video lesson
-  const videoId = currentLesson.video_url
-    ? extractYouTubeVideoId(currentLesson.video_url)
+  // Resolve video source for all types (YouTube, Vimeo, uploaded, recorded sessions)
+  const videoSource = currentLesson.video_url
+    ? resolveVideoSource(currentLesson.video_url, currentLesson.video_type)
     : null;
-  const embedUrl = videoId ? getYouTubeEmbedUrl(videoId) : null;
 
   // Calculate progress
   const nextLesson = lessons[currentLessonIndex + 1] || null;
@@ -152,9 +151,10 @@ export default async function ModulePage({
 
       {/* Video Player or Content */}
       <div className="mx-4 sm:mx-6 lg:mx-8">
-        {currentLesson.content_type === "video" && embedUrl ? (
+        {currentLesson.content_type === "video" && videoSource ? (
           <VideoPlayer
-            embedUrl={embedUrl}
+            videoUrl={videoSource.url}
+            playerType={videoSource.type}
             lessonId={currentLesson.id}
             studentId={student.id}
             courseId={subjectId}
@@ -164,6 +164,7 @@ export default async function ModulePage({
           <div className="w-full aspect-video bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden flex items-center justify-center border border-slate-200 dark:border-slate-700">
             <div className="text-center p-8">
               <span className="material-symbols-outlined text-6xl text-slate-400 dark:text-slate-600 mb-4 block">
+                {currentLesson.content_type === "video" && "videocam_off"}
                 {currentLesson.content_type === "reading" && "menu_book"}
                 {currentLesson.content_type === "quiz" && "quiz"}
                 {currentLesson.content_type === "activity" && "assignment"}
@@ -171,6 +172,7 @@ export default async function ModulePage({
                   "description"}
               </span>
               <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+                {currentLesson.content_type === "video" && "Video Not Available"}
                 {currentLesson.content_type === "reading" && "Reading Material"}
                 {currentLesson.content_type === "quiz" && "Quiz"}
                 {currentLesson.content_type === "activity" && "Activity"}
@@ -178,7 +180,9 @@ export default async function ModulePage({
                   "Content"}
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-400">
-                This lesson type is not yet supported with preview.
+                {currentLesson.content_type === "video"
+                  ? "The video for this lesson is still being processed. Please check back later."
+                  : "Scroll down to view the lesson content."}
               </p>
             </div>
           </div>

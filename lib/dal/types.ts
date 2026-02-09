@@ -91,9 +91,12 @@ export interface Lesson {
   content?: string;
   content_type: "video" | "reading" | "quiz" | "activity";
   video_url?: string;
+  video_type?: "youtube" | "vimeo" | "upload" | "embed" | "external" | null;
+  thumbnail_url?: string;
   duration_minutes?: number;
   order: number;
   is_published: boolean;
+  source_session_id?: string;
   created_at: string;
   updated_at: string;
 }

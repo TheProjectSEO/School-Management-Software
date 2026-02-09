@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface VideoPlayerProps {
-  embedUrl: string;
+  videoUrl: string;
+  playerType: 'iframe' | 'video';
   lessonId: string;
   studentId: string;
   courseId: string;
@@ -11,19 +12,19 @@ interface VideoPlayerProps {
 }
 
 export default function VideoPlayer({
-  embedUrl,
+  videoUrl,
+  playerType,
   lessonId,
   studentId,
   courseId,
   initialProgress,
 }: VideoPlayerProps) {
-  const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(initialProgress);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Auto-mark as watched after playing 80% of video
+  // Auto-mark as watched after 80% progress
   useEffect(() => {
     if (progress >= 80 && progress < 100) {
-      // Update progress to 100%
       updateProgress(100);
     }
   }, [progress]);
@@ -49,17 +50,44 @@ export default function VideoPlayer({
     }
   };
 
+  const handleTimeUpdate = () => {
+    const video = videoRef.current;
+    if (video && video.duration > 0) {
+      const percent = Math.round((video.currentTime / video.duration) * 100);
+      if (percent > progress) {
+        setProgress(percent);
+      }
+    }
+  };
+
   return (
     <div className="relative">
       <div className="w-full aspect-video bg-black rounded-xl overflow-hidden shadow-xl border border-slate-200 dark:border-slate-800">
-        <iframe
-          src={embedUrl}
-          className="w-full h-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          title="Lesson Video"
-          onLoad={() => setIsPlaying(true)}
-        />
+        {playerType === 'video' ? (
+          <video
+            ref={videoRef}
+            src={videoUrl}
+            controls
+            className="w-full h-full"
+            onTimeUpdate={handleTimeUpdate}
+            onEnded={() => updateProgress(100)}
+            playsInline
+          />
+        ) : (
+          <iframe
+            src={videoUrl}
+            className="w-full h-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            title="Lesson Video"
+            onLoad={() => {
+              // For iframes, mark some progress on load since we can't track playback
+              if (progress === 0) {
+                updateProgress(10);
+              }
+            }}
+          />
+        )}
       </div>
       {progress < 100 && (
         <div className="mt-3">

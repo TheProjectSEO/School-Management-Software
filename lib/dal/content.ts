@@ -120,11 +120,20 @@ async function verifyTeacherCourseAccess(
   courseId: string
 ): Promise<boolean> {
   const supabase = createServiceClient()
-  const { count } = await supabase
+  const { count, error } = await supabase
     .from('teacher_assignments')
     .select('*', { count: 'exact', head: true })
     .eq('teacher_profile_id', teacherId)
     .eq('course_id', courseId)
+
+  if (error) {
+    console.error('[verifyTeacherCourseAccess] Query error:', error)
+  }
+
+  if ((count || 0) === 0) {
+    console.error(`[verifyTeacherCourseAccess] No assignment found for teacher=${teacherId} course=${courseId}`)
+  }
+
   return (count || 0) > 0
 }
 
@@ -133,11 +142,19 @@ async function verifyTeacherCourseAccess(
  */
 async function getCourseIdForModule(moduleId: string): Promise<string | null> {
   const supabase = createServiceClient()
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('modules')
     .select('course_id')
     .eq('id', moduleId)
     .single()
+
+  if (error) {
+    console.error(`[getCourseIdForModule] Error fetching module ${moduleId}:`, error)
+  }
+  if (!data?.course_id) {
+    console.error(`[getCourseIdForModule] Module ${moduleId} has no course_id. data:`, data)
+  }
+
   return data?.course_id || null
 }
 

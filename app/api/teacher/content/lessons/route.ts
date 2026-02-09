@@ -48,6 +48,8 @@ export async function POST(request: NextRequest) {
       detectedThumbnail = getYouTubeThumbnail(video_url)
     }
 
+    console.log(`[POST /api/teacher/content/lessons] Creating lesson: teacher=${teacherProfile.id}, module=${module_id}, title=${title}`)
+
     const lesson = await createLesson(teacherProfile.id, {
       module_id,
       title,
@@ -61,6 +63,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!lesson) {
+      console.error(`[POST /api/teacher/content/lessons] createLesson returned null for teacher=${teacherProfile.id}, module=${module_id}`)
       return NextResponse.json(
         { error: 'Failed to create lesson. Check access permissions.' },
         { status: 403 }

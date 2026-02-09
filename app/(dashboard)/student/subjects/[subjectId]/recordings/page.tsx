@@ -10,10 +10,14 @@ import { RecordingsClient } from './RecordingsClient';
 
 interface PageProps {
   params: Promise<{ subjectId: string }>;
+  searchParams: Promise<{ session?: string }>;
 }
 
-export default async function RecordingsPage({ params }: PageProps) {
-  const { subjectId } = await params;
+export default async function RecordingsPage({ params, searchParams }: PageProps) {
+  const [{ subjectId }, { session: initialSessionId }] = await Promise.all([
+    params,
+    searchParams,
+  ]);
   const supabase = await createClient();
   const profile = await getCurrentProfile();
 
@@ -104,6 +108,7 @@ export default async function RecordingsPage({ params }: PageProps) {
       course={normalizedCourse}
       sessions={validSessions}
       gradeLevel={gradeLevel}
+      initialSessionId={initialSessionId}
     />
   );
 }

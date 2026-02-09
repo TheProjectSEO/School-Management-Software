@@ -6,7 +6,9 @@ import {
   getModulesBySubject,
   getSubjectProgress,
   getLiveSessionsForCourse,
+  getRecordingsForCourse,
 } from "@/lib/dal";
+import { RecentRecordingsSection } from "@/components/student/recordings/RecentRecordingsSection";
 
 export const revalidate = 300; // 5 minutes - course content
 
@@ -34,8 +36,11 @@ export default async function SubjectDetailPage({
   // Fetch progress for this subject
   const progressData = await getSubjectProgress(student.id, subjectId);
 
-  // Fetch live sessions for this course
-  const liveSessions = await getLiveSessionsForCourse(student.id, subjectId);
+  // Fetch live sessions and recordings for this course in parallel
+  const [liveSessions, recordings] = await Promise.all([
+    getLiveSessionsForCourse(student.id, subjectId),
+    getRecordingsForCourse(student.id, subjectId, 4),
+  ]);
 
   // Calculate overall progress
   const totalLessons = progressData.length;
@@ -176,6 +181,9 @@ export default async function SubjectDetailPage({
           </div>
         )}
       </div>
+
+      {/* Session Recordings */}
+      <RecentRecordingsSection recordings={recordings} subjectId={subjectId} />
 
       {/* Current Module Card */}
       {currentModule && (

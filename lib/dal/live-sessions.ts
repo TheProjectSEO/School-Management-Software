@@ -143,3 +143,74 @@ export async function getLiveSessionsForCourse(studentId: string, courseId: stri
 
   return transformedData as StudentLiveSession[];
 }
+
+export type CourseRecording = {
+  id: string;
+  title: string;
+  actual_start: string;
+  recording_url: string;
+  recording_duration_seconds: number | null;
+  module: {
+    id: string;
+    title: string;
+  } | null;
+};
+
+export async function getRecordingsForCourse(
+  studentId: string,
+  courseId: string,
+  limit?: number
+): Promise<CourseRecording[]> {
+  const supabase = await createClient();
+
+  const { count } = await supabase
+    .from("enrollments")
+    .select("*", { count: "exact", head: true })
+    .eq("student_id", studentId)
+    .eq("course_id", courseId);
+
+  if (!count) {
+    return [];
+  }
+
+  let query = supabase
+    .from("live_sessions")
+    .select(
+      `
+      id,
+      title,
+      actual_start,
+      recording_url,
+      recording_duration_seconds,
+      module:modules(id, title)
+    `
+    )
+    .eq("course_id", courseId)
+    .eq("status", "ended")
+    .not("recording_url", "is", null)
+    .order("actual_start", { ascending: false });
+
+  if (limit) {
+    query = query.limit(limit);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching course recordings:", error);
+    return [];
+  }
+
+  return (data || []).map((row: any) => ({
+    id: row.id,
+    title: row.title,
+    actual_start: row.actual_start,
+    recording_url: row.recording_url,
+    recording_duration_seconds: row.recording_duration_seconds,
+    module: Array.isArray(row.module) && row.module.length > 0
+      ? { id: row.module[0].id, title: row.module[0].title }
+      : row.module && !Array.isArray(row.module)
+      ? { id: row.module.id, title: row.module.title }
+      : null,
+  })) as CourseRecording[];
+}

@@ -37,16 +37,23 @@ interface RecordingsClientProps {
   };
   sessions: Recording[];
   gradeLevel: string;
+  initialSessionId?: string;
 }
 
 export function RecordingsClient({
   course,
   sessions,
   gradeLevel,
+  initialSessionId,
 }: RecordingsClientProps) {
   const theme = getClassroomTheme(gradeLevel);
   const isPlayful = theme.type === 'playful';
-  const [selectedRecording, setSelectedRecording] = useState<Recording | null>(null);
+  const [selectedRecording, setSelectedRecording] = useState<Recording | null>(() => {
+    if (initialSessionId) {
+      return sessions.find((s) => s.id === initialSessionId) ?? null;
+    }
+    return null;
+  });
 
   const formatDuration = (seconds: number | null) => {
     if (!seconds) return 'Unknown';

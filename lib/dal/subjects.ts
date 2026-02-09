@@ -227,24 +227,46 @@ export async function updateLessonProgress(
   progressPercent: number
 ): Promise<boolean> {
   const supabase = createServiceClient();
+  const now = new Date().toISOString();
 
-  const { error } = await supabase.from("student_progress").upsert(
-    {
+  // Check if progress record already exists
+  const { data: existing } = await supabase
+    .from("student_progress")
+    .select("id")
+    .eq("student_id", studentId)
+    .eq("lesson_id", lessonId)
+    .maybeSingle();
+
+  if (existing) {
+    // Update existing record
+    const { error } = await supabase
+      .from("student_progress")
+      .update({
+        progress_percent: progressPercent,
+        last_accessed_at: now,
+        completed_at: progressPercent >= 100 ? now : null,
+      })
+      .eq("id", existing.id);
+
+    if (error) {
+      console.error("Error updating progress:", error);
+      return false;
+    }
+  } else {
+    // Insert new record
+    const { error } = await supabase.from("student_progress").insert({
       student_id: studentId,
       course_id: courseId,
       lesson_id: lessonId,
       progress_percent: progressPercent,
-      last_accessed_at: new Date().toISOString(),
-      completed_at: progressPercent >= 100 ? new Date().toISOString() : null,
-    },
-    {
-      onConflict: "student_id,lesson_id",
-    }
-  );
+      last_accessed_at: now,
+      completed_at: progressPercent >= 100 ? now : null,
+    });
 
-  if (error) {
-    console.error("Error updating progress:", error);
-    return false;
+    if (error) {
+      console.error("Error inserting progress:", error);
+      return false;
+    }
   }
 
   return true;

@@ -27,7 +27,7 @@ export default async function AssessmentDetailPage({
   // Get assessment data
   const assessment = await getAssessmentForQuiz(id);
   if (!assessment) {
-    redirect("/assessments");
+    redirect("/student/assessments");
   }
 
   // Get existing submission if any
@@ -63,7 +63,7 @@ export default async function AssessmentDetailPage({
       {/* Breadcrumb */}
       <div className="flex flex-wrap gap-2 items-center text-sm mb-6">
         <Link
-          href="/"
+          href="/student"
           className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors"
         >
           Home

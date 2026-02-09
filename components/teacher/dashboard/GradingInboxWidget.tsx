@@ -55,7 +55,7 @@ export default function GradingInboxWidget({
               {recentSubmissions.map((submission) => (
                 <Link
                   key={submission.id}
-                  href={`/teacher/assessments/grade/${submission.id}`}
+                  href={`/teacher/grading/${submission.id}`}
                   className="block p-3 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700"
                 >
                   <div className="flex items-start justify-between">
@@ -79,7 +79,7 @@ export default function GradingInboxWidget({
             </div>
           )}
 
-          <Link href="/teacher/assessments?tab=grading">
+          <Link href="/teacher/grading">
             <Button variant="primary" className="w-full">
               View All Submissions
             </Button>

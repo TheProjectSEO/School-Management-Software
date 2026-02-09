@@ -89,7 +89,7 @@ export default async function ModulePage({
       {/* Breadcrumb */}
       <div className="mx-4 sm:mx-6 lg:mx-8 mt-8 flex flex-wrap gap-2 items-center text-sm">
         <Link
-          href="/"
+          href="/student"
           className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors"
         >
           Home

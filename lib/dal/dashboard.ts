@@ -48,6 +48,7 @@ export type GradedNotReleasedItem = {
 export type DraftModule = {
   id: string
   title: string
+  course_id: string
   course_name: string
   updated_at: string
   time_ago: string
@@ -385,6 +386,7 @@ export async function getDraftModules(teacherId: string, limit: number = 5): Pro
     .select(`
       id,
       title,
+      course_id,
       updated_at,
       course:courses!inner(name)
     `)
@@ -401,6 +403,7 @@ export async function getDraftModules(teacherId: string, limit: number = 5): Pro
   return (data || []).map((module: any) => ({
     id: module.id,
     title: module.title,
+    course_id: module.course_id,
     course_name: module.course?.[0]?.name || module.course?.name || 'Unknown',
     updated_at: module.updated_at,
     time_ago: getTimeAgo(module.updated_at)
@@ -448,21 +451,26 @@ export async function getTodaysAbsentStudents(teacherId: string): Promise<Absent
   const studentIds = students.map((s: any) => s.id)
 
   // Batch load attendance data for all students at once (fixes N+1 query issue)
-  const { data: attendanceRecords } = await supabase
-    .from('teacher_daily_attendance')
-    .select('student_id, status, first_seen_at')
-    .in('student_id', studentIds)
-    .eq('date', today)
-
-  // Create a map for quick lookup
   const attendanceMap = new Map<string, { status: string; first_seen_at: string | null }>()
-  if (attendanceRecords) {
-    attendanceRecords.forEach((record: any) => {
-      attendanceMap.set(record.student_id, {
-        status: record.status,
-        first_seen_at: record.first_seen_at
+  try {
+    const { data: attendanceRecords, error: attendanceError } = await supabase
+      .from('teacher_daily_attendance')
+      .select('student_id, status, first_seen_at')
+      .in('student_id', studentIds)
+      .eq('date', today)
+
+    if (attendanceError) {
+      console.error('Attendance table query failed (table may not exist):', attendanceError.message)
+    } else if (attendanceRecords) {
+      attendanceRecords.forEach((record: any) => {
+        attendanceMap.set(record.student_id, {
+          status: record.status,
+          first_seen_at: record.first_seen_at
+        })
       })
-    })
+    }
+  } catch (err) {
+    console.error('Error loading attendance data:', err)
   }
 
   // Filter for absent students

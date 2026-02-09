@@ -91,7 +91,7 @@ export default function TodaysSessionsWidget({ sessions }: TodaysSessionsWidgetP
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => {/* Navigate to session prep */}}
+                    onClick={() => window.location.href = '/teacher/live-sessions'}
                   >
                     Prepare
                   </Button>

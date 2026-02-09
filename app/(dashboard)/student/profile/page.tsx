@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentStudent } from "@/lib/dal";
 import { getCurrentUser } from "@/lib/auth/session";
+import { createAdminClient } from "@/lib/supabase/admin";
 import ProfileForm from "./ProfileForm";
 import AvatarUpload from "./AvatarUpload";
 
@@ -31,6 +32,22 @@ export default async function ProfilePage() {
     redirect("/login");
   }
 
+  // Resolve section name from section_id
+  let sectionName = "Not assigned";
+  if (student.section_id) {
+    const adminClient = createAdminClient();
+    const { data: section } = await adminClient
+      .from("sections")
+      .select("name, grade_level")
+      .eq("id", student.section_id)
+      .single();
+    if (section) {
+      sectionName = section.grade_level
+        ? `${section.grade_level} - ${section.name}`
+        : section.name;
+    }
+  }
+
   // Extract data from student and profile
   const profileData = {
     fullName: student.profile.full_name || "",
@@ -38,7 +55,7 @@ export default async function ProfilePage() {
     email: currentUser.email || "",
     phone: student.profile.phone || "",
     gradeLevel: student.grade_level || "Not assigned",
-    sectionId: student.section_id || "",
+    sectionId: sectionName,
     avatarUrl: student.profile.avatar_url,
     profileId: student.profile.id,
   };

@@ -313,6 +313,26 @@ export default async function DashboardPage() {
                   </div>
                 </div>
               </div>
+            ) : progressStats.totalCourses > 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-12 text-center dark:bg-[#1a2634] dark:border-slate-700">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 dark:bg-primary/20">
+                  <span className="material-symbols-outlined text-3xl text-primary">
+                    play_circle
+                  </span>
+                </div>
+                <h3 className="mb-2 font-display text-xl font-bold text-slate-900 dark:text-white">
+                  Start Learning
+                </h3>
+                <p className="mb-4 text-slate-500 dark:text-slate-400">
+                  You&apos;re enrolled in {progressStats.totalCourses} course{progressStats.totalCourses > 1 ? "s" : ""}. Open a subject to begin.
+                </p>
+                <Link
+                  href="/student/subjects"
+                  className="inline-flex h-10 items-center justify-center rounded-lg bg-primary px-6 text-sm font-bold text-white transition-transform hover:scale-[1.02] hover:bg-[#5d0016]"
+                >
+                  Go to My Subjects
+                </Link>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center rounded-xl border border-slate-200 bg-white p-12 text-center dark:bg-[#1a2634] dark:border-slate-700">
                 <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">

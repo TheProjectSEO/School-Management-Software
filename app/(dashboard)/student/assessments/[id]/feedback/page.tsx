@@ -65,7 +65,7 @@ export default async function FeedbackPage({
       {/* Breadcrumb */}
       <div className="flex flex-wrap gap-2 items-center text-sm mb-6">
         <Link
-          href="/"
+          href="/student"
           className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors"
         >
           Home

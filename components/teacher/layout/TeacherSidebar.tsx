@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import BrandLogo from '@/components/teacher/brand/BrandLogo'
 import { useMessageNotifications } from '@/components/teacher/providers/MessageNotificationProvider'
+import { useAuth } from '@/hooks/useAuth'
 
 interface NavItem {
   name: string
@@ -55,17 +56,12 @@ export default function TeacherSidebar({ initialTeacherData }: TeacherSidebarPro
   // Get unread message count
   const { unreadCount: messageUnreadCount } = useMessageNotifications()
 
+  const { logout } = useAuth()
+
   const handleLogout = async () => {
     try {
       setIsLoggingOut(true)
-      const response = await fetch('/api/auth/logout', {
-        method: 'POST',
-      })
-
-      if (response.ok) {
-        router.push('/login')
-        router.refresh()
-      }
+      await logout()
     } catch (error) {
       console.error('Logout error:', error)
     } finally {

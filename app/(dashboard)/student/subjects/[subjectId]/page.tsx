@@ -60,7 +60,7 @@ export default async function SubjectDetailPage({
     <>
       {/* Breadcrumb */}
       <div className="flex flex-wrap gap-2 items-center text-sm mb-6">
-        <Link href="/" className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors">
+        <Link href="/student" className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors">
           Home
         </Link>
         <span className="text-slate-400 dark:text-slate-600 font-medium">/</span>

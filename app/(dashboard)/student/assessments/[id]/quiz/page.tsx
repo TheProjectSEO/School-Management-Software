@@ -19,7 +19,7 @@ export default async function QuizPage({
   // Get assessment
   const assessment = await getAssessmentForQuiz(id);
   if (!assessment) {
-    redirect("/assessments");
+    redirect("/student/assessments");
   }
 
   // Check if student can take the assessment
@@ -27,7 +27,7 @@ export default async function QuizPage({
 
   if (!canTake) {
     // Redirect to assessment page with error message
-    redirect(`/assessments/${id}?error=${encodeURIComponent(reason || "Cannot take assessment")}`);
+    redirect(`/student/assessments/${id}?error=${encodeURIComponent(reason || "Cannot take assessment")}`);
   }
 
   return (

@@ -137,20 +137,17 @@ export default async function LiveSessionsPage() {
       recording_url: row.recording_url,
       recording_duration_seconds: row.recording_duration_seconds,
       has_transcript: transcriptMap[row.id] || false,
-      course: Array.isArray(row.course) && row.course.length > 0
-        ? {
-            id: row.course[0].id,
-            name: row.course[0].name,
-            subject_code: row.course[0].subject_code,
-            section: Array.isArray(row.course[0].section) && row.course[0].section.length > 0
-              ? {
-                  id: row.course[0].section[0].id,
-                  name: row.course[0].section[0].name,
-                  grade_level: row.course[0].section[0].grade_level,
-                }
-              : null,
-          }
-        : null,
+      course: (() => {
+        const c = Array.isArray(row.course) ? row.course[0] : row.course;
+        if (!c) return null;
+        const s = Array.isArray(c.section) ? c.section[0] : c.section;
+        return {
+          id: c.id,
+          name: c.name,
+          subject_code: c.subject_code,
+          section: s ? { id: s.id, name: s.name, grade_level: s.grade_level } : null,
+        };
+      })(),
     })) as LiveSession[];
   }
 

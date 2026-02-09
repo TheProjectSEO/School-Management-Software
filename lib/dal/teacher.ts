@@ -338,13 +338,7 @@ export async function getModule(moduleId: string, teacherId: string) {
 
   const { data, error } = await supabase
     .from('modules')
-    .select(`
-      *,
-      course:courses!inner(
-        id,
-        name
-      )
-    `)
+    .select('*')
     .eq('id', moduleId)
     .single()
 
@@ -353,11 +347,22 @@ export async function getModule(moduleId: string, teacherId: string) {
     return null
   }
 
+  // Fetch course info separately to avoid FK join issues
+  let course = null
+  if (data.course_id) {
+    const { data: courseData } = await supabase
+      .from('courses')
+      .select('id, name')
+      .eq('id', data.course_id)
+      .maybeSingle()
+    course = courseData
+  }
+
   // Verify teacher access
-  const hasAccess = await verifyTeacherCourseAccess(teacherId, data.course.id)
+  const hasAccess = await verifyTeacherCourseAccess(teacherId, data.course_id)
   if (!hasAccess) return null
 
-  return data
+  return { ...data, course }
 }
 
 export type SectionDetails = {

@@ -27,7 +27,6 @@ type Subject = {
   name: string
   subject_code: string
   description: string | null
-  cover_image_url: string | null
   section_name: string
   grade_level: string
   module_count: number
@@ -264,17 +263,9 @@ export default function SubjectDetailPage() {
       <div className="flex flex-col md:flex-row md:items-start gap-6">
         {/* Cover Image */}
         <div className="w-full md:w-64 h-40 rounded-xl bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center overflow-hidden shrink-0">
-          {subject?.cover_image_url ? (
-            <img
-              src={subject.cover_image_url}
-              alt={subject.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <span className="material-symbols-outlined text-primary text-6xl">
-              book_2
-            </span>
-          )}
+          <span className="material-symbols-outlined text-primary text-6xl">
+            book_2
+          </span>
         </div>
 
         {/* Subject Info */}

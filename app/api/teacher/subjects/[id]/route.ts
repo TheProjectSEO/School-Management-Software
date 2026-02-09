@@ -29,7 +29,7 @@ export async function GET(
       .select(`
         id,
         section:sections(id, name, grade_level),
-        subject:courses(id, name, subject_code, description, cover_image_url)
+        subject:courses(id, name, subject_code, description)
       `)
       .eq("teacher_profile_id", teacher.teacherId)
       .eq("course_id", id)
@@ -70,7 +70,6 @@ export async function GET(
       name: course?.name ?? "Unknown",
       subject_code: course?.subject_code ?? "",
       description: course?.description ?? null,
-      cover_image_url: course?.cover_image_url ?? null,
       section_name: (section?.name as string) ?? "",
       grade_level: (section?.grade_level as string) ?? "",
       module_count: moduleCount ?? 0,

@@ -7,6 +7,7 @@ import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { Suspense } from 'react'
+import { SubjectSortFilter } from './SubjectSortFilter'
 
 export const metadata = {
   title: 'My Subjects | MSU Teacher Portal',
@@ -38,21 +39,52 @@ async function getSubjectsPageData(): Promise<SubjectsPageData | null> {
   return { subjects, stats }
 }
 
-async function SubjectsContent() {
+async function SubjectsContent({
+  sort,
+  grade,
+}: {
+  sort: string
+  grade: string
+}) {
   const data = await getSubjectsPageData()
 
   if (!data) {
     redirect('/login')
   }
 
-  const { subjects } = data
+  let { subjects } = data
+
+  // Apply grade filter
+  if (grade && grade !== 'all') {
+    subjects = subjects.filter((s) => s.grade_level === grade)
+  }
+
+  // Apply sort
+  switch (sort) {
+    case 'name-desc':
+      subjects = [...subjects].sort((a, b) => b.name.localeCompare(a.name))
+      break
+    case 'students-desc':
+      subjects = [...subjects].sort((a, b) => b.student_count - a.student_count)
+      break
+    case 'modules-desc':
+      subjects = [...subjects].sort((a, b) => b.module_count - a.module_count)
+      break
+    case 'name-asc':
+    default:
+      subjects = [...subjects].sort((a, b) => a.name.localeCompare(b.name))
+      break
+  }
 
   if (subjects.length === 0) {
     return (
       <EmptyState
         icon="book_2"
-        title="No subjects assigned"
-        description="You don't have any subjects assigned yet. Contact your administrator to get assigned to courses."
+        title="No subjects found"
+        description={grade && grade !== 'all'
+          ? `No subjects found for Grade ${grade}. Try a different filter.`
+          : "You don't have any subjects assigned yet. Contact your administrator to get assigned to courses."
+        }
       />
     )
   }
@@ -67,21 +99,11 @@ async function SubjectsContent() {
         >
           <Card className="h-full hover:border-primary transition-colors">
             {/* Cover Image */}
-            {subject.cover_image_url ? (
-              <div className="w-full h-32 rounded-lg bg-slate-100 dark:bg-slate-800 mb-4 overflow-hidden">
-                <img
-                  src={subject.cover_image_url}
-                  alt={subject.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            ) : (
-              <div className="w-full h-32 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 mb-4 flex items-center justify-center">
-                <span className="material-symbols-outlined text-primary text-5xl">
-                  book_2
-                </span>
-              </div>
-            )}
+            <div className="w-full h-32 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 mb-4 flex items-center justify-center">
+              <span className="material-symbols-outlined text-primary text-5xl">
+                book_2
+              </span>
+            </div>
 
             {/* Subject Info */}
             <div className="space-y-3">
@@ -236,7 +258,13 @@ async function QuickStats() {
   )
 }
 
-export default function SubjectsPage() {
+export default async function SubjectsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sort?: string; grade?: string }>
+}) {
+  const { sort = 'name-asc', grade = 'all' } = await searchParams
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -249,20 +277,7 @@ export default function SubjectsPage() {
             Manage your subjects and course content
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 font-semibold transition-colors">
-            <span className="material-symbols-outlined text-lg">
-              sort
-            </span>
-            Sort
-          </button>
-          <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-900 dark:text-slate-100 font-semibold transition-colors">
-            <span className="material-symbols-outlined text-lg">
-              filter_list
-            </span>
-            Filter
-          </button>
-        </div>
+        <SubjectSortFilter />
       </div>
 
       {/* Quick Stats */}
@@ -272,7 +287,7 @@ export default function SubjectsPage() {
 
       {/* Subjects Grid */}
       <Suspense fallback={<LoadingSpinner />}>
-        <SubjectsContent />
+        <SubjectsContent sort={sort} grade={grade} />
       </Suspense>
     </div>
   )

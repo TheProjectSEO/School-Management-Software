@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
-import { getCurrentUser } from '@/lib/auth/session'
-import { getModule } from '@/lib/dal/teacher'
+import { getTeacherProfile, getModule } from '@/lib/dal/teacher'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import ModuleEditor from '@/components/teacher/teacher/ModuleEditor'
 
@@ -18,13 +17,14 @@ interface PageProps {
 }
 
 async function ModuleEditorContent({ subjectId, moduleId }: { subjectId: string; moduleId: string }) {
-  const user = await getCurrentUser()
+  const teacherProfile = await getTeacherProfile()
 
-  if (!user || user.role !== 'teacher') {
+  if (!teacherProfile) {
     redirect('/login')
   }
 
-  const moduleData = await getModule(moduleId, user.profile_id)
+  // Use teacher_profiles.id (not school_profiles.id) for access verification
+  const moduleData = await getModule(moduleId, teacherProfile.id)
 
   if (!moduleData) {
     redirect(`/teacher/subjects/${subjectId}`)

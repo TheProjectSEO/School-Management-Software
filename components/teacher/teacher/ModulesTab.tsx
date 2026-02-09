@@ -45,7 +45,7 @@ export default function ModulesTab({ modules, subjectId }: ModulesTabProps) {
     try {
       await Promise.all(
         moduleList.map((module, index) =>
-          fetch(`/api/content/modules/${module.id}`, {
+          fetch(`/api/teacher/content/modules/${module.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ order: index + 1 }),
@@ -60,7 +60,7 @@ export default function ModulesTab({ modules, subjectId }: ModulesTabProps) {
   const handlePublishModule = async (moduleId: string) => {
     setIsPublishing(moduleId)
     try {
-      const response = await fetch(`/api/content/modules/${moduleId}`, {
+      const response = await fetch(`/api/teacher/content/modules/${moduleId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_published: true }),

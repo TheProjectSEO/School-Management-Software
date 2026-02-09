@@ -176,7 +176,7 @@ export default function LessonEditor({
       uploadFormData.append('bucket', 'course-content')
       uploadFormData.append('folder', `videos/${moduleId}`)
 
-      const response = await fetch('/api/content/upload', {
+      const response = await fetch('/api/teacher/content/upload', {
         method: 'POST',
         body: uploadFormData,
       })
@@ -226,7 +226,7 @@ export default function LessonEditor({
         uploadFormData.append('bucket', 'lesson-attachments')
         uploadFormData.append('folder', `lessons/${formData.id || 'new'}`)
 
-        const response = await fetch('/api/content/upload', {
+        const response = await fetch('/api/teacher/content/upload', {
           method: 'POST',
           body: uploadFormData,
         })
@@ -280,8 +280,8 @@ export default function LessonEditor({
 
     try {
       const endpoint = formData.id
-        ? `/api/content/lessons/${formData.id}`
-        : '/api/content/lessons'
+        ? `/api/teacher/content/lessons/${formData.id}`
+        : '/api/teacher/content/lessons'
 
       const method = formData.id ? 'PATCH' : 'POST'
 

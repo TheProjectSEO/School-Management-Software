@@ -41,7 +41,7 @@ export default function CreateModuleModal({
     setError(null)
 
     try {
-      const response = await fetch('/api/content/modules', {
+      const response = await fetch('/api/teacher/content/modules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

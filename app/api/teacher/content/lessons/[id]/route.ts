@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getTeacherProfile } from '@/lib/dal/teacher'
+import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI'
 import { getLesson, updateLesson, deleteLesson, detectVideoType, getYouTubeThumbnail } from '@/lib/dal/content'
 
 interface RouteParams {
@@ -15,13 +15,11 @@ interface RouteParams {
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const teacherProfile = await getTeacherProfile()
-    if (!teacherProfile) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireTeacherAPI()
+    if (!auth.success) return auth.response
 
     const { id: lessonId } = await params
-    const lesson = await getLesson(teacherProfile.id, lessonId)
+    const lesson = await getLesson(auth.teacher.teacherId, lessonId)
 
     if (!lesson) {
       return NextResponse.json({ error: 'Lesson not found' }, { status: 404 })
@@ -36,10 +34,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
-    const teacherProfile = await getTeacherProfile()
-    if (!teacherProfile) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireTeacherAPI()
+    if (!auth.success) return auth.response
 
     const { id: lessonId } = await params
     const body = await request.json()
@@ -68,7 +64,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       detectedThumbnail = getYouTubeThumbnail(video_url)
     }
 
-    const lesson = await updateLesson(teacherProfile.id, lessonId, {
+    const lesson = await updateLesson(auth.teacher.teacherId, lessonId, {
       title,
       content,
       content_type,
@@ -96,13 +92,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const teacherProfile = await getTeacherProfile()
-    if (!teacherProfile) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireTeacherAPI()
+    if (!auth.success) return auth.response
 
     const { id: lessonId } = await params
-    const success = await deleteLesson(teacherProfile.id, lessonId)
+    const success = await deleteLesson(auth.teacher.teacherId, lessonId)
 
     if (!success) {
       return NextResponse.json(

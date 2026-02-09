@@ -5,16 +5,14 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { getTeacherProfile } from '@/lib/dal/teacher'
+import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI'
 import { detectVideoType, getYouTubeThumbnail } from '@/lib/dal/content'
 import { createServiceClient } from '@/lib/supabase/service'
 
 export async function POST(request: NextRequest) {
   try {
-    const teacherProfile = await getTeacherProfile()
-    if (!teacherProfile) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireTeacherAPI()
+    if (!auth.success) return auth.response
 
     const body = await request.json()
     const {
@@ -55,11 +53,11 @@ export async function POST(request: NextRequest) {
     const { count: accessCount } = await supabase
       .from('teacher_assignments')
       .select('*', { count: 'exact', head: true })
-      .eq('teacher_profile_id', teacherProfile.id)
+      .eq('teacher_profile_id', auth.teacher.teacherId)
       .eq('course_id', module.course_id)
 
     if (!accessCount || accessCount === 0) {
-      console.error(`[POST /content/lessons] Access denied: teacher=${teacherProfile.id} course=${module.course_id}`)
+      console.error(`[POST /content/lessons] Access denied: teacher=${auth.teacher.teacherId} course=${module.course_id}`)
       return NextResponse.json({ error: 'Access denied to this course' }, { status: 403 })
     }
 
@@ -124,10 +122,8 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const teacherProfile = await getTeacherProfile()
-    if (!teacherProfile) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const auth = await requireTeacherAPI()
+    if (!auth.success) return auth.response
 
     const supabase = createServiceClient()
     const { searchParams } = new URL(request.url)
@@ -154,20 +150,17 @@ export async function GET(request: NextRequest) {
     const { count: accessCount } = await supabase
       .from('teacher_assignments')
       .select('*', { count: 'exact', head: true })
-      .eq('teacher_profile_id', teacherProfile.id)
+      .eq('teacher_profile_id', auth.teacher.teacherId)
       .eq('course_id', module.course_id)
 
     if (!accessCount || accessCount === 0) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
-    // Fetch lessons directly with service client
+    // Fetch lessons with flat query (no FK joins)
     const { data: lessons, error } = await supabase
       .from('lessons')
-      .select(`
-        *,
-        attachments:lesson_attachments(*)
-      `)
+      .select('*')
       .eq('module_id', moduleId)
       .order('order', { ascending: true })
 
@@ -176,7 +169,29 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch lessons' }, { status: 500 })
     }
 
-    return NextResponse.json({ lessons: lessons || [] })
+    // Fetch attachments separately
+    const lessonIds = (lessons || []).map((l: any) => l.id)
+    let attachmentsByLesson = new Map<string, any[]>()
+    if (lessonIds.length > 0) {
+      const { data: attachments } = await supabase
+        .from('lesson_attachments')
+        .select('*')
+        .in('lesson_id', lessonIds)
+        .order('order_index', { ascending: true })
+
+      ;(attachments || []).forEach((a: any) => {
+        const arr = attachmentsByLesson.get(a.lesson_id) || []
+        arr.push(a)
+        attachmentsByLesson.set(a.lesson_id, arr)
+      })
+    }
+
+    const lessonsWithAttachments = (lessons || []).map((l: any) => ({
+      ...l,
+      attachments: attachmentsByLesson.get(l.id) || [],
+    }))
+
+    return NextResponse.json({ lessons: lessonsWithAttachments })
   } catch (error) {
     console.error('Error in GET /api/content/lessons:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -139,6 +139,27 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Verify teacher has access to this module's course
+    const { data: module } = await supabase
+      .from('modules')
+      .select('course_id')
+      .eq('id', moduleId)
+      .maybeSingle()
+
+    if (!module) {
+      return NextResponse.json({ error: 'Module not found' }, { status: 404 })
+    }
+
+    const { count: accessCount } = await supabase
+      .from('teacher_assignments')
+      .select('*', { count: 'exact', head: true })
+      .eq('teacher_profile_id', teacherProfile.id)
+      .eq('course_id', module.course_id)
+
+    if (!accessCount || accessCount === 0) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
     // Fetch lessons directly with service client
     const { data: lessons, error } = await supabase
       .from('lessons')

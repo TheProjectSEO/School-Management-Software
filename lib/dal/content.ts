@@ -161,12 +161,24 @@ async function getCourseIdForModule(moduleId: string): Promise<string | null> {
  */
 async function getCourseIdForLesson(lessonId: string): Promise<string | null> {
   const supabase = createServiceClient()
-  const { data } = await supabase
+
+  // Get lesson's module_id first (no FK join)
+  const { data: lesson } = await supabase
     .from('lessons')
-    .select('module:modules!inner(course_id)')
+    .select('module_id')
     .eq('id', lessonId)
     .single()
-  return (data?.module as any)?.course_id || null
+
+  if (!lesson?.module_id) return null
+
+  // Then get the module's course_id
+  const { data: module } = await supabase
+    .from('modules')
+    .select('course_id')
+    .eq('id', lesson.module_id)
+    .single()
+
+  return module?.course_id || null
 }
 
 // ============================================================================

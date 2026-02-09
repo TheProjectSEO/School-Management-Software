@@ -171,53 +171,66 @@ export async function getTeacherSections(teacherId: string) {
 export async function getTeacherSubjects(teacherId: string) {
   const supabase = createServiceClient()
 
-  const { data, error } = await supabase
+  // Fetch assignments with flat columns only — avoids FK join issues
+  const { data: assignments, error } = await supabase
     .from('teacher_assignments')
-    .select(`
-      course:courses!inner(
-        id,
-        name,
-        subject_code,
-        description,
-        section_id
-      ),
-      section:sections!inner(
-        id,
-        name,
-        grade_level
-      )
-    `)
+    .select('id, section_id, course_id')
     .eq('teacher_profile_id', teacherId)
 
   if (error) {
-    console.error('Error fetching teacher subjects:', error)
+    console.error('Error fetching teacher assignments:', error)
     return []
   }
 
+  if (!assignments || assignments.length === 0) {
+    return []
+  }
+
+  // Collect unique IDs and fetch courses + sections in parallel
+  const courseIds = [...new Set(assignments.map(a => a.course_id).filter(Boolean))] as string[]
+  const sectionIds = [...new Set(assignments.map(a => a.section_id).filter(Boolean))] as string[]
+
+  const [coursesResult, sectionsResult] = await Promise.all([
+    courseIds.length > 0
+      ? supabase.from('courses').select('id, name, subject_code, description, section_id').in('id', courseIds)
+      : Promise.resolve({ data: [] as any[] }),
+    sectionIds.length > 0
+      ? supabase.from('sections').select('id, name, grade_level').in('id', sectionIds)
+      : Promise.resolve({ data: [] as any[] }),
+  ])
+
+  const coursesMap = new Map((coursesResult.data ?? []).map((c: any) => [c.id, c]))
+  const sectionsMap = new Map((sectionsResult.data ?? []).map((s: any) => [s.id, s]))
+
   // Enrich with counts
   const enrichedSubjects = await Promise.all(
-    data.map(async (item: any) => {
+    assignments.map(async (assignment) => {
+      const course = coursesMap.get(assignment.course_id)
+      const section = sectionsMap.get(assignment.section_id)
+
+      if (!course) return null
+
       const [moduleCount, studentCount] = await Promise.all([
-        getModuleCountForCourse(item.course.id),
-        getStudentCountForCourse(item.course.id)
+        getModuleCountForCourse(assignment.course_id),
+        getStudentCountForCourse(assignment.course_id)
       ])
 
       return {
-        id: item.course.id,
-        name: item.course.name,
-        subject_code: item.course.subject_code,
-        description: item.course.description,
-        cover_image_url: null, // Column does not exist in database
-        section_id: item.course.section_id,
-        section_name: item.section.name,
-        grade_level: item.section.grade_level,
+        id: course.id,
+        name: course.name,
+        subject_code: course.subject_code,
+        description: course.description,
+        cover_image_url: null,
+        section_id: assignment.section_id,
+        section_name: section?.name || '',
+        grade_level: section?.grade_level || '',
         module_count: moduleCount,
         student_count: studentCount
       } as TeacherSubject
     })
   )
 
-  return enrichedSubjects
+  return enrichedSubjects.filter(Boolean) as TeacherSubject[]
 }
 
 /**
@@ -230,59 +243,46 @@ export async function getTeacherSubject(courseId: string, teacherId: string): Pr
   const hasAccess = await verifyTeacherCourseAccess(teacherId, courseId)
   if (!hasAccess) return null
 
-  const { data, error } = await supabase
+  // Fetch assignment with flat columns only — avoids FK join issues
+  const { data: assignment, error } = await supabase
     .from('teacher_assignments')
-    .select(`
-      course:courses!inner(
-        id,
-        name,
-        subject_code,
-        description,
-        section_id
-      ),
-      section:sections!inner(
-        id,
-        name,
-        grade_level
-      )
-    `)
+    .select('id, section_id, course_id')
     .eq('teacher_profile_id', teacherId)
     .eq('course_id', courseId)
-    .single()
+    .maybeSingle()
 
-  if (error || !data) {
-    console.error('Error fetching subject:', error)
+  if (error || !assignment) {
+    console.error('Error fetching subject assignment:', error)
     return null
   }
 
-  // Cast to properly typed objects (Supabase returns these as objects for single())
-  const course = data.course as unknown as {
-    id: string
-    name: string
-    subject_code: string
-    description: string
-    section_id: string
-  }
-  const section = data.section as unknown as {
-    id: string
-    name: string
-    grade_level: string
-  }
-
-  const [moduleCount, studentCount] = await Promise.all([
+  // Fetch course, section, and counts in parallel
+  const [courseResult, sectionResult, moduleCount, studentCount] = await Promise.all([
+    supabase.from('courses').select('id, name, subject_code, description, section_id').eq('id', courseId).maybeSingle(),
+    assignment.section_id
+      ? supabase.from('sections').select('id, name, grade_level').eq('id', assignment.section_id).maybeSingle()
+      : Promise.resolve({ data: null }),
     getModuleCountForCourse(courseId),
     getStudentCountForCourse(courseId)
   ])
+
+  const course = courseResult.data
+  if (!course) {
+    console.error('Course not found:', courseId)
+    return null
+  }
+
+  const section = sectionResult.data
 
   return {
     id: course.id,
     name: course.name,
     subject_code: course.subject_code,
     description: course.description,
-    cover_image_url: null, // Column does not exist in database
-    section_id: course.section_id,
-    section_name: section.name,
-    grade_level: section.grade_level,
+    cover_image_url: null,
+    section_id: assignment.section_id,
+    section_name: section?.name || '',
+    grade_level: section?.grade_level || '',
     module_count: moduleCount,
     student_count: studentCount
   } as TeacherSubject
@@ -525,21 +525,11 @@ async function getModuleCountForCourse(courseId: string): Promise<number> {
 async function getStudentCountForCourse(courseId: string): Promise<number> {
   const supabase = createServiceClient()
 
-  // Get the section_id from the course (courses are linked to sections)
-  const { data: course } = await supabase
-    .from('courses')
-    .select('section_id')
-    .eq('id', courseId)
-    .single()
-
-  if (!course || !course.section_id) return 0
-
-  // Count students in this section
+  // Count students enrolled in this course (consistent with API route)
   const { count } = await supabase
-    .from('students')
+    .from('enrollments')
     .select('*', { count: 'exact', head: true })
-    .eq('section_id', course.section_id)
-    .eq('status', 'active')
+    .eq('course_id', courseId)
 
   return count || 0
 }

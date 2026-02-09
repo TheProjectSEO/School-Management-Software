@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id: moduleId } = await params
     const supabase = createServiceClient()
 
-    // Get module — course_id or subject_id may link to courses table
+    // Get module with course info
     const { data: module, error } = await supabase
       .from('modules')
       .select('*')
@@ -35,36 +35,26 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Module not found' }, { status: 404 })
     }
 
-    const linkedCourseId = module.course_id || module.subject_id
-
-    // Fetch course info separately (avoids !inner join issues)
+    // Fetch course info separately
     let course = null
-    if (linkedCourseId) {
+    if (module.course_id) {
       const { data } = await supabase
         .from('courses')
         .select('id, name, subject_code')
-        .eq('id', linkedCourseId)
+        .eq('id', module.course_id)
         .maybeSingle()
       course = data
     }
 
-    // Verify teacher access (check both course_id and subject_id columns)
-    const { count: byCourse } = await supabase
+    // Verify teacher access
+    const { count: accessCount } = await supabase
       .from('teacher_assignments')
       .select('*', { count: 'exact', head: true })
       .eq('teacher_profile_id', teacherProfile.id)
-      .eq('course_id', linkedCourseId)
+      .eq('course_id', module.course_id)
 
-    if (!byCourse || byCourse === 0) {
-      const { count: bySubject } = await supabase
-        .from('teacher_assignments')
-        .select('*', { count: 'exact', head: true })
-        .eq('teacher_profile_id', teacherProfile.id)
-        .eq('subject_id', linkedCourseId)
-
-      if (!bySubject || bySubject === 0) {
-        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
-      }
+    if (!accessCount || accessCount === 0) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
     }
 
     // Get lessons for this module

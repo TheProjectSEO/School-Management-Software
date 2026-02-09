@@ -4,6 +4,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI';
 import { getDailyClient } from '@/lib/services/daily/client';
 import { processRecordingForSession } from '@/lib/services/daily/recordings';
+import { createLessonFromSession } from '@/lib/services/session-to-lesson';
 
 export async function POST(
   _req: NextRequest,
@@ -124,6 +125,13 @@ export async function POST(
       } catch (deleteErr) {
         console.error('[End Session] Error deleting room:', deleteErr);
       }
+    }
+
+    // Auto-create a draft lesson from this session (non-blocking)
+    try {
+      await createLessonFromSession(sessionId);
+    } catch (lessonErr) {
+      console.error('[End Session] Error creating lesson from session:', lessonErr);
     }
 
     return NextResponse.json({

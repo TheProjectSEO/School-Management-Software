@@ -6,6 +6,7 @@
 import { getDailyClient } from './client';
 import { createN8nSchemaClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
+import { updateLessonRecording } from '@/lib/services/session-to-lesson';
 
 interface RecordingProcessResult {
   success: boolean;
@@ -120,6 +121,13 @@ export async function processRecordingForSession(
 
     if (teacherUpdateError) {
       console.error('[Recording] Error updating teacher_live_sessions:', teacherUpdateError);
+    }
+
+    // Update the auto-created lesson with the recording URL (non-blocking)
+    try {
+      await updateLessonRecording(sessionId, publicUrl, latestRecording.duration);
+    } catch (lessonErr) {
+      console.error('[Recording] Error updating lesson recording:', lessonErr);
     }
 
     console.log(`[Recording] Successfully processed recording for session ${sessionId}`);

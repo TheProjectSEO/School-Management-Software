@@ -8,6 +8,7 @@ import { createServiceClient } from '@/lib/supabase/service';
 import { getCurrentProfile } from '@/lib/dal/auth';
 import { getDailyClient } from '@/lib/services/daily/client';
 import { scheduleRecordingProcessing } from '@/lib/services/daily/recordings';
+import { createLessonFromSession } from '@/lib/services/session-to-lesson';
 
 export async function POST(
   _request: NextRequest,
@@ -112,6 +113,13 @@ export async function POST(
     // Schedule background recording download if recording was enabled
     if (session.recording_enabled) {
       await scheduleRecordingProcessing(sessionId, session.daily_room_name);
+    }
+
+    // Auto-create a draft lesson from this session (non-blocking)
+    try {
+      await createLessonFromSession(sessionId);
+    } catch (lessonErr) {
+      console.error('[End Session] Error creating lesson from session:', lessonErr);
     }
 
     return NextResponse.json({

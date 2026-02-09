@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI';
+import { updateLessonTranscript } from '@/lib/services/session-to-lesson';
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -202,6 +203,13 @@ export async function POST(
     if (transcriptError) {
       console.error(`[Transcribe] Error saving transcript:`, transcriptError);
       throw new Error(`Failed to save transcript: ${transcriptError.message}`);
+    }
+
+    // Update the auto-created lesson with the transcript (non-blocking)
+    try {
+      await updateLessonTranscript(sessionId, transcript.text);
+    } catch (lessonErr) {
+      console.error('[Transcribe] Error updating lesson transcript:', lessonErr);
     }
 
     // Create chunks and embeddings

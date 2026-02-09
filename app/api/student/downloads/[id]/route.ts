@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     const { student } = authResult;
     const { id } = await params;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get the download record
     const { data: download, error } = await supabase
@@ -60,7 +60,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
 
     const { student } = authResult;
     const { id } = await params;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Delete the download
     const { error } = await supabase
@@ -97,7 +97,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     }
 
     const { student } = authResult;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Update the download status
     const { error } = await supabase

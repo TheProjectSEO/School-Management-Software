@@ -5,7 +5,7 @@
  * approval, dropping, and transfers.
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 // Types
 export type EnrollmentStatus = 'pending' | 'approved' | 'dropped' | 'transferred';
@@ -61,7 +61,7 @@ export async function getEnrollmentById(
   id: string
 ): Promise<EnrollmentDetails | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from('enrollments')
@@ -132,7 +132,7 @@ export async function approveEnrollment(
   approvedBy?: string
 ): Promise<EnrollmentActionResult> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from('enrollments')
@@ -175,7 +175,7 @@ export async function dropEnrollment(
   reason: string
 ): Promise<EnrollmentActionResult> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from('enrollments')
@@ -218,7 +218,7 @@ export async function transferEnrollment(
   newSectionId: string
 ): Promise<EnrollmentActionResult> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // First, get the current enrollment to verify it exists
     const { data: currentEnrollment, error: fetchError } = await supabase
@@ -290,7 +290,7 @@ export async function createEnrollment(
   input: CreateEnrollmentInput
 ): Promise<EnrollmentActionResult & { id?: string }> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Support both snake_case and camelCase parameter names
     const studentId = input.student_id || input.studentId;
@@ -333,7 +333,7 @@ export async function bulkEnroll(
   params: CreateEnrollmentInput[] | { courseId: string; sectionId: string; studentIds: string[]; academicYearId?: string }
 ): Promise<{ success: boolean; created: number; errors: string[] }> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const errors: string[] = [];
     let created = 0;
 
@@ -398,7 +398,7 @@ export async function getEnrollmentStats(schoolId?: string): Promise<{
   dropped: number;
 }> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase.from('enrollments').select('status');
     if (schoolId) {
@@ -430,7 +430,7 @@ export async function completeEnrollment(
   id: string
 ): Promise<EnrollmentActionResult> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from('enrollments')
@@ -474,7 +474,7 @@ export async function getEnrollments(params: {
   totalPages: number;
 }> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const { schoolId, sectionId, courseId, status, page = 1, pageSize = 20 } = params;
 
     let query = supabase

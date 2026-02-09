@@ -4,8 +4,10 @@ import { getCurrentStudent, getUpcomingAssessments, getAssessmentStats } from "@
 
 export const revalidate = 60; // 1 minute - deadlines
 
+import { AssessmentSearch } from './AssessmentSearch';
+
 interface PageProps {
-  searchParams: Promise<{ type?: string }>
+  searchParams: Promise<{ type?: string; q?: string }>
 }
 
 /**
@@ -68,6 +70,7 @@ const filterTabs = [
 export default async function AssessmentsPage({ searchParams }: PageProps) {
   const params = await searchParams
   const currentType = params.type
+  const searchQuery = params.q?.toLowerCase() || ''
 
   // Get current student
   const student = await getCurrentStudent();
@@ -82,10 +85,19 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
     getAssessmentStats(student.id),
   ]);
 
-  // Filter by type if specified
-  const filteredAssessments = currentType
+  // Filter by type and search query
+  let filteredAssessments = currentType
     ? assessments.filter(a => a.type === currentType)
     : assessments;
+
+  if (searchQuery) {
+    filteredAssessments = filteredAssessments.filter(
+      (a) =>
+        a.title.toLowerCase().includes(searchQuery) ||
+        a.course?.name?.toLowerCase().includes(searchQuery) ||
+        a.description?.toLowerCase().includes(searchQuery)
+    );
+  }
 
   // Categorize assessments
   const now = new Date();
@@ -196,16 +208,7 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
 
       {/* Search and Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-3 mb-8">
-        <div className="relative flex-1">
-          <span className="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-500 pointer-events-none">
-            <span className="material-symbols-outlined">search</span>
-          </span>
-          <input
-            className="w-full pl-10 pr-4 py-3 rounded-lg border-none bg-white dark:bg-[#1a2634] shadow-sm text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-primary"
-            placeholder="Search assessments by course or title..."
-            type="text"
-          />
-        </div>
+        <AssessmentSearch />
         <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0">
           {filterTabs.map((tab) => {
             const isActive = currentType === tab.value

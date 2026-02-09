@@ -53,9 +53,9 @@ export default function DraftContentWidget({ drafts, totalCount }: DraftContentW
             </Link>
           ))}
 
-          {totalCount > 2 && (
+          {totalCount > Math.min(drafts.length, 2) && (
             <p className="text-sm text-slate-600 dark:text-slate-400 text-center pt-2">
-              + {totalCount - 2} more draft{totalCount - 2 !== 1 ? 's' : ''} awaiting publish
+              + {totalCount - Math.min(drafts.length, 2)} more draft{totalCount - Math.min(drafts.length, 2) !== 1 ? 's' : ''} awaiting publish
             </p>
           )}
         </div>

@@ -2,14 +2,14 @@
  * Downloads data access functions
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import type { Download } from "./types";
 
 /**
  * Get all downloads for a student
  */
 export async function getDownloads(studentId: string): Promise<Download[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("student_downloads")
@@ -36,7 +36,7 @@ export async function getDownloadStats(studentId: string): Promise<{
   errorDownloads: number;
   totalSizeBytes: number;
 }> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("student_downloads")
@@ -84,7 +84,7 @@ export async function getDownloadsByStatus(
   studentId: string,
   status: "ready" | "syncing" | "queued" | "error"
 ): Promise<Download[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("student_downloads")
@@ -105,7 +105,7 @@ export async function getDownloadsByStatus(
  * Delete a download
  */
 export async function deleteDownload(downloadId: string, studentId: string): Promise<boolean> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { error } = await supabase
     .from("student_downloads")
@@ -129,7 +129,7 @@ export async function updateDownloadStatus(
   studentId: string,
   status: "ready" | "syncing" | "queued" | "error"
 ): Promise<boolean> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { error } = await supabase
     .from("student_downloads")
@@ -149,7 +149,7 @@ export async function updateDownloadStatus(
  * Get downloads filtered by file type
  */
 export async function getDownloadsByFileType(studentId: string, fileType: string): Promise<Download[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   let query = supabase.from("student_downloads").select("*").eq("student_id", studentId);
 
@@ -178,7 +178,7 @@ export async function getDownloadsByFileType(studentId: string, fileType: string
  * Get a single download by ID
  */
 export async function getDownload(downloadId: string, studentId: string): Promise<Download | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("student_downloads")

@@ -3,7 +3,7 @@
  * Handles all database operations for the teacher grading queue
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 // ============================================
 // Types
@@ -72,7 +72,7 @@ export interface FlagItemInput {
  * Verify teacher has access to grade items for their courses
  */
 async function verifyTeacherQueueAccess(teacherId: string, queueItemId: string): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get the queue item with submission and assessment info
   const { data: queueItem } = await supabase
@@ -118,7 +118,7 @@ export async function getGradingQueue(
   limit: number = 50,
   offset: number = 0
 ): Promise<GradingQueueItem[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's courses first
   const { data: assignments } = await supabase
@@ -230,7 +230,7 @@ export async function getGradingQueue(
  * Get a single queue item with full details
  */
 export async function getQueueItem(itemId: string): Promise<GradingQueueItem | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('teacher_grading_queue')
@@ -300,7 +300,7 @@ export async function gradeQueueItem(
   teacherId: string,
   input: GradeItemInput
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify access
   const hasAccess = await verifyTeacherQueueAccess(teacherId, itemId)
@@ -365,7 +365,7 @@ export async function flagQueueItem(
   teacherId: string,
   input: FlagItemInput
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify access
   const hasAccess = await verifyTeacherQueueAccess(teacherId, itemId)
@@ -396,7 +396,7 @@ export async function unflagQueueItem(
   itemId: string,
   teacherId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const hasAccess = await verifyTeacherQueueAccess(teacherId, itemId)
   if (!hasAccess) {
@@ -426,7 +426,7 @@ export async function getNextQueueItem(
   teacherId: string,
   currentItemId?: string
 ): Promise<GradingQueueItem | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's courses
   const { data: assignments } = await supabase
@@ -509,7 +509,7 @@ export async function getNextQueueItem(
  * Get queue statistics for a teacher
  */
 export async function getQueueStats(teacherId: string): Promise<GradingQueueStats> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's courses
   const { data: assignments } = await supabase
@@ -620,7 +620,7 @@ export async function getQuestionDetails(questionId: string): Promise<{
   answer_key_json: any
   points: number
 } | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('teacher_assessment_questions')
@@ -668,7 +668,7 @@ export async function batchGradeItems(
  * Update submission status after grading queue items
  */
 async function updateSubmissionGradeStatus(submissionId: string): Promise<void> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Check if there are any pending items left
   const { count: pendingCount } = await supabase
@@ -731,7 +731,7 @@ export async function getAssessmentsWithPendingGrading(teacherId: string): Promi
   title: string
   pending_count: number
 }[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's courses
   const { data: assignments } = await supabase

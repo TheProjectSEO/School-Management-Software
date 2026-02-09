@@ -65,27 +65,13 @@ export default function SubjectDetailPage() {
       setIsLoading(true)
       setError(null)
 
-      // Fetch subject details
-      const subjectRes = await fetch(`/api/teacher/subjects`)
+      // Fetch subject details from dedicated endpoint
+      const subjectRes = await fetch(`/api/teacher/subjects/${subjectId}`)
       if (!subjectRes.ok) throw new Error('Failed to fetch subject')
       const subjectData = await subjectRes.json()
-      const foundSubject = subjectData.subjects?.find((s: any) =>
-        s.subject?.id === subjectId || s.id === subjectId
-      )
 
-      if (foundSubject) {
-        // Transform the data
-        setSubject({
-          id: foundSubject.subject?.id || foundSubject.id,
-          name: foundSubject.subject?.name || foundSubject.name,
-          subject_code: foundSubject.subject?.subject_code || foundSubject.subject_code,
-          description: foundSubject.subject?.description || foundSubject.description || null,
-          cover_image_url: foundSubject.subject?.cover_image_url || foundSubject.cover_image_url || null,
-          section_name: foundSubject.section?.name || '',
-          grade_level: foundSubject.section?.grade_level || '',
-          module_count: 0,
-          student_count: 0
-        })
+      if (subjectData.subject) {
+        setSubject(subjectData.subject)
       }
 
       // Fetch modules for this subject/course

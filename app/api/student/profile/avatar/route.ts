@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 
 /**
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { student } = authResult;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get form data
     const formData = await request.formData();
@@ -116,7 +116,7 @@ export async function DELETE() {
     }
 
     const { student } = authResult;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get current profile to find avatar URL
     const { data: profile, error: profileError } = await supabase

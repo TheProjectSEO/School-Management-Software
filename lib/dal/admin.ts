@@ -3,7 +3,7 @@
  * Use this in API routes for admin authentication
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
@@ -583,7 +583,7 @@ export async function verifyAdminPassword(
   password: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { error } = await supabase.auth.signInWithPassword({
       email,

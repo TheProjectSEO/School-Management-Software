@@ -2,7 +2,7 @@
  * Auth DAL - Get current user profile and role
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentUser } from "@/lib/auth/session";
 
 export interface UserProfile {
@@ -26,7 +26,7 @@ export async function getCurrentProfile(): Promise<UserProfile | null> {
       return null;
     }
 
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Try to get profile using RPC function (bypasses RLS)
     const { data: roleData, error: roleError } = await supabase.rpc(
@@ -63,7 +63,7 @@ export async function getCurrentProfile(): Promise<UserProfile | null> {
  * Fallback method to get profile directly from tables
  */
 async function getProfileFallback(
-  supabase: Awaited<ReturnType<typeof createClient>>,
+  supabase: ReturnType<typeof createServiceClient>,
   authUserId: string,
   email: string
 ): Promise<UserProfile | null> {

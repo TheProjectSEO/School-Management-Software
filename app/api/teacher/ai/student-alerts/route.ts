@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 /**
  * GET /api/teacher/ai/student-alerts
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
     const alertType = searchParams.get("alertType");
     const minSeverity = searchParams.get("minSeverity") || "low";
 
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const teacherId = authResult.teacher.teacherId;
 
     // Get teacher's assigned sections/courses

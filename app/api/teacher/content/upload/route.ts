@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getTeacherProfile } from '@/lib/dal/teacher'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const sanitizedFileName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
     const filePath = `${folder}/${teacherProfile.id}/${timestamp}_${sanitizedFileName}`
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Convert File to ArrayBuffer
     const arrayBuffer = await file.arrayBuffer()

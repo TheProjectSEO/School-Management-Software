@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callOpenAIChatCompletions, callOpenAIEmbeddings } from "@/lib/ai/openai";
 import { getCurrentProfile } from "@/lib/dal/auth";
@@ -12,7 +11,7 @@ export async function POST(
 ) {
   try {
     const { id: sessionId } = await params;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Use getCurrentProfile which handles RPC and fallback properly
     const profile = await getCurrentProfile();

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 import { callOpenAIChatCompletions } from "@/lib/ai/openai";
 import { getReportCard } from "@/lib/dal/report-cards";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 /**
  * POST /api/teacher/ai/generate-progress-report
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get report card data
     let reportCard;

@@ -4,7 +4,7 @@
  * Uses public.teacher_announcements table (unified schema)
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getTeacherProfile } from './teacher'
 
 // Types
@@ -87,7 +87,7 @@ export async function getTeacherAnnouncements(
   const teacher = await getTeacherProfile()
   if (!teacher) return []
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   let query = supabase
     .from('teacher_announcements')
@@ -152,7 +152,7 @@ export async function getAnnouncement(announcementId: string): Promise<Announcem
   const teacher = await getTeacherProfile()
   if (!teacher) return null
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('teacher_announcements')
@@ -200,7 +200,7 @@ export async function createAnnouncement(
   const teacher = await getTeacherProfile()
   if (!teacher) return null
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const shouldPublish = input.auto_publish === true
 
@@ -253,7 +253,7 @@ export async function updateAnnouncement(
   const teacher = await getTeacherProfile()
   if (!teacher) return null
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // First check if it's a draft
   const { data: existing } = await supabase
@@ -294,7 +294,7 @@ export async function deleteAnnouncement(announcementId: string): Promise<boolea
   const teacher = await getTeacherProfile()
   if (!teacher) return false
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { error } = await supabase
     .from('teacher_announcements')
@@ -317,7 +317,7 @@ export async function publishAnnouncement(announcementId: string): Promise<boole
   const teacher = await getTeacherProfile()
   if (!teacher) return false
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Call the database function that handles publishing + notification creation
   const { error } = await supabase.rpc('publish_announcement', {
@@ -344,7 +344,7 @@ export async function getTargetableSections(): Promise<Array<{
   const teacher = await getTeacherProfile()
   if (!teacher) return []
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get sections the teacher is assigned to (via teacher_assignments)
   const { data: assignments } = await supabase
@@ -397,7 +397,7 @@ export async function getTargetableGradeLevels(): Promise<Array<{
   const teacher = await getTeacherProfile()
   if (!teacher) return []
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('students')
@@ -436,7 +436,7 @@ export async function getTargetableCourses(): Promise<Array<{
   const teacher = await getTeacherProfile()
   if (!teacher) return []
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get courses the teacher is assigned to (via teacher_assignments)
   const { data: assignments, error } = await supabase
@@ -487,7 +487,7 @@ export async function getTargetPreviewCount(
   const teacher = await getTeacherProfile()
   if (!teacher) return 0
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data: count } = await supabase.rpc('get_announcement_target_count', {
     p_school_id: teacher.school_id,

@@ -3,7 +3,7 @@
  * Handles individual grading item operations
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 // ============================================
 // Types - Matching GradingItemClient expectations
@@ -75,7 +75,7 @@ export async function getGradingItem(
   itemId: string,
   teacherProfileId: string
 ): Promise<GradingItem | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get the submission with all related data
   const { data: submission, error } = await supabase
@@ -254,7 +254,7 @@ export async function gradeSubmission(
   },
   teacherProfileId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Update the submission
   const { error: submissionError } = await supabase
@@ -294,7 +294,7 @@ export async function releaseSubmission(
   submissionId: string,
   teacherProfileId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { error } = await supabase
     .from('submissions')

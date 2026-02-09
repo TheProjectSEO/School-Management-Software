@@ -4,7 +4,7 @@
  * Teachers have unlimited messaging capability
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 // Types
 export interface DirectMessage {
@@ -79,7 +79,7 @@ export interface SendMessageResult {
 export async function getTeacherConversations(
   teacherId: string
 ): Promise<Conversation[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's profile_id
   const { data: teacher, error: teacherError } = await supabase
@@ -156,7 +156,7 @@ export async function getConversationMessages(
   options: { limit?: number; offset?: number } = {}
 ): Promise<DirectMessage[]> {
   const { limit = 50, offset = 0 } = options
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's profile_id
   const { data: teacher } = await supabase
@@ -218,7 +218,7 @@ export async function sendMessageToStudent(
   body: string,
   attachments?: Record<string, unknown>[]
 ): Promise<SendMessageResult> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Use database function for teacher messages
   const { data, error } = await supabase.rpc('send_teacher_message', {
@@ -252,7 +252,7 @@ export async function markMessagesAsRead(
   teacherId: string,
   studentProfileId: string
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's profile_id
   const { data: teacher } = await supabase
@@ -287,7 +287,7 @@ export async function markMessagesAsRead(
  * Get total unread message count for a teacher
  */
 export async function getUnreadMessageCount(teacherId: string): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's profile_id
   const { data: teacher } = await supabase
@@ -320,7 +320,7 @@ export async function getUnreadMessageCount(teacherId: string): Promise<number> 
 export async function getStudentsForMessaging(
   teacherId: string
 ): Promise<StudentForMessaging[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get courses taught by this teacher
   const { data: assignments, error: assignError } = await supabase
@@ -391,7 +391,7 @@ export async function getStudentsForMessaging(
 export async function getStudentIdByProfileId(
   profileId: string
 ): Promise<string | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('students')

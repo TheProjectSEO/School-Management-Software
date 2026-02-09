@@ -3,7 +3,7 @@
  * Handles all database operations for the teacher gradebook
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 // ============================================
 // Types
@@ -72,7 +72,7 @@ export async function getCourseGradebook(
   teacherProfileId: string,
   periodId?: string
 ): Promise<GradebookData | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify teacher has access to this course
   const { data: assignment } = await supabase
@@ -255,7 +255,7 @@ export async function saveGrade(
   score: number,
   teacherProfileId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Check if submission exists
   const { data: existing } = await supabase
@@ -330,7 +330,7 @@ export async function releaseGrades(
   assessmentId: string,
   teacherProfileId: string
 ): Promise<{ success: boolean; error?: string }> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { error } = await supabase
     .from('submissions')

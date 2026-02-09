@@ -5,7 +5,6 @@
  * including listing, fetching details, and updating profiles.
  */
 
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 
 // Types

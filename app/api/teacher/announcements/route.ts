@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { requireTeacher } from "@/lib/auth/requireTeacher";
 
 /**
@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
   const limit = parseInt(searchParams.get("limit") || "50");
 
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase
       .from("teacher_announcements")
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
   const { teacherId, schoolId } = authResult.teacher;
 
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const body = await request.json();
 
     const {

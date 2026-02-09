@@ -7,7 +7,6 @@
  */
 
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentUser } from "@/lib/auth/session";
 
@@ -48,7 +47,7 @@ export async function GET(request: NextRequest) {
     return new Response("Forbidden - Student role required", { status: 403 });
   }
 
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Get profile_id from school_profiles using auth_user_id from JWT
   const { data: profile, error: profileError } = await supabase

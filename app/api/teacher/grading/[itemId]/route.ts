@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getCurrentUser } from '@/lib/auth/session'
 import { gradeSubmission, releaseSubmission } from '@/lib/dal/grading'
 
@@ -13,7 +13,7 @@ export async function POST(
 ) {
   try {
     const { itemId } = await params
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Get authenticated user using JWT
     const currentUser = await getCurrentUser()

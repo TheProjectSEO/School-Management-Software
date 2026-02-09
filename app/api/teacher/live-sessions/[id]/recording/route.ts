@@ -5,7 +5,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createN8nSchemaClient } from '@/lib/supabase/server';
+import { createN8nSchemaClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI';
 import { getDailyClient } from '@/lib/services/daily/client';
@@ -19,7 +19,7 @@ export async function GET(
   const auth = await requireTeacherAPI();
   if (!auth.success) return auth.response;
 
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const serviceClient = createServiceClient();
   const n8nSupabase = await createN8nSchemaClient();
 

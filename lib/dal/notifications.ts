@@ -2,7 +2,7 @@
  * Notifications, Notes, and Downloads data access functions
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import type { Notification, Note, Download, QueryOptions } from "./types";
 
 // ============================================
@@ -16,7 +16,7 @@ export async function getNotifications(
   studentId: string,
   options?: QueryOptions & { unreadOnly?: boolean; type?: Notification["type"] }
 ): Promise<Notification[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const pageSize = options?.pageSize || 20;
   const page = options?.page || 1;
@@ -51,7 +51,7 @@ export async function getNotifications(
  * Get unread notification count
  */
 export async function getUnreadNotificationCount(studentId: string): Promise<number> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { count, error } = await supabase
     .from("student_notifications")
@@ -71,7 +71,7 @@ export async function getUnreadNotificationCount(studentId: string): Promise<num
  * Mark notification as read
  */
 export async function markNotificationAsRead(notificationId: string): Promise<boolean> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { error } = await supabase
     .from("student_notifications")
@@ -90,7 +90,7 @@ export async function markNotificationAsRead(notificationId: string): Promise<bo
  * Mark all notifications as read
  */
 export async function markAllNotificationsAsRead(studentId: string): Promise<boolean> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { error } = await supabase
     .from("student_notifications")
@@ -117,7 +117,7 @@ export async function getNotes(
   studentId: string,
   options?: QueryOptions & { type?: Note["type"]; courseId?: string; favoritesOnly?: boolean }
 ): Promise<Note[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const pageSize = options?.pageSize || 20;
   const page = options?.page || 1;
@@ -160,7 +160,7 @@ export async function getNotes(
 export async function createNote(
   note: Omit<Note, "id" | "created_at" | "updated_at">
 ): Promise<Note | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("student_notes")
@@ -187,7 +187,7 @@ export async function updateNote(
   noteId: string,
   updates: Partial<Pick<Note, "title" | "content" | "tags" | "is_favorite">>
 ): Promise<Note | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("student_notes")
@@ -211,7 +211,7 @@ export async function updateNote(
  * Delete a note
  */
 export async function deleteNote(noteId: string): Promise<boolean> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { error } = await supabase.from("student_notes").delete().eq("id", noteId);
 
@@ -234,7 +234,7 @@ export async function getDownloads(
   studentId: string,
   options?: QueryOptions & { status?: Download["status"] }
 ): Promise<Download[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const pageSize = options?.pageSize || 20;
   const page = options?.page || 1;
@@ -271,7 +271,7 @@ export async function getDownloadStats(studentId: string): Promise<{
   syncingCount: number;
   queuedCount: number;
 }> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("student_downloads")
@@ -304,7 +304,7 @@ export async function getDownloadStats(studentId: string): Promise<{
 export async function addDownload(
   download: Omit<Download, "id" | "created_at">
 ): Promise<Download | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("student_downloads")
@@ -327,7 +327,7 @@ export async function addDownload(
  * Remove a download
  */
 export async function removeDownload(downloadId: string): Promise<boolean> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { error } = await supabase.from("student_downloads").delete().eq("id", downloadId);
 

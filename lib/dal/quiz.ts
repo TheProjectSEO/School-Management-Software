@@ -2,7 +2,6 @@
  * Quiz data access functions
  */
 
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateAiDraftEvaluation } from "@/lib/ai/assessment-grader";
 import type {

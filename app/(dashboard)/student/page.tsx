@@ -69,13 +69,27 @@ export default async function DashboardPage() {
   let hasError = false;
 
   try {
-    [recentSubjects, upcomingAssessments, unreadCount, progressStats, UpcomingRoomSessions] = await Promise.all([
+    const results = await Promise.allSettled([
       getRecentSubjects(student.id, 1),
       getUpcomingAssessments(student.id, 2),
       getUnreadNotificationCount(student.id),
       getStudentProgressStats(student.id),
       getUpcomingRoomSessions(student.id, 3),
     ]);
+
+    recentSubjects = results[0].status === 'fulfilled' ? results[0].value : [];
+    upcomingAssessments = results[1].status === 'fulfilled' ? results[1].value : [];
+    unreadCount = results[2].status === 'fulfilled' ? results[2].value : 0;
+    progressStats = results[3].status === 'fulfilled' ? results[3].value : progressStats;
+    UpcomingRoomSessions = results[4].status === 'fulfilled' ? results[4].value : [];
+
+    // Flag error if any call failed
+    hasError = results.some((r) => r.status === 'rejected');
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        console.error(`Dashboard data fetch [${i}] failed:`, r.reason);
+      }
+    });
   } catch (error) {
     console.error("Error fetching dashboard data:", error);
     hasError = true;

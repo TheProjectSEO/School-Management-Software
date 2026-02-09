@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 
 // GET - List all notes for current student (with optional filters)
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { student } = authResult;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const { searchParams } = new URL(request.url);
     const courseId = searchParams.get("courseId");
     const lessonId = searchParams.get("lessonId");
@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { student } = authResult;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get note data from request
     const body = await request.json();

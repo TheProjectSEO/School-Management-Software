@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 /**
  * GET /api/teacher/feedback-templates
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get("category");
     const search = searchParams.get("search");
 
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const teacherId = authResult.teacher.teacherId;
 
     let query = supabase
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const teacherId = authResult.teacher.teacherId;
 
     // Extract variables from content

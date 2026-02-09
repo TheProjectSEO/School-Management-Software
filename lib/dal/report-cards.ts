@@ -8,7 +8,7 @@
  * Data source: "public".report_cards table
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import type {
   ReportCard,
   ReportCardGrade,
@@ -44,7 +44,7 @@ export async function getTeacherReportCards(
   filters?: ReportCardFilters
 ): Promise<ReportCard[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // First, get sections where teacher has assignments
     const { data: teacherSections, error: sectionsError } = await supabase
@@ -176,7 +176,7 @@ export async function getSectionReportCardsList(
   gradingPeriodId?: string
 ): Promise<ReportCardListItem[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get students in section
     const { data: students } = await supabase
@@ -269,7 +269,7 @@ export async function getReportCard(
   studentId?: string
 ): Promise<ReportCard | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase
       .from("report_cards")
@@ -355,7 +355,7 @@ export async function getSectionReportCardSummary(
   gradingPeriodId: string
 ): Promise<SectionReportCardSummary | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get section info
     const { data: section } = await supabase
@@ -458,7 +458,7 @@ export async function addTeacherRemarks(
   input: AddTeacherRemarksInput
 ): Promise<ReportCard | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get current report card
     const { data: current, error: fetchError } = await supabase
@@ -524,7 +524,7 @@ export async function submitForReview(
   reportCardIds: string[]
 ): Promise<{ updated: number; errors: string[] }> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const errors: string[] = [];
     let updated = 0;
 
@@ -562,7 +562,7 @@ export async function getGradingPeriods(
   schoolId: string
 ): Promise<{ id: string; name: string; academic_year: string; is_current: boolean }[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("grading_periods")
@@ -600,7 +600,7 @@ export async function countReportCardsByStatus(
   total: number;
 }> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get teacher's sections
     const { data: teacherSections } = await supabase
@@ -786,7 +786,7 @@ export async function getStudentReportCards(
   studentId: string
 ): Promise<ReportCard[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("report_cards")
@@ -843,7 +843,7 @@ export async function getLatestReportCard(
   studentId: string
 ): Promise<ReportCard | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("report_cards")
@@ -908,7 +908,7 @@ export async function getAvailableReportCardPeriods(
   studentId: string
 ): Promise<{ id: string; name: string; academic_year: string }[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("report_cards")
@@ -966,7 +966,7 @@ export async function getAvailableReportCardPeriods(
  */
 export async function countStudentReportCards(studentId: string): Promise<number> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { count, error } = await supabase
       .from("report_cards")

@@ -7,7 +7,6 @@
  */
 
 import { NextRequest } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentUser } from "@/lib/auth/session";
 
@@ -15,8 +14,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
-  // Use regular client for queries
-  const supabase = await createClient();
+  // Use service client for queries
+  const supabase = createServiceClient();
 
   // Get authenticated user using JWT
   const currentUser = await getCurrentUser();

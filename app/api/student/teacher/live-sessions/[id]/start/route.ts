@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { getCurrentProfile } from '@/lib/dal/auth';
 import { getDailyClient } from '@/lib/services/daily/client';
 
@@ -13,7 +13,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const profile = await getCurrentProfile();
 
     if (!profile || profile.role !== 'teacher') {

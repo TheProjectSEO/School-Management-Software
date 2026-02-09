@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient, createN8nSchemaClient } from '@/lib/supabase/server';
+import { createN8nSchemaClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI';
 import { getDailyClient } from '@/lib/services/daily/client';
@@ -14,7 +14,7 @@ export async function POST(
   if (!auth.success) return auth.response;
 
   // Use public schema for live_sessions (primary source)
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const serviceClient = createServiceClient(); // Bypass RLS for live_sessions
   // Use n8n schema for teacher_live_sessions (sync)
   const n8nSupabase = await createN8nSchemaClient();

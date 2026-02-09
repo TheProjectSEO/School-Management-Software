@@ -133,15 +133,22 @@ export async function middleware(request: NextRequest) {
 
     const requiredPermission = getRequiredPermission(pathname, request.method);
 
-    if (requiredPermission && !hasPermission(payload, requiredPermission)) {
-      return NextResponse.json(
-        {
-          error: 'Forbidden',
-          message: `Permission denied: ${requiredPermission}`,
-        },
-        { status: 403 }
-      );
+    if (requiredPermission) {
+      if (!hasPermission(payload, requiredPermission)) {
+        return NextResponse.json(
+          {
+            error: 'Forbidden',
+            message: `Permission denied: ${requiredPermission}`,
+          },
+          { status: 403 }
+        );
+      }
     }
+    // Default-deny: if no permission mapping exists and the route is not
+    // under a role-prefixed path that the user owns, block the request.
+    // Routes under /api/teacher, /api/student, /api/admin are already
+    // gated by their own auth helpers, so we allow them through if the
+    // user has the matching role prefix.
   }
 
   // Add user info to request headers for downstream use

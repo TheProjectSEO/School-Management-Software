@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 
 // Sample downloads to seed
@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { student } = authResult;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const studentId = student.studentId;
 
     // Check how many downloads already exist

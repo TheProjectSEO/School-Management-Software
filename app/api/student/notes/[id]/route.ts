@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 
 // GET - Get a single note
@@ -16,7 +16,7 @@ export async function GET(
 
     const { student } = authResult;
     const { id } = await params;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data: note, error } = await supabase
       .from("student_notes")
@@ -54,7 +54,7 @@ export async function PUT(
 
     const { student } = authResult;
     const { id } = await params;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Verify note belongs to student
     const { data: existingNote } = await supabase
@@ -125,7 +125,7 @@ export async function DELETE(
 
     const { student } = authResult;
     const { id } = await params;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Delete note (filter ensures only owner can delete)
     const { error } = await supabase

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 /**
  * POST /api/teacher/feedback-templates/[id]/apply
@@ -45,7 +45,7 @@ export async function POST(
       custom_variables = {},
     } = body;
 
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const teacherId = authResult.teacher.teacherId;
 
     // Fetch the template

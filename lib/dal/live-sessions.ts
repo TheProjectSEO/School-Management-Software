@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export type StudentLiveSession = {
   id: string;
@@ -17,7 +17,7 @@ export type StudentLiveSession = {
 };
 
 export async function getUpcomingRoomSessions(studentId: string, limit = 3) {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data: enrollments, error: enrollmentError } = await supabase
     .from("enrollments")
@@ -82,7 +82,7 @@ export async function getUpcomingRoomSessions(studentId: string, limit = 3) {
 }
 
 export async function getLiveSessionsForCourse(studentId: string, courseId: string) {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { count } = await supabase
     .from("enrollments")
@@ -161,7 +161,7 @@ export async function getRecordingsForCourse(
   courseId: string,
   limit?: number
 ): Promise<CourseRecording[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { count } = await supabase
     .from("enrollments")

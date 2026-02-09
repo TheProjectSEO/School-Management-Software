@@ -50,32 +50,35 @@ export default function GradingInboxWidget({
             </p>
           </div>
 
-          {recentSubmissions.length > 0 && (
+          {recentSubmissions && recentSubmissions.length > 0 && (
             <div className="space-y-2 mb-4">
-              {recentSubmissions.map((submission) => (
-                <Link
-                  key={submission.id}
-                  href={`/teacher/grading/${submission.id}`}
-                  className="block p-3 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
-                        {submission.student_name}
-                      </p>
-                      <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
-                        {submission.assessment_title}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
-                        {submission.time_ago}
-                      </p>
+              {recentSubmissions.map((submission) => {
+                if (!submission?.id) return null;
+                return (
+                  <Link
+                    key={submission.id}
+                    href={`/teacher/grading/${submission.id}`}
+                    className="block p-3 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-900 dark:text-slate-100 truncate">
+                          {submission.student_name ?? 'Unknown Student'}
+                        </p>
+                        <p className="text-sm text-slate-600 dark:text-slate-400 truncate">
+                          {submission.assessment_title ?? 'Untitled Assessment'}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-500 mt-1">
+                          {submission.time_ago ?? ''}
+                        </p>
+                      </div>
+                      <span className="material-symbols-outlined text-slate-400 ml-2">
+                        arrow_forward
+                      </span>
                     </div>
-                    <span className="material-symbols-outlined text-slate-400 ml-2">
-                      arrow_forward
-                    </span>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                );
+              })}
             </div>
           )}
 

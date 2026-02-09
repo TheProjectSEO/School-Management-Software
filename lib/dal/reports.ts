@@ -5,7 +5,7 @@
  * grades, progress, and dashboard statistics.
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 // Aliases for API routes
 export { getGradesReport as getGradeReport };
@@ -91,7 +91,7 @@ export async function getAttendanceReport(
   filters: AttendanceReportFilters
 ): Promise<AttendanceReportItem[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Build the query for attendance data
     let query = supabase
@@ -206,7 +206,7 @@ export async function getGradesReport(
   filters: GradesReportFilters
 ): Promise<GradesReportItem[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase.from('course_grades').select(
       `
@@ -277,7 +277,7 @@ export async function getProgressReport(
   filters: ProgressReportFilters
 ): Promise<ProgressReportItem[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase.from('student_progress').select(
       `
@@ -374,7 +374,7 @@ export async function getDashboardStats(
   schoolId?: string
 ): Promise<DashboardStats> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get counts in parallel
     const [
@@ -506,7 +506,7 @@ export async function getEnrollmentStatsBySection(
   schoolId?: string
 ): Promise<{ section_name: string; enrollment_count: number }[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase.from('enrollments').select(
       `
@@ -568,7 +568,7 @@ export async function getAttendanceOverview(schoolId?: string): Promise<{
   attendance_rate: number;
 }> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase.from('teacher_attendance').select('status');
 
@@ -619,7 +619,7 @@ export async function getRecentActivity(
   actor_name?: string;
 }[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase
       .from('audit_logs')
@@ -658,7 +658,7 @@ export async function getEnrollmentTrends(
   schoolId?: string
 ): Promise<{ date: string; count: number }[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase
       .from('enrollments')
@@ -703,7 +703,7 @@ export async function getGradeDistribution(
   schoolId?: string
 ): Promise<{ range: string; count: number }[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase.from('course_grades').select('grade').eq('is_released', true);
 

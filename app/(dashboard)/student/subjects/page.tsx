@@ -1,10 +1,19 @@
 import Link from "next/link";
 import { getCurrentStudent, getStudentSubjects } from "@/lib/dal";
 import { redirect } from "next/navigation";
+import { SubjectSearchFilter } from "./SubjectSearchFilter";
 
 export const revalidate = 180; // 3 minutes - enrollment list
 
-export default async function SubjectsPage() {
+interface PageProps {
+  searchParams: Promise<{ q?: string; status?: string }>;
+}
+
+export default async function SubjectsPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const searchQuery = params.q?.toLowerCase() || "";
+  const statusFilter = params.status || "all";
+
   const student = await getCurrentStudent();
 
   if (!student) {
@@ -14,7 +23,7 @@ export default async function SubjectsPage() {
   const enrollments = await getStudentSubjects(student.id);
 
   // Map enrollments to subjects with calculated data
-  const subjects = enrollments.map((enrollment) => {
+  const allSubjects = enrollments.map((enrollment, index) => {
     const course = enrollment.course;
     return {
       id: course?.id || enrollment.course_id,
@@ -24,9 +33,28 @@ export default async function SubjectsPage() {
       nextModule: "Continue Learning",
       hasLiveClass: false,
       pendingAssignments: 0,
-      image: getGradientForIndex(enrollments.indexOf(enrollment)),
+      image: getGradientForIndex(index),
     };
   });
+
+  // Apply search filter
+  let subjects = allSubjects;
+  if (searchQuery) {
+    subjects = subjects.filter(
+      (s) =>
+        s.name.toLowerCase().includes(searchQuery) ||
+        s.category.toLowerCase().includes(searchQuery)
+    );
+  }
+
+  // Apply status filter
+  if (statusFilter === "in-progress") {
+    subjects = subjects.filter((s) => s.progress > 0 && s.progress < 100);
+  } else if (statusFilter === "completed") {
+    subjects = subjects.filter((s) => s.progress >= 100);
+  } else if (statusFilter === "not-started") {
+    subjects = subjects.filter((s) => s.progress === 0);
+  }
 
   return (
     <>
@@ -47,29 +75,7 @@ export default async function SubjectsPage() {
       </div>
 
       {/* Search and Filters */}
-      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-white dark:bg-slate-900 p-2 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 mb-8">
-        <div className="relative w-full md:w-96 group">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <span className="material-symbols-outlined text-slate-400">search</span>
-          </div>
-          <input
-            type="text"
-            className="block w-full pl-10 pr-3 py-2.5 border-none rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400 focus:ring-2 focus:ring-primary/20 text-sm font-medium"
-            placeholder="Search subjects, modules..."
-          />
-        </div>
-        <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 w-full md:w-auto">
-          <button className="flex shrink-0 items-center justify-center gap-x-2 rounded-lg bg-primary text-white px-4 py-2 hover:bg-[#5a0c0e] transition-colors shadow-sm">
-            <span className="text-sm font-medium">In Progress</span>
-          </button>
-          <button className="flex shrink-0 items-center justify-center gap-x-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-            <span className="text-sm font-medium">Completed</span>
-          </button>
-          <button className="flex shrink-0 items-center justify-center gap-x-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">
-            <span className="text-sm font-medium">Upcoming</span>
-          </button>
-        </div>
-      </div>
+      <SubjectSearchFilter currentQuery={searchQuery} currentStatus={statusFilter} />
 
       {/* Subject Cards */}
       {subjects.length === 0 ? (

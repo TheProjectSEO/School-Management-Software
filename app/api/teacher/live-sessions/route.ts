@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient, createN8nSchemaClient } from "@/lib/supabase/server";
+import { createN8nSchemaClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   const upcoming = searchParams.get("upcoming") === "true";
 
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const serviceClient = createServiceClient(); // Use service client to bypass RLS
 
     // Get teacher's course assignments (from public schema)
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
   const { teacherId } = authResult.teacher;
 
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const n8nSupabase = await createN8nSchemaClient();
     const body = await request.json();
 

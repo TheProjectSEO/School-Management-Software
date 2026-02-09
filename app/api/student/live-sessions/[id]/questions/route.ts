@@ -6,7 +6,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/supabase/service';
 import { getCurrentProfile } from '@/lib/dal/auth';
 
@@ -15,7 +14,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const profile = await getCurrentProfile();
 
     if (!profile || profile.role !== 'student') {
@@ -135,7 +134,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const profile = await getCurrentProfile();
 
     if (!profile) {

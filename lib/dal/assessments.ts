@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 export type Assessment = {
   id: string
@@ -88,7 +88,7 @@ export async function getTeacherAssessments(teacherId: string, filters?: {
   type?: string
   status?: string
 }) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's courses
   const { data: assignments } = await supabase
@@ -173,7 +173,7 @@ export async function getPendingSubmissions(teacherId: string, filters?: {
   assessmentId?: string
   status?: string
 }) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's courses
   const { data: assignments } = await supabase
@@ -259,7 +259,7 @@ export async function getPendingSubmissions(teacherId: string, filters?: {
  * Get detailed submission for grading
  */
 export async function getSubmissionDetail(submissionId: string, teacherId: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data: submission, error: submissionError } = await supabase
     .from('submissions')
@@ -351,7 +351,7 @@ export async function getSubmissionDetail(submissionId: string, teacherId: strin
  * Get question banks for a course
  */
 export async function getQuestionBanks(courseId: string, teacherId: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify access
   const hasAccess = await verifyTeacherAssessmentAccess(teacherId, courseId)
@@ -384,7 +384,7 @@ export async function getQuestionBanks(courseId: string, teacherId: string) {
 
 // Helper functions
 async function getSubmissionCount(assessmentId: string): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('submissions')
     .select('*', { count: 'exact', head: true })
@@ -393,7 +393,7 @@ async function getSubmissionCount(assessmentId: string): Promise<number> {
 }
 
 async function getGradedCount(assessmentId: string): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('submissions')
     .select('*', { count: 'exact', head: true })
@@ -403,7 +403,7 @@ async function getGradedCount(assessmentId: string): Promise<number> {
 }
 
 async function checkSubmissionHasRubricScore(submissionId: string): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('teacher_rubric_scores')
     .select('*', { count: 'exact', head: true })
@@ -412,7 +412,7 @@ async function checkSubmissionHasRubricScore(submissionId: string): Promise<bool
 }
 
 async function checkSubmissionHasFeedback(submissionId: string): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('teacher_feedback')
     .select('*', { count: 'exact', head: true })
@@ -421,7 +421,7 @@ async function checkSubmissionHasFeedback(submissionId: string): Promise<boolean
 }
 
 async function getQuestionCountForBank(bankId: string): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('teacher_bank_questions')
     .select('*', { count: 'exact', head: true })
@@ -430,7 +430,7 @@ async function getQuestionCountForBank(bankId: string): Promise<number> {
 }
 
 async function verifyTeacherAssessmentAccess(teacherId: string, courseId: string): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('teacher_assignments')
     .select('*', { count: 'exact', head: true })
@@ -451,7 +451,7 @@ function determineAssessmentStatus(assessment: any): 'draft' | 'published' | 'cl
  * Get assessment statistics for a teacher
  */
 export async function getAssessmentStats(teacherId: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's courses
   const { data: assignments } = await supabase

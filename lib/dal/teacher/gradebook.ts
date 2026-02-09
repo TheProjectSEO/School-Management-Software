@@ -5,7 +5,7 @@
  * grade weights, course grades, and bulk grade entry operations.
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import type {
   GradingPeriod,
   GradeWeightConfig,
@@ -27,7 +27,7 @@ import type {
  * Get all grading periods for a school
  */
 export async function getGradingPeriods(schoolId: string): Promise<GradingPeriod[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('grading_periods')
@@ -48,7 +48,7 @@ export async function getGradingPeriods(schoolId: string): Promise<GradingPeriod
  * Get the current active grading period for a school
  */
 export async function getCurrentGradingPeriod(schoolId: string): Promise<GradingPeriod | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('grading_periods')
@@ -73,7 +73,7 @@ export async function getCurrentGradingPeriod(schoolId: string): Promise<Grading
  * Find grading period by current date
  */
 async function findGradingPeriodByDate(schoolId: string): Promise<GradingPeriod | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const today = new Date().toISOString().split('T')[0]
 
   const { data, error } = await supabase
@@ -105,7 +105,7 @@ export async function getGradeWeights(
   courseId: string,
   gradingPeriodId?: string
 ): Promise<GradeWeightConfig[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   let query = supabase
     .from('grade_weight_configs')
@@ -146,7 +146,7 @@ export async function saveGradeWeights(
   courseId: string,
   weights: GradeWeightInput[]
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Validate that weights sum to 100%
   const totalWeight = weights.reduce((sum, w) => sum + w.weight_percent, 0)
@@ -210,7 +210,7 @@ export async function getGradebookData(
   courseId: string,
   gradingPeriodId: string
 ): Promise<GradebookData | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify teacher has access to this course
   const hasAccess = await verifyTeacherCourseAccess(teacherId, courseId)
@@ -374,7 +374,7 @@ export async function updateSubmissionScore(
   submissionId: string,
   score: number
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { error } = await supabase
     .from('submissions')
@@ -432,7 +432,7 @@ export async function calculateCourseGrade(
   courseId: string,
   gradingPeriodId: string
 ): Promise<CourseGrade | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get grading period dates
   const { data: gradingPeriod, error: periodError } = await supabase
@@ -584,7 +584,7 @@ export async function releaseGrades(
   courseId: string,
   gradingPeriodId: string
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { error } = await supabase
     .from('course_grades')
@@ -614,7 +614,7 @@ async function verifyTeacherCourseAccess(
   teacherId: string,
   courseId: string
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { count, error } = await supabase
     .from('teacher_assignments')

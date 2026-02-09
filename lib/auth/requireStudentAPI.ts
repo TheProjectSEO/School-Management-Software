@@ -3,7 +3,7 @@
  * Use this in API routes for proper JWT-based authentication
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { getCurrentUser } from '@/lib/auth/session';
 import { NextResponse } from 'next/server';
 
@@ -54,7 +54,7 @@ export async function requireStudentAPI(): Promise<AuthResult> {
       };
     }
 
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Use RPC to get student profile (bypasses RLS)
     const { data, error } = await supabase.rpc('get_current_student_full', {

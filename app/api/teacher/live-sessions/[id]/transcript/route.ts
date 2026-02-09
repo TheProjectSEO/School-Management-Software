@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI';
 
 export async function GET(
@@ -15,7 +15,7 @@ export async function GET(
   const auth = await requireTeacherAPI();
   if (!auth.success) return auth.response;
 
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Get transcript
   const { data: transcript, error } = await supabase

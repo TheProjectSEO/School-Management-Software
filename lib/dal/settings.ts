@@ -5,7 +5,7 @@
  * and school settings.
  */
 
-import { createClient } from '@/lib/supabase/server';
+import { createServiceClient } from '@/lib/supabase/service';
 
 // Additional type exports for API routes
 export interface AcademicSettings {
@@ -121,7 +121,7 @@ export async function getAcademicYears(
   schoolId?: string
 ): Promise<AcademicYear[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase
       .from('academic_years')
@@ -153,7 +153,7 @@ export async function getCurrentAcademicYear(
   schoolId: string
 ): Promise<AcademicYear | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from('academic_years')
@@ -181,7 +181,7 @@ export async function createAcademicYear(
   input: CreateAcademicYearInput
 ): Promise<ActionResult<AcademicYear>> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // If this is set as current, unset other current years
     if (input.is_current) {
@@ -222,7 +222,7 @@ export async function updateAcademicYear(
   updates: Partial<CreateAcademicYearInput>
 ): Promise<ActionResult<AcademicYear>> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // If setting as current, unset other current years first
     if (updates.is_current && updates.school_id) {
@@ -268,7 +268,7 @@ export async function getGradingPeriods(params?: {
   academicYearId?: string;
 }): Promise<GradingPeriod[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     let query = supabase
       .from('grading_periods')
@@ -316,7 +316,7 @@ export async function getGradingPeriodById(
   id: string
 ): Promise<GradingPeriod | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from('grading_periods')
@@ -357,7 +357,7 @@ export async function updateGradingPeriod(
   updates: UpdateGradingPeriodInput
 ): Promise<ActionResult<GradingPeriod>> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from('grading_periods')
@@ -394,7 +394,7 @@ export async function createGradingPeriod(input: {
   is_active?: boolean;
 }): Promise<ActionResult<GradingPeriod>> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from('grading_periods')
@@ -430,7 +430,7 @@ export async function getSchoolSettings(
   schoolId: string
 ): Promise<SchoolSettings | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from('school_settings')
@@ -458,7 +458,7 @@ export async function updateSchoolSettings(
   updates: UpdateSchoolSettingsInput
 ): Promise<ActionResult<SchoolSettings>> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Check if settings exist
     const { data: existing } = await supabase
@@ -531,7 +531,7 @@ export async function getSchool(
   accent_color?: string;
 } | null> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from('schools')
@@ -563,7 +563,7 @@ export async function setCurrentAcademicYear(
   academicYearId: string
 ): Promise<ActionResult<AcademicYear>> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // First, unset all current years for this school
     await supabase
@@ -599,7 +599,7 @@ export async function deleteAcademicYear(
   id: string
 ): Promise<ActionResult<void>> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { error } = await supabase
       .from('academic_years')
@@ -667,7 +667,7 @@ export async function getGradingScale(
   schoolId: string
 ): Promise<GradingScale[]> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from('grading_scales')
@@ -695,7 +695,7 @@ export async function updateGradingScale(
   scales: Omit<GradingScale, 'id' | 'school_id'>[]
 ): Promise<ActionResult<GradingScale[]>> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Delete existing scales
     await supabase.from('grading_scales').delete().eq('school_id', schoolId);
@@ -731,7 +731,7 @@ export async function uploadSchoolLogo(
   file: File
 ): Promise<ActionResult<{ url: string }>> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const fileExt = file.name.split('.').pop();
     const fileName = `${schoolId}/logo.${fileExt}`;
@@ -780,7 +780,7 @@ export async function updateSchool(
   }
 ): Promise<ActionResult<{ id: string; name: string }>> {
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from('schools')

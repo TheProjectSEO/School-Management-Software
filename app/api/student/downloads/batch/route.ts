@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 
 /**
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { student } = authResult;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Get all downloads
     const { data: downloads, error } = await supabase

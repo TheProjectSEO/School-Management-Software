@@ -4,7 +4,7 @@
  * Uses public.teacher_announcements table (unified schema)
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import type { Announcement, QueryOptions } from "./types";
 
 // ============================================
@@ -23,7 +23,7 @@ export async function getStudentAnnouncements(
     includeExpired?: boolean;
   }
 ): Promise<Announcement[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const pageSize = options?.pageSize || 20;
   const page = options?.page || 1;
@@ -156,7 +156,7 @@ export async function getAnnouncementDetail(
   announcementId: string,
   studentId: string
 ): Promise<Announcement | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Fetch the announcement
   const { data: announcement, error } = await supabase
@@ -202,7 +202,7 @@ export async function markAnnouncementAsRead(
   announcementId: string,
   studentId: string
 ): Promise<boolean> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Check if already read
   const { data: existing } = await supabase
@@ -254,7 +254,7 @@ export async function getUnreadAnnouncementCount(studentId: string): Promise<num
  * Useful for displaying alerts on the dashboard
  */
 export async function getUrgentAnnouncements(studentId: string): Promise<Announcement[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // First get student's context
   const { data: student, error: studentError } = await supabase

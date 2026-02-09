@@ -3,10 +3,11 @@ import { redirect } from "next/navigation";
 import {
   getCurrentStudent,
   getSubjectById,
-  getModulesBySubject,
+  getSubjectWithModules,
   getSubjectProgress,
   getLiveSessionsForCourse,
   getRecordingsForCourse,
+  getStudentSubjects,
 } from "@/lib/dal";
 import { RecentRecordingsSection } from "@/components/student/recordings/RecentRecordingsSection";
 
@@ -24,14 +25,32 @@ export default async function SubjectDetailPage({
     redirect("/login");
   }
 
-  // Fetch subject data
-  const subject = await getSubjectById(subjectId);
-  if (!subject) {
-    redirect("/subjects");
+  // BUG-010: Verify the student is enrolled in this subject
+  const enrollments = await getStudentSubjects(student.id);
+  const isEnrolled = enrollments.some(
+    (e) => e.course_id === subjectId
+  );
+  if (!isEnrolled) {
+    redirect("/student/subjects");
   }
 
-  // Fetch modules for this subject
-  const modules = await getModulesBySubject(subjectId);
+  // Fetch subject with modules (includes lessons for progress matching)
+  const subjectWithModules = await getSubjectWithModules(subjectId);
+  if (!subjectWithModules) {
+    redirect("/student/subjects");
+  }
+
+  const subject = subjectWithModules;
+  const modules = subjectWithModules.modules;
+
+  // Build a set of lesson IDs per module for accurate progress matching
+  const moduleLessonMap = new Map<string, Set<string>>();
+  const allLessonIds = new Set<string>();
+  for (const mod of modules) {
+    const lessonIds = new Set((mod.lessons || []).map((l) => l.id));
+    moduleLessonMap.set(mod.id, lessonIds);
+    lessonIds.forEach((id) => allLessonIds.add(id));
+  }
 
   // Fetch progress for this subject
   const progressData = await getSubjectProgress(student.id, subjectId);
@@ -42,18 +61,22 @@ export default async function SubjectDetailPage({
     getRecordingsForCourse(student.id, subjectId, 4),
   ]);
 
-  // Calculate overall progress
-  const totalLessons = progressData.length;
-  const completedLessons = progressData.filter((p) => p.completed_at).length;
+  // BUG-011: Calculate overall progress using actual lesson counts
+  const totalLessons = allLessonIds.size;
+  const completedLessons = progressData.filter(
+    (p) => p.completed_at && p.lesson_id && allLessonIds.has(p.lesson_id)
+  ).length;
   const overallProgress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
 
-  // Find the current/next module to continue
+  // BUG-011: Find current/next module by checking which has incomplete lessons
   const currentModule = modules.find((m) => {
-    // Check if this module has incomplete lessons
-    const moduleProgress = progressData.filter((p) =>
-      modules.some((mod) => mod.id === p.lesson_id || p.course_id === subjectId)
-    );
-    return moduleProgress.some((p) => !p.completed_at);
+    const lessonIds = moduleLessonMap.get(m.id);
+    if (!lessonIds || lessonIds.size === 0) return false;
+    // Check if any lesson in this module is not completed
+    const completedInModule = progressData.filter(
+      (p) => p.completed_at && p.lesson_id && lessonIds.has(p.lesson_id)
+    ).length;
+    return completedInModule < lessonIds.size;
   }) || modules[0];
 
   return (
@@ -264,11 +287,13 @@ export default async function SubjectDetailPage({
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {modules.map((module, index) => {
-              const moduleProgress = progressData.filter((p) =>
-                p.lesson_id && p.lesson_id.startsWith(module.id)
-              );
-              const moduleCompleted = moduleProgress.length > 0 &&
-                moduleProgress.every((p) => p.completed_at);
+              // BUG-011: Match progress by actual lesson IDs belonging to this module
+              const lessonIds = moduleLessonMap.get(module.id);
+              const moduleProgress = lessonIds
+                ? progressData.filter((p) => p.lesson_id && lessonIds.has(p.lesson_id))
+                : [];
+              const moduleCompleted = lessonIds != null && lessonIds.size > 0 &&
+                moduleProgress.filter((p) => p.completed_at).length >= lessonIds.size;
 
               return (
                 <Link

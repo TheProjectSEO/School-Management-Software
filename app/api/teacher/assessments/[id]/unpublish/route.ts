@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getCurrentUser } from '@/lib/auth/session'
 
 interface RouteParams {
@@ -11,7 +11,7 @@ interface RouteParams {
 // POST /api/teacher/assessments/[id]/unpublish - Unpublish an assessment
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
-    const supabase = await createClient()
+    const supabase = createServiceClient()
     const { id } = await params
 
     // Check authentication using JWT

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 
 /**
  * GET /api/teacher/feedback-templates/[id]
@@ -30,7 +30,7 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const teacherId = authResult.teacher.teacherId;
 
     const { data: template, error } = await supabase
@@ -74,7 +74,7 @@ export async function PATCH(
     const body = await request.json();
     const { name, category, content, is_default } = body;
 
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const teacherId = authResult.teacher.teacherId;
 
     // Verify ownership
@@ -141,7 +141,7 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const teacherId = authResult.teacher.teacherId;
 
     const { error } = await supabase

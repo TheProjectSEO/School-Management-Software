@@ -4,7 +4,7 @@
  * This route exists for backwards compatibility
  */
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { requireTeacher } from "@/lib/auth/requireTeacher";
 
 export async function POST(request: NextRequest) {
@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
   const { teacherId, schoolId } = authResult.teacher;
 
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const body = await request.json();
 
     const { toProfileId, studentProfileId, studentId, message, content, attachments } = body;

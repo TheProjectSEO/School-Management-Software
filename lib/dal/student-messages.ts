@@ -4,7 +4,7 @@
  * Enforces 3-message daily limit for students
  */
 
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import type {
   DirectMessage,
   Conversation,
@@ -24,7 +24,7 @@ import type {
 export async function getStudentConversations(
   studentId: string
 ): Promise<Conversation[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // First get the student's profile_id using RPC to bypass RLS
   const { data: studentData, error: studentError } = await supabase.rpc(
@@ -96,7 +96,7 @@ export async function getStudentConversationMessages(
   options: { limit?: number; offset?: number } = {}
 ): Promise<DirectMessage[]> {
   const { limit = 50, offset = 0 } = options;
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Get student's profile_id using RPC to bypass RLS
   const { data: studentData, error: studentError } = await supabase.rpc("get_student_profile_by_id", {
@@ -186,7 +186,7 @@ export async function getMessageQuota(
   studentId: string,
   teacherId: string
 ): Promise<MessageQuota> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase.rpc("check_student_message_quota", {
     p_student_id: studentId,
@@ -222,7 +222,7 @@ export async function sendMessageToTeacher(
   body: string,
   attachments?: Record<string, unknown>[]
 ): Promise<SendMessageResult> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Use the database function that handles quota enforcement atomically
   const { data, error } = await supabase.rpc("send_student_message", {
@@ -256,7 +256,7 @@ export async function markStudentMessagesAsRead(
   studentId: string,
   teacherProfileId: string
 ): Promise<boolean> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Get student's profile_id using RPC to bypass RLS
   const { data: studentData } = await supabase.rpc("get_student_profile_by_id", {
@@ -290,7 +290,7 @@ export async function markStudentMessagesAsRead(
  * Get total unread message count for a student
  */
 export async function getStudentUnreadMessageCount(studentId: string): Promise<number> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Get student's profile_id using RPC to bypass RLS
   const { data: studentData } = await supabase.rpc("get_student_profile_by_id", {
@@ -322,7 +322,7 @@ export async function getStudentUnreadMessageCount(studentId: string): Promise<n
 export async function getAvailableTeachers(
   studentId: string
 ): Promise<(Teacher & { course_name?: string })[]> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Get student's enrolled course IDs
   const { data: enrollments, error: enrollError } = await supabase
@@ -415,7 +415,7 @@ export async function getAvailableTeachers(
 export async function getTeacherIdByProfileId(
   profileId: string
 ): Promise<string | null> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   const { data, error } = await supabase
     .from("teacher_profiles")

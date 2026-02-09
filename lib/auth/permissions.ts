@@ -81,6 +81,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[] | readonly [Wi
 
 // Route-to-permission mapping for API routes
 export const API_ROUTE_PERMISSIONS: Record<string, Record<string, Permission>> = {
+  // ── Admin routes ──────────────────────────────────────────────
   '/api/admin/users': {
     GET: 'users:read',
     POST: 'users:create',
@@ -104,15 +105,39 @@ export const API_ROUTE_PERMISSIONS: Record<string, Record<string, Permission>> =
     GET: 'settings:manage',
     PUT: 'settings:manage',
   },
+
+  // ── Teacher routes ────────────────────────────────────────────
   '/api/teacher/classes': {
     GET: 'classes:manage',
     POST: 'classes:manage',
     PUT: 'classes:manage',
   },
+  '/api/teacher/subjects': {
+    GET: 'classes:manage',
+  },
+  '/api/teacher/content': {
+    GET: 'content:manage',
+    POST: 'content:manage',
+    PUT: 'content:manage',
+    PATCH: 'content:manage',
+    DELETE: 'content:manage',
+  },
   '/api/teacher/grades': {
     GET: 'grades:manage',
     POST: 'grades:manage',
     PUT: 'grades:manage',
+  },
+  '/api/teacher/gradebook': {
+    GET: 'grades:manage',
+    POST: 'grades:manage',
+    PUT: 'grades:manage',
+    PATCH: 'grades:manage',
+  },
+  '/api/teacher/grading': {
+    GET: 'assessments:grade',
+    POST: 'assessments:grade',
+    PUT: 'assessments:grade',
+    PATCH: 'assessments:grade',
   },
   '/api/teacher/attendance': {
     GET: 'attendance:manage',
@@ -122,7 +147,57 @@ export const API_ROUTE_PERMISSIONS: Record<string, Record<string, Permission>> =
     GET: 'assessments:create',
     POST: 'assessments:create',
     PUT: 'assessments:grade',
+    PATCH: 'assessments:grade',
   },
+  '/api/teacher/submissions': {
+    GET: 'assessments:grade',
+    POST: 'assessments:grade',
+    PUT: 'assessments:grade',
+    PATCH: 'assessments:grade',
+  },
+  '/api/teacher/live-sessions': {
+    GET: 'classes:manage',
+    POST: 'classes:manage',
+    PUT: 'classes:manage',
+    PATCH: 'classes:manage',
+    DELETE: 'classes:manage',
+  },
+  '/api/teacher/announcements': {
+    GET: 'content:manage',
+    POST: 'content:manage',
+    PUT: 'content:manage',
+    DELETE: 'content:manage',
+  },
+  '/api/teacher/messages': {
+    GET: 'students:view',
+    POST: 'students:view',
+  },
+  '/api/teacher/question-banks': {
+    GET: 'assessments:create',
+    POST: 'assessments:create',
+    PUT: 'assessments:create',
+    DELETE: 'assessments:create',
+  },
+  '/api/teacher/feedback-templates': {
+    GET: 'assessments:grade',
+    POST: 'assessments:grade',
+    PUT: 'assessments:grade',
+    DELETE: 'assessments:grade',
+  },
+  '/api/teacher/ai': {
+    GET: 'content:manage',
+    POST: 'content:manage',
+  },
+  '/api/teacher/profile': {
+    GET: 'profile:manage',
+    PUT: 'profile:manage',
+    PATCH: 'profile:manage',
+  },
+  '/api/teacher/schools': {
+    GET: 'classes:manage',
+  },
+
+  // ── Student routes ────────────────────────────────────────────
   '/api/student/subjects': {
     GET: 'subjects:view',
   },
@@ -135,5 +210,39 @@ export const API_ROUTE_PERMISSIONS: Record<string, Record<string, Permission>> =
   },
   '/api/student/attendance': {
     GET: 'attendance:view_own',
+  },
+  '/api/student/live-sessions': {
+    GET: 'subjects:view',
+    POST: 'subjects:view',
+  },
+  '/api/student/announcements': {
+    GET: 'subjects:view',
+  },
+  '/api/student/messages': {
+    GET: 'profile:manage',
+    POST: 'profile:manage',
+  },
+  '/api/student/notes': {
+    GET: 'profile:manage',
+    POST: 'profile:manage',
+    PUT: 'profile:manage',
+    DELETE: 'profile:manage',
+  },
+  '/api/student/downloads': {
+    GET: 'subjects:view',
+    POST: 'subjects:view',
+    DELETE: 'subjects:view',
+  },
+  '/api/student/profile': {
+    GET: 'profile:manage',
+    PUT: 'profile:manage',
+    PATCH: 'profile:manage',
+  },
+  '/api/student/notifications': {
+    GET: 'profile:manage',
+    PUT: 'profile:manage',
+  },
+  '/api/student/progress': {
+    GET: 'grades:view_own',
   },
 };

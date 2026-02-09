@@ -34,7 +34,7 @@ export default function DraftContentWidget({ drafts, totalCount }: DraftContentW
           {drafts.slice(0, 2).map((draft) => (
             <Link
               key={draft.id}
-              href={`/teacher/content/modules/${draft.id}`}
+              href={`/teacher/subjects/${draft.course_id}/modules/${draft.id}`}
               className="block p-3 rounded-lg bg-slate-50 dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-700"
             >
               <div className="flex items-center justify-between">

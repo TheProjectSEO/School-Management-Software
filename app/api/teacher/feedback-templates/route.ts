@@ -66,9 +66,6 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient();
     const teacherId = authResult.teacher.teacherId;
 
-    // First, ensure the table exists by checking/creating it
-    await ensureFeedbackTemplatesTable(supabase);
-
     let query = supabase
       .from("teacher_feedback_templates")
       .select("*")
@@ -139,9 +136,6 @@ export async function POST(request: NextRequest) {
     const supabase = await createClient();
     const teacherId = authResult.teacher.teacherId;
 
-    // Ensure table exists
-    await ensureFeedbackTemplatesTable(supabase);
-
     // Extract variables from content
     const variables = extractVariables(content);
 
@@ -177,13 +171,4 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Helper function to ensure the feedback templates table exists
-async function ensureFeedbackTemplatesTable(supabase: any) {
-  // Try to create the table if it doesn't exist
-  // This is a safety check - in production, migrations should handle this
-  try {
-    await supabase.rpc("ensure_feedback_templates_table");
-  } catch {
-    // Table might already exist or RPC doesn't exist - that's okay
-  }
-}
+// Table is created via migration: 20260209_create_teacher_feedback_templates.sql

@@ -17,7 +17,7 @@ export type TeacherContext = {
 };
 
 type AuthResult =
-  | { success: true; teacher: TeacherContext }
+  | { success: true; teacher: TeacherContext; context: TeacherContext }
   | { success: false; response: NextResponse };
 
 /**
@@ -58,16 +58,19 @@ export async function requireTeacherAPI(): Promise<AuthResult> {
 
     const row = data[0];
 
+    const teacherContext: TeacherContext = {
+      userId: currentUser.sub,
+      teacherId: row.id,
+      profileId: row.profile_id,
+      schoolId: row.school_id,
+      fullName: row.profile_full_name || 'Teacher',
+      email: currentUser.email || '',
+    };
+
     return {
       success: true,
-      teacher: {
-        userId: currentUser.sub,
-        teacherId: row.id,
-        profileId: row.profile_id,
-        schoolId: row.school_id,
-        fullName: row.profile_full_name || 'Teacher',
-        email: currentUser.email || '',
-      },
+      teacher: teacherContext,
+      context: teacherContext,
     };
   } catch (error) {
     console.error('requireTeacherAPI error:', error);

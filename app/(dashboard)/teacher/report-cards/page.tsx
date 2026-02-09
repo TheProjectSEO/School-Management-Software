@@ -62,13 +62,33 @@ async function ReportCardsContent({
   });
   const sections = Array.from(sectionsMap.values());
 
+  if (sections.length === 0) {
+    return (
+      <EmptyState
+        icon="school"
+        title="No sections found"
+        description="Your assigned subjects don't have sections linked. Contact your administrator."
+      />
+    );
+  }
+
   // Get grading periods
   const gradingPeriods = await getGradingPeriods(teacherProfile.school_id);
 
+  if (gradingPeriods.length === 0) {
+    return (
+      <EmptyState
+        icon="calendar_month"
+        title="No grading periods"
+        description="No grading periods have been set up for your school yet. Contact your administrator."
+      />
+    );
+  }
+
   // Get selected section or default to first
-  const selectedSectionId = searchParams.section || sections[0]?.id;
+  const selectedSectionId = searchParams.section || sections[0].id;
   const selectedPeriodId =
-    searchParams.period || gradingPeriods.find((p) => p.is_current)?.id;
+    searchParams.period || gradingPeriods.find((p) => p.is_current)?.id || gradingPeriods[0].id;
 
   // Get report cards for selected section
   let reportCards: Awaited<ReturnType<typeof getSectionReportCardsList>> = [];

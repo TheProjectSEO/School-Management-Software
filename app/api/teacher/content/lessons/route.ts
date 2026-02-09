@@ -6,7 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { getTeacherProfile } from '@/lib/dal/teacher'
-import { createLesson, getLessonsForModule, detectVideoType, getYouTubeThumbnail } from '@/lib/dal/content'
+import { detectVideoType, getYouTubeThumbnail } from '@/lib/dal/content'
+import { createServiceClient } from '@/lib/supabase/service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,6 +36,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const supabase = createServiceClient()
+
+    // Verify the module exists and get its course_id
+    const { data: module, error: moduleError } = await supabase
+      .from('modules')
+      .select('id, course_id')
+      .eq('id', module_id)
+      .single()
+
+    if (moduleError || !module) {
+      console.error('[POST /content/lessons] Module not found:', module_id, moduleError)
+      return NextResponse.json({ error: 'Module not found' }, { status: 404 })
+    }
+
+    // Verify teacher is assigned to this course
+    const { count: accessCount } = await supabase
+      .from('teacher_assignments')
+      .select('*', { count: 'exact', head: true })
+      .eq('teacher_profile_id', teacherProfile.id)
+      .eq('course_id', module.course_id)
+
+    if (!accessCount || accessCount === 0) {
+      console.error(`[POST /content/lessons] Access denied: teacher=${teacherProfile.id} course=${module.course_id}`)
+      return NextResponse.json({ error: 'Access denied to this course' }, { status: 403 })
+    }
+
     // Auto-detect video type if not provided
     let detectedVideoType = video_type
     let detectedThumbnail = thumbnail_url
@@ -43,34 +70,51 @@ export async function POST(request: NextRequest) {
       detectedVideoType = detectVideoType(video_url)
     }
 
-    // Auto-generate YouTube thumbnail if not provided
     if (video_url && !detectedThumbnail && detectedVideoType === 'youtube') {
       detectedThumbnail = getYouTubeThumbnail(video_url)
     }
 
-    console.log(`[POST /api/teacher/content/lessons] Creating lesson: teacher=${teacherProfile.id}, module=${module_id}, title=${title}`)
+    // Determine order
+    let lessonOrder = order
+    if (lessonOrder === undefined) {
+      const { data: existing } = await supabase
+        .from('lessons')
+        .select('order')
+        .eq('module_id', module_id)
+        .order('order', { ascending: false })
+        .limit(1)
+      lessonOrder = (existing?.[0]?.order || 0) + 1
+    }
 
-    const lesson = await createLesson(teacherProfile.id, {
-      module_id,
-      title,
-      content,
-      content_type: content_type || 'video',
-      video_url,
-      video_type: detectedVideoType,
-      thumbnail_url: detectedThumbnail,
-      duration_minutes,
-      order
-    })
+    // Insert lesson
+    const { data: lesson, error: insertError } = await supabase
+      .from('lessons')
+      .insert({
+        module_id,
+        title,
+        content: content || null,
+        content_type: content_type || 'video',
+        video_url: video_url || null,
+        video_type: detectedVideoType || null,
+        thumbnail_url: detectedThumbnail || null,
+        duration_minutes: duration_minutes || null,
+        order: lessonOrder,
+        is_published: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      .select()
+      .single()
 
-    if (!lesson) {
-      console.error(`[POST /api/teacher/content/lessons] createLesson returned null for teacher=${teacherProfile.id}, module=${module_id}`)
+    if (insertError) {
+      console.error('[POST /content/lessons] Insert error:', insertError)
       return NextResponse.json(
-        { error: 'Failed to create lesson. Check access permissions.' },
-        { status: 403 }
+        { error: `Failed to create lesson: ${insertError.message}` },
+        { status: 500 }
       )
     }
 
-    return NextResponse.json({ lesson }, { status: 201 })
+    return NextResponse.json({ lesson: { ...lesson, attachments: [] } }, { status: 201 })
   } catch (error) {
     console.error('Error in POST /api/content/lessons:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -84,6 +128,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const supabase = createServiceClient()
     const { searchParams } = new URL(request.url)
     const moduleId = searchParams.get('module_id')
 
@@ -94,9 +139,22 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const lessons = await getLessonsForModule(teacherProfile.id, moduleId)
+    // Fetch lessons directly with service client
+    const { data: lessons, error } = await supabase
+      .from('lessons')
+      .select(`
+        *,
+        attachments:lesson_attachments(*)
+      `)
+      .eq('module_id', moduleId)
+      .order('order', { ascending: true })
 
-    return NextResponse.json({ lessons })
+    if (error) {
+      console.error('[GET /content/lessons] Error:', error)
+      return NextResponse.json({ error: 'Failed to fetch lessons' }, { status: 500 })
+    }
+
+    return NextResponse.json({ lessons: lessons || [] })
   } catch (error) {
     console.error('Error in GET /api/content/lessons:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

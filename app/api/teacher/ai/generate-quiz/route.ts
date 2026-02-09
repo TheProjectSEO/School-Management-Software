@@ -68,6 +68,7 @@ export async function POST(request: NextRequest) {
       ],
       temperature: 0.4,
       max_tokens: tokenBudget,
+      context: "teacher",
     });
 
     let content = completion.choices?.[0]?.message?.content?.trim();
@@ -149,10 +150,13 @@ export async function POST(request: NextRequest) {
       message:
         "Draft questions generated. Review and edit before saving.",
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("AI quiz generation error:", error);
+    const message = error?.message?.includes("OPENAI_API_KEY")
+      ? "OpenAI API key is not configured. Please set the OPENAI_API_KEY environment variable."
+      : "An error occurred while generating the assessment.";
     return NextResponse.json(
-      { error: "An error occurred" },
+      { error: message },
       { status: 500 }
     );
   }

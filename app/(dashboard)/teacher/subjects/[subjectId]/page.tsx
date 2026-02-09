@@ -341,10 +341,10 @@ export default function SubjectDetailPage() {
           <span className="material-symbols-outlined text-lg mr-2">add</span>
           Add Module
         </Button>
-        <Link href={`/teacher/subjects/${subjectId}/modules`}>
+        <Link href={`/teacher/ai-planner?courseId=${subjectId}`}>
           <Button variant="outline">
-            <span className="material-symbols-outlined text-lg mr-2">view_list</span>
-            Manage Modules
+            <span className="material-symbols-outlined text-lg mr-2">auto_awesome</span>
+            AI Generate Module
           </Button>
         </Link>
       </div>

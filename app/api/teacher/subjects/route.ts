@@ -26,7 +26,7 @@ export async function GET(_req: NextRequest) {
       .select(
         `
         id,
-        section:sections(id, name),
+        section:sections(id, name, grade_level),
         subject:courses(id, name, subject_code)
       `
       )

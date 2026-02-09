@@ -63,6 +63,17 @@ const nextConfig: NextConfig = {
         destination: "/",
         permanent: false,
       },
+      // Legacy URL redirects (old routes that may still be cached in browsers)
+      {
+        source: "/teacher/content/modules/:id",
+        destination: "/teacher/subjects",
+        permanent: false,
+      },
+      {
+        source: "/teacher/assessments/grade/:id",
+        destination: "/teacher/grading/:id",
+        permanent: false,
+      },
     ];
   },
 

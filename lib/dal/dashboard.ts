@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 // ============================================================================
 // DASHBOARD DATA TYPES
@@ -89,7 +89,7 @@ export type ActivityItem = {
  * Get overview statistics for teacher dashboard
  */
 export async function getTeacherStats(teacherId: string): Promise<TeacherStats> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's course IDs and section IDs
   const { data: assignments } = await supabase
@@ -143,7 +143,7 @@ export async function getTeacherStats(teacherId: string): Promise<TeacherStats> 
  * Get live sessions scheduled for today
  */
 export async function getTodaysLiveSessions(teacherId: string): Promise<TodaysLiveSession[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's course IDs
   const { data: assignments } = await supabase
@@ -223,7 +223,7 @@ export async function getRecentPendingSubmissions(
   teacherId: string,
   limit: number = 3
 ): Promise<RecentSubmission[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's course IDs
   const { data: assignments } = await supabase
@@ -289,7 +289,7 @@ export async function getRecentPendingSubmissions(
  * Get assessments that are graded but not released to students
  */
 export async function getGradedNotReleasedItems(teacherId: string): Promise<GradedNotReleasedItem[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's course IDs
   const { data: assignments } = await supabase
@@ -369,7 +369,7 @@ export async function getGradedNotReleasedItems(teacherId: string): Promise<Grad
  * Get unpublished draft modules
  */
 export async function getDraftModules(teacherId: string, limit: number = 5): Promise<DraftModule[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's course IDs
   const { data: assignments } = await supabase
@@ -418,7 +418,7 @@ export async function getDraftModules(teacherId: string, limit: number = 5): Pro
  * Get students who haven't logged in today
  */
 export async function getTodaysAbsentStudents(teacherId: string): Promise<AbsentStudent[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's sections
   const { data: assignments } = await supabase
@@ -504,7 +504,7 @@ export async function getUpcomingDeadlines(
   teacherId: string,
   days: number = 7
 ): Promise<UpcomingDeadline[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's course IDs
   const { data: assignments } = await supabase
@@ -571,7 +571,7 @@ export async function getRecentActivity(
   teacherId: string,
   limit: number = 5
 ): Promise<ActivityItem[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's course IDs
   const { data: assignments } = await supabase
@@ -689,7 +689,7 @@ export async function getRecentActivity(
 async function getTotalStudentsCount(sectionIds: string[]): Promise<number> {
   if (sectionIds.length === 0) return 0
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Count students in teacher's assigned sections
   const { count } = await supabase
@@ -702,7 +702,7 @@ async function getTotalStudentsCount(sectionIds: string[]): Promise<number> {
 }
 
 async function getActiveCoursesCount(courseIds: string[]): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   // Count all courses assigned to teacher (courses table doesn't have is_published column)
   const { count } = await supabase
     .from('courses')
@@ -712,7 +712,7 @@ async function getActiveCoursesCount(courseIds: string[]): Promise<number> {
 }
 
 async function getPendingSubmissionsCount(courseIds: string[]): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // First get assessment IDs for teacher's courses (cannot filter nested relationships directly)
   const { data: assessments } = await supabase
@@ -733,7 +733,7 @@ async function getPendingSubmissionsCount(courseIds: string[]): Promise<number> 
 }
 
 async function getGradedNotReleasedCount(courseIds: string[]): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // First get assessment IDs for teacher's courses (cannot filter nested relationships directly)
   const { data: assessments } = await supabase
@@ -754,7 +754,7 @@ async function getGradedNotReleasedCount(courseIds: string[]): Promise<number> {
 }
 
 async function getDraftModulesCount(courseIds: string[]): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('modules')
     .select('*', { count: 'exact', head: true })
@@ -764,7 +764,7 @@ async function getDraftModulesCount(courseIds: string[]): Promise<number> {
 }
 
 async function getSubmissionCountForAssessment(assessmentId: string): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('submissions')
     .select('*', { count: 'exact', head: true })
@@ -802,7 +802,7 @@ export type SubjectsPageStats = {
  * Get statistics for the subjects page
  */
 export async function getSubjectsPageStats(teacherId: string): Promise<SubjectsPageStats> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get teacher's course IDs
   const { data: assignments } = await supabase

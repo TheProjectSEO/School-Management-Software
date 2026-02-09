@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTeacherProfile } from '@/lib/dal/teacher'
 import { updateModule, deleteModule, getLessonsForModule } from '@/lib/dal/content'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     const { id: moduleId } = await params
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // Get module with course info
     const { data: module, error } = await supabase

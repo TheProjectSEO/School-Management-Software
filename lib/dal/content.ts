@@ -5,7 +5,7 @@
  * All mutations verify teacher has access to the course before proceeding.
  */
 
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getCurrentUser } from '@/lib/auth/session'
 
 // ============================================================================
@@ -119,7 +119,7 @@ async function verifyTeacherCourseAccess(
   teacherId: string,
   courseId: string
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('teacher_assignments')
     .select('*', { count: 'exact', head: true })
@@ -132,7 +132,7 @@ async function verifyTeacherCourseAccess(
  * Get course_id for a module (to verify access)
  */
 async function getCourseIdForModule(moduleId: string): Promise<string | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { data } = await supabase
     .from('modules')
     .select('course_id')
@@ -145,7 +145,7 @@ async function getCourseIdForModule(moduleId: string): Promise<string | null> {
  * Get course_id for a lesson via its module
  */
 async function getCourseIdForLesson(lessonId: string): Promise<string | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { data } = await supabase
     .from('lessons')
     .select('module:modules!inner(course_id)')
@@ -165,7 +165,7 @@ export async function createModule(
   teacherId: string,
   input: CreateModuleInput
 ): Promise<Module | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify access
   const hasAccess = await verifyTeacherCourseAccess(teacherId, input.course_id)
@@ -217,7 +217,7 @@ export async function updateModule(
   moduleId: string,
   input: UpdateModuleInput
 ): Promise<Module | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get course_id and verify access
   const courseId = await getCourseIdForModule(moduleId)
@@ -270,7 +270,7 @@ export async function deleteModule(
   teacherId: string,
   moduleId: string
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get course_id and verify access
   const courseId = await getCourseIdForModule(moduleId)
@@ -318,7 +318,7 @@ export async function reorderModules(
   courseId: string,
   moduleIds: string[]
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify access
   const hasAccess = await verifyTeacherCourseAccess(teacherId, courseId)
@@ -361,7 +361,7 @@ export async function getLessonsForModule(
   teacherId: string,
   moduleId: string
 ): Promise<Lesson[]> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify access
   const courseId = await getCourseIdForModule(moduleId)
@@ -394,7 +394,7 @@ export async function getLesson(
   teacherId: string,
   lessonId: string
 ): Promise<Lesson | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify access
   const courseId = await getCourseIdForLesson(lessonId)
@@ -427,7 +427,7 @@ export async function createLesson(
   teacherId: string,
   input: CreateLessonInput
 ): Promise<Lesson | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify access via module
   const courseId = await getCourseIdForModule(input.module_id)
@@ -489,7 +489,7 @@ export async function updateLesson(
   lessonId: string,
   input: UpdateLessonInput
 ): Promise<Lesson | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify access
   const courseId = await getCourseIdForLesson(lessonId)
@@ -536,7 +536,7 @@ export async function deleteLesson(
   teacherId: string,
   lessonId: string
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify access
   const courseId = await getCourseIdForLesson(lessonId)
@@ -584,7 +584,7 @@ export async function reorderLessons(
   moduleId: string,
   lessonIds: string[]
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify access
   const courseId = await getCourseIdForModule(moduleId)
@@ -624,7 +624,7 @@ export async function addLessonAttachment(
   teacherId: string,
   input: CreateAttachmentInput
 ): Promise<LessonAttachment | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify access
   const courseId = await getCourseIdForLesson(input.lesson_id)
@@ -692,7 +692,7 @@ export async function deleteLessonAttachment(
   teacherId: string,
   attachmentId: string
 ): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get the lesson_id first
   const { data: attachment } = await supabase

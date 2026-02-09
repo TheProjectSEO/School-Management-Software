@@ -1,6 +1,6 @@
 // @ts-nocheck - Uses n8n_content_creation schema with complex queries
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { requireTeacher } from "@/lib/auth/requireTeacher";
 
 /**
@@ -20,7 +20,7 @@ export async function GET(
   const { id } = await params;
 
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { data: module, error } = await supabase
       .from("modules")
@@ -113,7 +113,7 @@ export async function PATCH(
   const { id } = await params;
 
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
     const body = await request.json();
 
     // First verify access
@@ -223,7 +223,7 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     // Verify access
     const { data: existingModule } = await supabase

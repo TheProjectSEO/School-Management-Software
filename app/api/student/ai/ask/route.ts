@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { YoutubeTranscript } from "youtube-transcript";
 import { getStudentContext } from "@/lib/ai/studentContext";
 import { classifyIntent } from "@/lib/ai/intentClassifier";
@@ -259,7 +259,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { student } = authResult;
-    const supabase = await createClient();
+    const supabase = createServiceClient();
 
     const { question, lessonId, courseId, conversationHistory } = await request.json();
 

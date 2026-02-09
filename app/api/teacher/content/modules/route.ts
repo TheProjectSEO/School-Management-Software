@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTeacherProfile } from '@/lib/dal/teacher'
 import { createModule, getLessonsForModule } from '@/lib/dal/content'
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    const supabase = await createClient()
+    const supabase = createServiceClient()
 
     // First verify teacher has access to this course
     const { count } = await supabase

@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getCurrentUser } from '@/lib/auth/session'
 
 export type TeacherProfile = {
@@ -64,7 +64,7 @@ export async function getTeacherProfile() {
   const currentUser = await getCurrentUser()
   if (!currentUser) return null
 
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Use RPC function that bypasses RLS for safe profile fetching
   const { data, error } = await supabase
@@ -104,7 +104,7 @@ export async function getTeacherProfile() {
  * Get all sections (classes) assigned to this teacher
  */
 export async function getTeacherSections(teacherId: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('teacher_assignments')
@@ -169,7 +169,7 @@ export async function getTeacherSections(teacherId: string) {
  * Get all subjects/courses taught by this teacher
  */
 export async function getTeacherSubjects(teacherId: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('teacher_assignments')
@@ -224,7 +224,7 @@ export async function getTeacherSubjects(teacherId: string) {
  * Get a single subject/course with full details
  */
 export async function getTeacherSubject(courseId: string, teacherId: string): Promise<TeacherSubject | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // First verify teacher has access to this course
   const hasAccess = await verifyTeacherCourseAccess(teacherId, courseId)
@@ -292,7 +292,7 @@ export async function getTeacherSubject(courseId: string, teacherId: string): Pr
  * Get modules for a specific course
  */
 export async function getModulesForCourse(courseId: string, teacherId: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // First verify teacher has access to this course
   const hasAccess = await verifyTeacherCourseAccess(teacherId, courseId)
@@ -334,7 +334,7 @@ export async function getModulesForCourse(courseId: string, teacherId: string) {
  * Get a single module with full details
  */
 export async function getModule(moduleId: string, teacherId: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   const { data, error } = await supabase
     .from('modules')
@@ -386,7 +386,7 @@ export type SectionDetails = {
  * Get section details with students and courses
  */
 export async function getSectionDetails(sectionId: string, teacherId: string): Promise<SectionDetails | null> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify teacher has access to this section
   const { count: accessCount } = await supabase
@@ -481,7 +481,7 @@ export async function getSectionDetails(sectionId: string, teacherId: string): P
 
 // Helper functions
 async function getStudentCountForSection(sectionId: string): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('students')
     .select('*', { count: 'exact', head: true })
@@ -490,7 +490,7 @@ async function getStudentCountForSection(sectionId: string): Promise<number> {
 }
 
 async function getSubjectCountForSection(sectionId: string): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('courses')
     .select('*', { count: 'exact', head: true })
@@ -499,7 +499,7 @@ async function getSubjectCountForSection(sectionId: string): Promise<number> {
 }
 
 async function getSubjectCountForTeacherInSection(teacherId: string, sectionId: string): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('teacher_assignments')
     .select('*', { count: 'exact', head: true })
@@ -509,7 +509,7 @@ async function getSubjectCountForTeacherInSection(teacherId: string, sectionId: 
 }
 
 async function getModuleCountForCourse(courseId: string): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('modules')
     .select('*', { count: 'exact', head: true })
@@ -518,7 +518,7 @@ async function getModuleCountForCourse(courseId: string): Promise<number> {
 }
 
 async function getStudentCountForCourse(courseId: string): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get the section_id from the course (courses are linked to sections)
   const { data: course } = await supabase
@@ -540,7 +540,7 @@ async function getStudentCountForCourse(courseId: string): Promise<number> {
 }
 
 async function getLessonCountForModule(moduleId: string): Promise<number> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('lessons')
     .select('*', { count: 'exact', head: true })
@@ -549,7 +549,7 @@ async function getLessonCountForModule(moduleId: string): Promise<number> {
 }
 
 async function checkModuleHasTranscript(moduleId: string): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('teacher_transcripts')
     .select('*', { count: 'exact', head: true })
@@ -558,7 +558,7 @@ async function checkModuleHasTranscript(moduleId: string): Promise<boolean> {
 }
 
 async function checkModuleHasNotes(moduleId: string): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('teacher_notes')
     .select('*', { count: 'exact', head: true })
@@ -567,7 +567,7 @@ async function checkModuleHasNotes(moduleId: string): Promise<boolean> {
 }
 
 async function verifyTeacherCourseAccess(teacherId: string, courseId: string): Promise<boolean> {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
   const { count } = await supabase
     .from('teacher_assignments')
     .select('*', { count: 'exact', head: true })
@@ -629,7 +629,7 @@ export async function getTeacherLiveSessions(
   startDate: string,
   endDate: string
 ) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get all courses assigned to this teacher
   const { data: assignments } = await supabase
@@ -681,7 +681,7 @@ export async function getUpcomingAssessmentDueDates(
   startDate: string,
   endDate: string
 ) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Get all courses assigned to this teacher
   const { data: assignments } = await supabase
@@ -742,7 +742,7 @@ export async function createLiveSession(
     join_url?: string | null
   }
 ) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // Verify teacher has access to this course
   const hasAccess = await verifyTeacherCourseAccess(teacherId, sessionData.course_id)
@@ -782,7 +782,7 @@ export async function updateLiveSession(
   teacherId: string,
   updates: Partial<LiveSession>
 ) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // First get the session to verify access
   const { data: session } = await supabase
@@ -820,7 +820,7 @@ export async function updateLiveSession(
  * Delete a live session
  */
 export async function deleteLiveSession(sessionId: string, teacherId: string) {
-  const supabase = await createClient()
+  const supabase = createServiceClient()
 
   // First get the session to verify access
   const { data: session } = await supabase

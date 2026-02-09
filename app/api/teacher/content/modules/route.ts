@@ -76,28 +76,37 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServiceClient()
 
-    // First verify teacher has access to this course
-    const { count } = await supabase
+    // Verify teacher has access to this course (check both course_id and subject_id)
+    const { count: byCourse } = await supabase
       .from('teacher_assignments')
       .select('*', { count: 'exact', head: true })
       .eq('teacher_profile_id', teacherProfile.id)
       .eq('course_id', courseId)
 
-    if (!count || count === 0) {
-      return NextResponse.json(
-        { error: 'Access denied to this course' },
-        { status: 403 }
-      )
+    if (!byCourse || byCourse === 0) {
+      const { count: bySubject } = await supabase
+        .from('teacher_assignments')
+        .select('*', { count: 'exact', head: true })
+        .eq('teacher_profile_id', teacherProfile.id)
+        .eq('subject_id', courseId)
+
+      if (!bySubject || bySubject === 0) {
+        return NextResponse.json(
+          { error: 'Access denied to this course' },
+          { status: 403 }
+        )
+      }
     }
 
     // Get all modules for this course with lesson counts
+    // Modules may store the reference as course_id or subject_id
     const { data: modules, error } = await supabase
       .from('modules')
       .select(`
         *,
         lessons:lessons(count)
       `)
-      .eq('course_id', courseId)
+      .or(`course_id.eq.${courseId},subject_id.eq.${courseId}`)
       .order('order', { ascending: true })
 
     if (error) {

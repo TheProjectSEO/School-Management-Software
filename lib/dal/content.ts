@@ -120,21 +120,28 @@ async function verifyTeacherCourseAccess(
   courseId: string
 ): Promise<boolean> {
   const supabase = createServiceClient()
-  const { count, error } = await supabase
+
+  // Check course_id first (content system)
+  const { count: byCoursId } = await supabase
     .from('teacher_assignments')
     .select('*', { count: 'exact', head: true })
     .eq('teacher_profile_id', teacherId)
     .eq('course_id', courseId)
 
-  if (error) {
-    console.error('[verifyTeacherCourseAccess] Query error:', error)
-  }
+  if ((byCoursId || 0) > 0) return true
 
-  if ((count || 0) === 0) {
-    console.error(`[verifyTeacherCourseAccess] No assignment found for teacher=${teacherId} course=${courseId}`)
-  }
+  // Fallback: check subject_id (teacher system uses subject_id which also
+  // references courses.id)
+  const { count: bySubjectId } = await supabase
+    .from('teacher_assignments')
+    .select('*', { count: 'exact', head: true })
+    .eq('teacher_profile_id', teacherId)
+    .eq('subject_id', courseId)
 
-  return (count || 0) > 0
+  if ((bySubjectId || 0) > 0) return true
+
+  console.error(`[verifyTeacherCourseAccess] No assignment found for teacher=${teacherId} course=${courseId}`)
+  return false
 }
 
 /**
@@ -144,18 +151,18 @@ async function getCourseIdForModule(moduleId: string): Promise<string | null> {
   const supabase = createServiceClient()
   const { data, error } = await supabase
     .from('modules')
-    .select('course_id')
+    .select('course_id, subject_id')
     .eq('id', moduleId)
     .single()
 
   if (error) {
     console.error(`[getCourseIdForModule] Error fetching module ${moduleId}:`, error)
-  }
-  if (!data?.course_id) {
-    console.error(`[getCourseIdForModule] Module ${moduleId} has no course_id. data:`, data)
+    return null
   }
 
-  return data?.course_id || null
+  // Modules created via content system use course_id; modules created via
+  // teacher system use subject_id. Both reference courses.id.
+  return data?.course_id || data?.subject_id || null
 }
 
 /**
@@ -165,10 +172,11 @@ async function getCourseIdForLesson(lessonId: string): Promise<string | null> {
   const supabase = createServiceClient()
   const { data } = await supabase
     .from('lessons')
-    .select('module:modules!inner(course_id)')
+    .select('module:modules!inner(course_id, subject_id)')
     .eq('id', lessonId)
     .single()
-  return (data?.module as any)?.course_id || null
+  const mod = data?.module as any
+  return mod?.course_id || mod?.subject_id || null
 }
 
 // ============================================================================

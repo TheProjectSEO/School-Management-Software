@@ -24,13 +24,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id: moduleId } = await params
     const supabase = createServiceClient()
 
-    // Get module with course info
+    // Get module — course_id or subject_id may link to courses table
     const { data: module, error } = await supabase
       .from('modules')
-      .select(`
-        *,
-        course:courses!inner(id, name, subject_code)
-      `)
+      .select('*')
       .eq('id', moduleId)
       .single()
 
@@ -38,15 +35,36 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Module not found' }, { status: 404 })
     }
 
-    // Verify teacher access
-    const { count } = await supabase
+    const linkedCourseId = module.course_id || module.subject_id
+
+    // Fetch course info separately (avoids !inner join issues)
+    let course = null
+    if (linkedCourseId) {
+      const { data } = await supabase
+        .from('courses')
+        .select('id, name, subject_code')
+        .eq('id', linkedCourseId)
+        .maybeSingle()
+      course = data
+    }
+
+    // Verify teacher access (check both course_id and subject_id columns)
+    const { count: byCourse } = await supabase
       .from('teacher_assignments')
       .select('*', { count: 'exact', head: true })
       .eq('teacher_profile_id', teacherProfile.id)
-      .eq('course_id', module.course_id)
+      .eq('course_id', linkedCourseId)
 
-    if (!count || count === 0) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    if (!byCourse || byCourse === 0) {
+      const { count: bySubject } = await supabase
+        .from('teacher_assignments')
+        .select('*', { count: 'exact', head: true })
+        .eq('teacher_profile_id', teacherProfile.id)
+        .eq('subject_id', linkedCourseId)
+
+      if (!bySubject || bySubject === 0) {
+        return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+      }
     }
 
     // Get lessons for this module
@@ -55,6 +73,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     return NextResponse.json({
       module: {
         ...module,
+        course,
         lessons
       }
     })

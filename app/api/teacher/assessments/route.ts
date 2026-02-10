@@ -73,23 +73,25 @@ export async function POST(request: NextRequest) {
     } = body
 
     // Create assessment
+    const insertData: Record<string, unknown> = {
+      title,
+      type,
+      course_id,
+      section_id,
+      school_id: schoolId,
+      instructions,
+      due_date,
+      time_limit_minutes,
+      max_attempts,
+      total_points,
+      status: status || 'draft',
+      created_by: teacherId
+    }
+    if (lesson_id) insertData.lesson_id = lesson_id
+
     const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')
-      .insert({
-        title,
-        type,
-        course_id,
-        lesson_id: lesson_id || null,
-        section_id,
-        school_id: schoolId,
-        instructions,
-        due_date,
-        time_limit_minutes,
-        max_attempts,
-        total_points,
-        status: status || 'draft',
-        created_by: teacherId
-      })
+      .insert(insertData)
       .select()
       .single()
 

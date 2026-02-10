@@ -64,30 +64,32 @@ export async function POST(request: NextRequest) {
       0
     );
 
+    const insertData: Record<string, unknown> = {
+      title: title.trim(),
+      type: type || "quiz",
+      course_id: courseId,
+      section_id: course?.section_id || null,
+      school_id: schoolId,
+      instructions: instructions?.trim() || null,
+      due_date: dueDate || null,
+      time_limit_minutes: timeLimitMinutes || null,
+      max_attempts: maxAttempts || 1,
+      total_points: totalPoints,
+      status: publishNow ? "published" : "draft",
+      created_by: teacherId,
+    };
+    if (lessonId) insertData.lesson_id = lessonId;
+
     const { data: assessment, error: assessmentError } = await supabase
       .from("assessments")
-      .insert({
-        title: title.trim(),
-        type: type || "quiz",
-        course_id: courseId,
-        lesson_id: lessonId || null,
-        section_id: course?.section_id || null,
-        school_id: schoolId,
-        instructions: instructions?.trim() || null,
-        due_date: dueDate || null,
-        time_limit_minutes: timeLimitMinutes || null,
-        max_attempts: maxAttempts || 1,
-        total_points: totalPoints,
-        status: publishNow ? "published" : "draft",
-        created_by: teacherId,
-      })
+      .insert(insertData)
       .select()
       .single();
 
     if (assessmentError || !assessment) {
-      console.error("Assessment insert error:", assessmentError);
+      console.error("Assessment insert error:", assessmentError?.message, assessmentError?.code, assessmentError?.details);
       return NextResponse.json(
-        { error: "Failed to create assessment" },
+        { error: assessmentError?.message || "Failed to create assessment" },
         { status: 500 }
       );
     }
@@ -108,10 +110,10 @@ export async function POST(request: NextRequest) {
       .select("id, question_type");
 
     if (questionsError || !insertedQuestions) {
-      console.error("Question insert error:", questionsError);
+      console.error("Question insert error:", questionsError?.message, questionsError?.code, questionsError?.details);
       await supabase.from("assessments").delete().eq("id", assessment.id);
       return NextResponse.json(
-        { error: "Failed to create questions" },
+        { error: questionsError?.message || "Failed to create questions" },
         { status: 500 }
       );
     }

@@ -47,8 +47,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
+  // Auth API routes handle their own authentication — never block them
+  // This is critical: the refresh endpoint must be reachable even with an expired access token
+  if (pathname.startsWith('/api/auth/')) {
+    return NextResponse.next();
+  }
+
   // Protected routes - require authentication
   if (!token) {
+    // For API routes, return JSON error instead of redirect
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: 'Unauthorized', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
+    }
     const loginUrl = new URL('/login', request.url);
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
@@ -125,12 +138,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // Permission check for API routes
+  // (auth API routes already returned early above)
   if (pathname.startsWith('/api/')) {
-    // Skip auth API routes
-    if (pathname.startsWith('/api/auth/')) {
-      return addUserToHeaders(request, payload);
-    }
-
     const requiredPermission = getRequiredPermission(pathname, request.method);
 
     if (requiredPermission) {

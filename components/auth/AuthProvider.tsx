@@ -9,13 +9,8 @@ import {
   LoginResponse,
   MeResponse,
 } from '@/types/auth';
-import { isTokenExpired, decodeToken, AccessTokenPayload } from '@/lib/auth/jwt';
-
 // Create context
 export const AuthContext = createContext<AuthContextValue | null>(null);
-
-// Cookie names (must match server)
-const ACCESS_TOKEN_COOKIE = 'access_token';
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -49,21 +44,47 @@ export function AuthProvider({ children }: AuthProviderProps) {
         credentials: 'include',
       });
 
-      if (!response.ok) {
+      if (response.ok) {
+        const data: MeResponse = await response.json();
         setState({
-          user: null,
-          isAuthenticated: false,
+          user: data.user,
+          isAuthenticated: data.isAuthenticated,
           isLoading: false,
           error: null,
         });
         return;
       }
 
-      const data: MeResponse = await response.json();
+      // If 401, try refreshing the token before giving up
+      if (response.status === 401) {
+        const refreshResponse = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          credentials: 'include',
+        });
 
+        if (refreshResponse.ok) {
+          // Retry /api/auth/me with the new cookies
+          const retryResponse = await fetch('/api/auth/me', {
+            credentials: 'include',
+          });
+
+          if (retryResponse.ok) {
+            const data: MeResponse = await retryResponse.json();
+            setState({
+              user: data.user,
+              isAuthenticated: data.isAuthenticated,
+              isLoading: false,
+              error: null,
+            });
+            return;
+          }
+        }
+      }
+
+      // All attempts failed — user is not authenticated
       setState({
-        user: data.user,
-        isAuthenticated: data.isAuthenticated,
+        user: null,
+        isAuthenticated: false,
         isLoading: false,
         error: null,
       });
@@ -177,36 +198,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [logout]);
 
   // Auto-refresh token before expiry (only on client)
+  // Access tokens expire after 15 minutes, so refresh every 13 minutes
   useEffect(() => {
     if (!isClient || !state.isAuthenticated) return;
 
-    // Get token from cookie to check expiry
-    const cookies = document.cookie.split(';');
-    const tokenCookie = cookies.find((c) => c.trim().startsWith(`${ACCESS_TOKEN_COOKIE}=`));
+    const REFRESH_INTERVAL = 13 * 60 * 1000; // 13 minutes
 
-    if (!tokenCookie) return;
-
-    const token = tokenCookie.split('=')[1];
-    const payload = decodeToken<AccessTokenPayload>(token);
-
-    if (!payload?.exp) return;
-
-    // Calculate time until expiry (refresh 1 minute before)
-    const expiresIn = payload.exp * 1000 - Date.now() - 60000;
-
-    if (expiresIn <= 0) {
-      // Token already expired or about to expire
+    const refreshTimer = setInterval(() => {
       refresh();
-      return;
-    }
+    }, REFRESH_INTERVAL);
 
-    // Set timer to refresh before expiry
-    const refreshTimer = setTimeout(() => {
-      refresh();
-    }, expiresIn);
-
-    return () => clearTimeout(refreshTimer);
-  }, [state.isAuthenticated, refresh]);
+    return () => clearInterval(refreshTimer);
+  }, [isClient, state.isAuthenticated, refresh]);
 
   // Check session on mount (only on client)
   useEffect(() => {

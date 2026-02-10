@@ -122,9 +122,9 @@ export default async function ModulePage({
   const prevLesson = lessons[currentLessonIndex - 1] || null;
 
   return (
-    <div className="flex flex-col gap-6 -mx-4 sm:-mx-6 lg:-mx-8 -my-8">
+    <div className="flex flex-col gap-6 -mx-4 sm:-mx-6 lg:-mx-8">
       {/* Breadcrumb */}
-      <div className="mx-4 sm:mx-6 lg:mx-8 mt-8 flex flex-wrap gap-2 items-center text-sm">
+      <div className="mx-4 sm:mx-6 lg:mx-8 flex flex-wrap gap-2 items-center text-sm">
         <Link
           href="/student"
           className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors"
@@ -159,6 +159,8 @@ export default async function ModulePage({
             studentId={student.id}
             courseId={subjectId}
             initialProgress={lessonWithProgress?.progress_percent || 0}
+            nextLessonUrl={nextLesson ? `/student/subjects/${subjectId}/modules/${moduleId}?lesson=${nextLesson.id}` : null}
+            isCompleted={lessonWithProgress?.completed || false}
           />
         ) : (
           <div className="w-full aspect-video bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden flex items-center justify-center border border-slate-200 dark:border-slate-700">

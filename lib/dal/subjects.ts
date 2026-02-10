@@ -252,19 +252,22 @@ export async function updateLessonProgress(
   }
 
   // Upsert failed — fall back to select-then-insert/update
-  console.error("Upsert failed, trying fallback:", upsertError.message);
+  console.error("Upsert failed, trying fallback:", upsertError.message, upsertError.code, upsertError.details);
 
-  const { data: existing, error: selectError } = await supabase
+  // Use .limit(1) instead of .maybeSingle() to handle possible duplicate rows
+  const { data: existingRows, error: selectError } = await supabase
     .from("student_progress")
     .select("id")
     .eq("student_id", studentId)
     .eq("lesson_id", lessonId)
-    .maybeSingle();
+    .limit(1);
 
   if (selectError) {
     console.error("Error selecting progress:", selectError);
     return { success: false, error: `Select failed: ${selectError.message}` };
   }
+
+  const existing = existingRows && existingRows.length > 0 ? existingRows[0] : null;
 
   if (existing) {
     const { error } = await supabase

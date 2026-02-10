@@ -45,6 +45,9 @@ export default function LessonNavigation({
 
       if (response.ok) {
         setCompleted(true);
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        console.error("Mark complete failed:", response.status, errData);
       }
     } catch (error) {
       console.error("Error marking lesson complete:", error);

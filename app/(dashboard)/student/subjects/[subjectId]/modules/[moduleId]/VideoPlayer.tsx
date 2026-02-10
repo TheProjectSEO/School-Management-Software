@@ -44,6 +44,9 @@ export default function VideoPlayer({
 
       if (response.ok) {
         setProgress(newProgress);
+      } else {
+        const errData = await response.json().catch(() => ({}));
+        console.error("Progress update failed:", response.status, errData);
       }
     } catch (error) {
       console.error("Error updating progress:", error);
@@ -80,16 +83,10 @@ export default function VideoPlayer({
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
             title="Lesson Video"
-            onLoad={() => {
-              // For iframes, mark some progress on load since we can't track playback
-              if (progress === 0) {
-                updateProgress(10);
-              }
-            }}
           />
         )}
       </div>
-      {progress < 100 && (
+      {playerType === 'video' && progress < 100 && (
         <div className="mt-3">
           <div className="flex justify-between text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
             <span>Video Progress</span>

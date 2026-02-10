@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { authFetch } from '@/lib/utils/authFetch'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -62,7 +63,7 @@ export default function ModuleEditor({ module, subjectId }: ModuleEditorProps) {
   const fetchLessons = async () => {
     setIsFetchingLessons(true)
     try {
-      const response = await fetch(`/api/teacher/content/lessons?module_id=${module.id}`)
+      const response = await authFetch(`/api/teacher/content/lessons?module_id=${module.id}`)
       if (response.ok) {
         const data = await response.json()
         setLessons(data.lessons || [])
@@ -79,7 +80,7 @@ export default function ModuleEditor({ module, subjectId }: ModuleEditorProps) {
     setError(null)
 
     try {
-      const response = await fetch(`/api/teacher/content/modules/${module.id}`, {
+      const response = await authFetch(`/api/teacher/content/modules/${module.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -109,7 +110,7 @@ export default function ModuleEditor({ module, subjectId }: ModuleEditorProps) {
     setError(null)
 
     try {
-      const response = await fetch(`/api/teacher/content/modules/${module.id}`, {
+      const response = await authFetch(`/api/teacher/content/modules/${module.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -151,7 +152,7 @@ export default function ModuleEditor({ module, subjectId }: ModuleEditorProps) {
     if (!confirm('Are you sure you want to delete this lesson?')) return
 
     try {
-      const response = await fetch(`/api/teacher/content/lessons/${lessonId}`, {
+      const response = await authFetch(`/api/teacher/content/lessons/${lessonId}`, {
         method: 'DELETE',
       })
 

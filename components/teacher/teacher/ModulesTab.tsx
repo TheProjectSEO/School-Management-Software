@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { authFetch } from '@/lib/utils/authFetch'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
@@ -60,7 +61,7 @@ export default function ModulesTab({ modules, subjectId }: ModulesTabProps) {
   const handlePublishModule = async (moduleId: string) => {
     setIsPublishing(moduleId)
     try {
-      const response = await fetch(`/api/teacher/content/modules/${moduleId}`, {
+      const response = await authFetch(`/api/teacher/content/modules/${moduleId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ is_published: true }),

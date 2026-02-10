@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef, useEffect } from 'react'
+import { authFetch } from '@/lib/utils/authFetch'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -182,7 +183,7 @@ export default function LessonEditor({
       uploadFormData.append('bucket', 'course-content')
       uploadFormData.append('folder', `videos/${moduleId}`)
 
-      const response = await fetch('/api/teacher/content/upload', {
+      const response = await authFetch('/api/teacher/content/upload', {
         method: 'POST',
         body: uploadFormData,
       })
@@ -296,7 +297,7 @@ export default function LessonEditor({
         is_published: publish,
       }
 
-      const response = await fetch(endpoint, {
+      const response = await authFetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

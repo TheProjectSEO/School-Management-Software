@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { authFetch } from '@/lib/utils/authFetch'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -41,7 +42,7 @@ export default function CreateModuleModal({
     setError(null)
 
     try {
-      const response = await fetch('/api/teacher/content/modules', {
+      const response = await authFetch('/api/teacher/content/modules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

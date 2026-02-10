@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
 
     const {
       courseId,
+      lessonId,
       title,
       type,
       instructions,
@@ -69,6 +70,7 @@ export async function POST(request: NextRequest) {
         title: title.trim(),
         type: type || "quiz",
         course_id: courseId,
+        lesson_id: lessonId || null,
         section_id: course?.section_id || null,
         school_id: schoolId,
         instructions: instructions?.trim() || null,

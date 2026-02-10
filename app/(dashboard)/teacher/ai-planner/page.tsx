@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
+import { authFetch } from '@/lib/utils/authFetch'
 
 type SubjectAssignment = {
   id: string
@@ -18,6 +19,12 @@ type ModuleDraft = {
   lessons: { title: string; content: string; duration_minutes?: number | null }[]
 }
 
+type CourseLesson = {
+  id: string
+  title: string
+  module_title?: string
+}
+
 type AssessmentDraft = {
   title: string
   type: 'quiz' | 'exam' | 'assignment' | 'project'
@@ -26,6 +33,7 @@ type AssessmentDraft = {
   time_limit_minutes?: number | null
   max_attempts?: number | null
   publish_now?: boolean
+  lesson_id?: string
   questions: {
     question_text: string
     question_type: 'multiple_choice' | 'true_false' | 'short_answer'
@@ -57,11 +65,13 @@ export default function AIPlannerPage() {
   const [moduleDraft, setModuleDraft] = useState<ModuleDraft | null>(null)
   const [assessmentDraft, setAssessmentDraft] = useState<AssessmentDraft | null>(null)
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
+  const [courseLessons, setCourseLessons] = useState<CourseLesson[]>([])
+  const [loadingLessons, setLoadingLessons] = useState(false)
 
   useEffect(() => {
     async function loadSubjects() {
       try {
-        const res = await fetch('/api/teacher/subjects')
+        const res = await authFetch('/api/teacher/subjects')
         if (!res.ok) return
         const data = await res.json()
         setSubjects(data.subjects || [])
@@ -82,6 +92,34 @@ export default function AIPlannerPage() {
     }
   }, [searchParams])
 
+  // Load lessons when course changes (for assessment lesson dropdown)
+  useEffect(() => {
+    if (!courseId) {
+      setCourseLessons([])
+      return
+    }
+    async function loadLessons() {
+      setLoadingLessons(true)
+      try {
+        const res = await authFetch(`/api/teacher/content/modules?course_id=${courseId}&include_lessons=true`)
+        if (!res.ok) return
+        const data = await res.json()
+        const lessons: CourseLesson[] = []
+        for (const mod of data.modules || []) {
+          for (const lesson of mod.lessons || []) {
+            lessons.push({ id: lesson.id, title: lesson.title, module_title: mod.title })
+          }
+        }
+        setCourseLessons(lessons)
+      } catch (error) {
+        console.error('Failed to load lessons:', error)
+      } finally {
+        setLoadingLessons(false)
+      }
+    }
+    loadLessons()
+  }, [courseId])
+
   const selectedCourse = useMemo(
     () => subjects.find((s) => s.subject.id === courseId),
     [subjects, courseId]
@@ -94,7 +132,7 @@ export default function AIPlannerPage() {
 
     try {
       if (planType === 'module') {
-        const response = await fetch('/api/teacher/ai/generate-module', {
+        const response = await authFetch('/api/teacher/ai/generate-module', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -122,7 +160,7 @@ export default function AIPlannerPage() {
           .filter(([, enabled]) => enabled)
           .map(([key]) => key)
 
-        const response = await fetch('/api/teacher/ai/generate-quiz', {
+        const response = await authFetch('/api/teacher/ai/generate-quiz', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -165,7 +203,7 @@ export default function AIPlannerPage() {
     if (!moduleDraft) return
     setSaveStatus(null)
     try {
-      const response = await fetch('/api/teacher/ai/save-module', {
+      const response = await authFetch('/api/teacher/ai/save-module', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -193,11 +231,12 @@ export default function AIPlannerPage() {
     if (!assessmentDraft) return
     setSaveStatus(null)
     try {
-      const response = await fetch('/api/teacher/ai/save-assessment', {
+      const response = await authFetch('/api/teacher/ai/save-assessment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           courseId,
+          lessonId: assessmentDraft.lesson_id || null,
           title: assessmentDraft.title,
           type: assessmentDraft.type,
           instructions: assessmentDraft.instructions,
@@ -453,7 +492,7 @@ export default function AIPlannerPage() {
         <Card>
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-slate-900">Assessment Draft</h2>
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <label className="text-sm font-semibold text-slate-700">Title</label>
                 <input
@@ -478,6 +517,24 @@ export default function AIPlannerPage() {
                   <option value="exam">Exam</option>
                   <option value="assignment">Assignment</option>
                   <option value="project">Project</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-slate-700">Linked Lesson</label>
+                <select
+                  value={assessmentDraft.lesson_id || ''}
+                  onChange={(e) =>
+                    setAssessmentDraft({ ...assessmentDraft, lesson_id: e.target.value || undefined })
+                  }
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                  disabled={loadingLessons}
+                >
+                  <option value="">{loadingLessons ? 'Loading...' : 'None (course-level)'}</option>
+                  {courseLessons.map((lesson) => (
+                    <option key={lesson.id} value={lesson.id}>
+                      {lesson.module_title ? `${lesson.module_title} — ` : ''}{lesson.title}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>

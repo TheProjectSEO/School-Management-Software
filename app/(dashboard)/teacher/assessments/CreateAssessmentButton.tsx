@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { authFetch } from '@/lib/utils/authFetch'
 
 interface Subject {
   id: string
@@ -12,6 +13,12 @@ interface Subject {
   grade_level: string
 }
 
+interface LessonOption {
+  id: string
+  title: string
+  module_title?: string
+}
+
 interface CreateAssessmentButtonProps {
   subjects: Subject[]
 }
@@ -20,18 +27,50 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
   const router = useRouter()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [lessons, setLessons] = useState<LessonOption[]>([])
+  const [loadingLessons, setLoadingLessons] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     type: 'quiz' as 'quiz' | 'assignment' | 'project' | 'midterm' | 'final',
     course_id: '',
+    lesson_id: '',
     section_id: ''
   })
+
+  // Load lessons when course changes
+  useEffect(() => {
+    if (!formData.course_id) {
+      setLessons([])
+      return
+    }
+    async function loadLessons() {
+      setLoadingLessons(true)
+      try {
+        const res = await authFetch(`/api/teacher/content/modules?course_id=${formData.course_id}&include_lessons=true`)
+        if (!res.ok) return
+        const data = await res.json()
+        const list: LessonOption[] = []
+        for (const mod of data.modules || []) {
+          for (const lesson of mod.lessons || []) {
+            list.push({ id: lesson.id, title: lesson.title, module_title: mod.title })
+          }
+        }
+        setLessons(list)
+      } catch (error) {
+        console.error('Failed to load lessons:', error)
+      } finally {
+        setLoadingLessons(false)
+      }
+    }
+    loadLessons()
+  }, [formData.course_id])
 
   const handleSubjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedSubject = subjects.find(s => s.id === e.target.value)
     setFormData({
       ...formData,
       course_id: e.target.value,
+      lesson_id: '',
       section_id: selectedSubject?.section_id || ''
     })
   }
@@ -41,13 +80,14 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
 
     setIsCreating(true)
     try {
-      const response = await fetch('/api/teacher/assessments', {
+      const response = await authFetch('/api/teacher/assessments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: formData.title.trim(),
           type: formData.type,
           course_id: formData.course_id,
+          lesson_id: formData.lesson_id || null,
           section_id: formData.section_id,
           status: 'draft',
           total_points: 100,
@@ -147,6 +187,28 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
                   ))}
                 </select>
               </div>
+
+              {/* Linked Lesson */}
+              {formData.course_id && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Linked Lesson <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <select
+                    value={formData.lesson_id}
+                    onChange={(e) => setFormData({ ...formData, lesson_id: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                    disabled={loadingLessons}
+                  >
+                    <option value="">{loadingLessons ? 'Loading lessons...' : 'None (course-level)'}</option>
+                    {lessons.map((lesson) => (
+                      <option key={lesson.id} value={lesson.id}>
+                        {lesson.module_title ? `${lesson.module_title} — ` : ''}{lesson.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Actions */}

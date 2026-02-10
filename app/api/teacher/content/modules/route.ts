@@ -90,13 +90,16 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get all modules for this course with lesson counts
+    const includeLessons = searchParams.get('include_lessons') === 'true'
+
+    // Get all modules for this course
+    const selectQuery = includeLessons
+      ? `*, lessons:lessons(id, title, content_type, "order", is_published)`
+      : `*, lessons:lessons(count)`
+
     const { data: modules, error } = await supabase
       .from('modules')
-      .select(`
-        *,
-        lessons:lessons(count)
-      `)
+      .select(selectQuery)
       .eq('course_id', courseId)
       .order('order', { ascending: true })
 
@@ -108,12 +111,22 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Transform the response to include lesson_count
-    const modulesWithCounts = modules.map(m => ({
-      ...m,
-      lesson_count: (m.lessons as any)?.[0]?.count || 0,
-      lessons: undefined
-    }))
+    // Transform the response
+    const modulesWithCounts = modules.map(m => {
+      if (includeLessons) {
+        const lessonArr = Array.isArray(m.lessons) ? m.lessons : []
+        return {
+          ...m,
+          lesson_count: lessonArr.length,
+          lessons: lessonArr,
+        }
+      }
+      return {
+        ...m,
+        lesson_count: (m.lessons as any)?.[0]?.count || 0,
+        lessons: undefined,
+      }
+    })
 
     return NextResponse.json({ modules: modulesWithCounts })
   } catch (error) {

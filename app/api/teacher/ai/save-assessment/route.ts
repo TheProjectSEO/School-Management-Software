@@ -94,59 +94,65 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const questionRows = questions.map((q: DraftQuestion, index: number) => ({
-      assessment_id: assessment.id,
-      question_text: q.question_text,
-      question_type: q.question_type,
-      points: q.points || 1,
-      correct_answer: q.correct_answer || null,
-      explanation: q.explanation || null,
-      order_index: index + 1,
-    }));
+    // Convert AI-generated questions to teacher_assessment_questions format
+    // This is the same table the assessment builder/detail page reads from
+    const questionRows = questions.map((q: DraftQuestion, index: number) => {
+      let choices_json: unknown = null;
+      let answer_key_json: unknown = null;
 
-    const { data: insertedQuestions, error: questionsError } = await supabase
-      .from("questions")
-      .insert(questionRows)
-      .select("id, question_type");
-
-    if (questionsError || !insertedQuestions) {
-      console.error("Question insert error:", questionsError?.message, questionsError?.code, questionsError?.details);
-      await supabase.from("assessments").delete().eq("id", assessment.id);
-      return NextResponse.json(
-        { error: questionsError?.message || "Failed to create questions" },
-        { status: 500 }
-      );
-    }
-
-    const optionRows: {
-      question_id: string;
-      option_text: string;
-      is_correct: boolean;
-      order_index: number;
-    }[] = [];
-
-    insertedQuestions.forEach((question, index) => {
-      const draft = questions[index] as DraftQuestion;
-      if (question.question_type === "multiple_choice" && draft?.options) {
-        draft.options.forEach((opt: { text: string; isCorrect: boolean }, optIndex: number) => {
-          optionRows.push({
-            question_id: question.id,
-            option_text: opt.text,
-            is_correct: Boolean(opt.isCorrect),
-            order_index: optIndex + 1,
-          });
-        });
+      if (q.question_type === "multiple_choice" && q.options) {
+        // Convert options to choices_json format: [{id, text, is_correct}]
+        choices_json = q.options.map((opt, optIndex) => ({
+          id: String.fromCharCode(97 + optIndex), // a, b, c, d...
+          text: opt.text,
+          is_correct: Boolean(opt.isCorrect),
+        }));
+        // Set answer_key_json with correct_ids
+        answer_key_json = {
+          correct_ids: q.options
+            .map((opt, optIndex) => opt.isCorrect ? String.fromCharCode(97 + optIndex) : null)
+            .filter(Boolean),
+        };
+      } else if (q.question_type === "true_false") {
+        choices_json = [
+          { id: "true", text: "True", is_correct: q.correct_answer?.toLowerCase() === "true" },
+          { id: "false", text: "False", is_correct: q.correct_answer?.toLowerCase() !== "true" },
+        ];
+        answer_key_json = {
+          correct_ids: [q.correct_answer?.toLowerCase() === "true" ? "true" : "false"],
+        };
+      } else if (q.question_type === "short_answer" && q.correct_answer) {
+        answer_key_json = {
+          type: "short_answer",
+          acceptable_answers: [q.correct_answer],
+          case_sensitive: false,
+        };
       }
+
+      return {
+        assessment_id: assessment.id,
+        question_text: q.question_text,
+        question_type: q.question_type,
+        choices_json,
+        answer_key_json,
+        points: q.points || 1,
+        explanation: q.explanation || null,
+        order_index: index,
+      };
     });
 
-    if (optionRows.length > 0) {
-      const { error: optionsError } = await supabase
-        .from("answer_options")
-        .insert(optionRows);
+    const { error: questionsError } = await supabase
+      .from("teacher_assessment_questions")
+      .insert(questionRows);
 
-      if (optionsError) {
-        console.error("Option insert error:", optionsError);
-      }
+    if (questionsError) {
+      console.error("Question insert error:", questionsError.message, questionsError.code, questionsError.details);
+      // Rollback the assessment
+      await supabase.from("assessments").delete().eq("id", assessment.id);
+      return NextResponse.json(
+        { error: questionsError.message || "Failed to create questions" },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ assessment }, { status: 201 });

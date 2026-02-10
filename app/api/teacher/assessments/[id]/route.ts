@@ -156,13 +156,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
       // Insert new questions
       if (questions.length > 0) {
-        // Map 'multiple_choice' to 'true_false' since DB constraint doesn't include 'multiple_choice'
-        const mapQuestionType = (type: string) => type === 'multiple_choice' ? 'true_false' : (type || 'true_false')
-
         const questionsToInsert = questions.map((q: any, index: number) => ({
           assessment_id: id,
           question_text: q.question_text,
-          question_type: mapQuestionType(q.question_type),
+          question_type: q.question_type || 'multiple_choice',
           choices_json: q.choices_json || null,
           answer_key_json: q.answer_key_json || null,
           points: q.points || 1,

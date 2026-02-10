@@ -78,11 +78,11 @@ export async function requireStudentAPI(): Promise<AuthResult> {
       success: true,
       student: {
         userId: currentUser.sub,
-        studentId: row.id,
+        studentId: row.student_id,
         profileId: row.profile_id,
         schoolId: row.school_id,
         sectionId: row.section_id || null,
-        fullName: row.profile_full_name || 'Student',
+        fullName: row.full_name || 'Student',
         email: currentUser.email || '',
         lrn: row.lrn || '',
       },

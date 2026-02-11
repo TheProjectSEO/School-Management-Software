@@ -11,7 +11,14 @@ import type { Course, Module, Lesson, Enrollment, Progress, QueryOptions } from 
 export async function getStudentSubjects(
   studentId: string,
   options?: QueryOptions
-): Promise<(Enrollment & { course: Course; progress_percent: number })[]> {
+): Promise<(Enrollment & {
+  course: Course;
+  progress_percent: number;
+  total_lessons: number;
+  completed_lessons: number;
+  total_modules: number;
+  teacher_name: string;
+})[]> {
   const supabase = createServiceClient();
 
   const { data, error } = await supabase
@@ -82,6 +89,42 @@ export async function getStudentSubjects(
     }
   });
 
+  // Count modules per course
+  const modulesByCourse = new Map<string, number>();
+  (modules || []).forEach((m) => {
+    modulesByCourse.set(m.course_id, (modulesByCourse.get(m.course_id) || 0) + 1);
+  });
+
+  // Fetch teacher names: courses.teacher_id → teacher_profiles.id → profile_id → school_profiles.full_name
+  const teacherIds = [...new Set(data.map((e) => e.course?.teacher_id).filter(Boolean))] as string[];
+  const teacherNameMap = new Map<string, string>();
+
+  if (teacherIds.length > 0) {
+    const { data: teacherProfiles } = await supabase
+      .from("teacher_profiles")
+      .select("id, profile_id")
+      .in("id", teacherIds);
+
+    if (teacherProfiles && teacherProfiles.length > 0) {
+      const profileIds = teacherProfiles.map((tp) => tp.profile_id).filter(Boolean);
+      const teacherIdToProfileId = new Map(teacherProfiles.map((tp) => [tp.id, tp.profile_id]));
+
+      const { data: schoolProfiles } = await supabase
+        .from("school_profiles")
+        .select("id, full_name")
+        .in("id", profileIds);
+
+      const profileIdToName = new Map((schoolProfiles || []).map((sp) => [sp.id, sp.full_name]));
+
+      teacherIds.forEach((tid) => {
+        const profileId = teacherIdToProfileId.get(tid);
+        if (profileId) {
+          teacherNameMap.set(tid, profileIdToName.get(profileId) || "");
+        }
+      });
+    }
+  }
+
   return data.map((e) => {
     const totalLessons = lessonsByCourse.get(e.course_id)?.size || 0;
     const completedLessons = completedByCourse.get(e.course_id) || 0;
@@ -89,6 +132,10 @@ export async function getStudentSubjects(
     return {
       ...e,
       progress_percent: progress,
+      total_lessons: totalLessons,
+      completed_lessons: completedLessons,
+      total_modules: modulesByCourse.get(e.course_id) || 0,
+      teacher_name: teacherNameMap.get(e.course?.teacher_id) || "",
     };
   });
 }

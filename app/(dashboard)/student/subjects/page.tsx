@@ -9,6 +9,38 @@ interface PageProps {
   searchParams: Promise<{ q?: string; status?: string }>;
 }
 
+// Subject icon/color mapping by keyword
+const SUBJECT_THEMES: { keywords: string[]; icon: string; bg: string; text: string; border: string; bar: string }[] = [
+  { keywords: ["math", "calculus", "algebra", "geometry", "statistics", "trigonometry"], icon: "calculate", bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-600 dark:text-blue-400", border: "border-l-blue-500", bar: "bg-blue-500" },
+  { keywords: ["english", "literature", "writing", "reading", "language arts"], icon: "menu_book", bg: "bg-purple-100 dark:bg-purple-900/30", text: "text-purple-600 dark:text-purple-400", border: "border-l-purple-500", bar: "bg-purple-500" },
+  { keywords: ["science", "biology", "chemistry", "physics", "earth"], icon: "science", bg: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-600 dark:text-emerald-400", border: "border-l-emerald-500", bar: "bg-emerald-500" },
+  { keywords: ["history", "social", "economics", "political", "civics", "araling panlipunan"], icon: "public", bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-600 dark:text-amber-400", border: "border-l-amber-500", bar: "bg-amber-500" },
+  { keywords: ["pe", "physical", "health", "mapeh", "sports"], icon: "fitness_center", bg: "bg-rose-100 dark:bg-rose-900/30", text: "text-rose-600 dark:text-rose-400", border: "border-l-rose-500", bar: "bg-rose-500" },
+  { keywords: ["computer", "ict", "tech", "code", "programming", "tle"], icon: "terminal", bg: "bg-cyan-100 dark:bg-cyan-900/30", text: "text-cyan-600 dark:text-cyan-400", border: "border-l-cyan-500", bar: "bg-cyan-500" },
+  { keywords: ["art", "music", "creative", "drawing"], icon: "palette", bg: "bg-pink-100 dark:bg-pink-900/30", text: "text-pink-600 dark:text-pink-400", border: "border-l-pink-500", bar: "bg-pink-500" },
+  { keywords: ["filipino", "tagalog", "edukasyon sa pagpapakatao", "esp"], icon: "translate", bg: "bg-orange-100 dark:bg-orange-900/30", text: "text-orange-600 dark:text-orange-400", border: "border-l-orange-500", bar: "bg-orange-500" },
+];
+
+const FALLBACK_THEMES = [
+  { icon: "school", bg: "bg-blue-100 dark:bg-blue-900/30", text: "text-blue-600 dark:text-blue-400", border: "border-l-blue-500", bar: "bg-blue-500" },
+  { icon: "school", bg: "bg-purple-100 dark:bg-purple-900/30", text: "text-purple-600 dark:text-purple-400", border: "border-l-purple-500", bar: "bg-purple-500" },
+  { icon: "school", bg: "bg-emerald-100 dark:bg-emerald-900/30", text: "text-emerald-600 dark:text-emerald-400", border: "border-l-emerald-500", bar: "bg-emerald-500" },
+  { icon: "school", bg: "bg-amber-100 dark:bg-amber-900/30", text: "text-amber-600 dark:text-amber-400", border: "border-l-amber-500", bar: "bg-amber-500" },
+  { icon: "school", bg: "bg-rose-100 dark:bg-rose-900/30", text: "text-rose-600 dark:text-rose-400", border: "border-l-rose-500", bar: "bg-rose-500" },
+  { icon: "school", bg: "bg-cyan-100 dark:bg-cyan-900/30", text: "text-cyan-600 dark:text-cyan-400", border: "border-l-cyan-500", bar: "bg-cyan-500" },
+];
+
+function getSubjectTheme(name: string, index: number) {
+  const lower = name.toLowerCase();
+  for (const theme of SUBJECT_THEMES) {
+    if (theme.keywords.some((kw) => lower.includes(kw))) {
+      return theme;
+    }
+  }
+  const fallback = FALLBACK_THEMES[index % FALLBACK_THEMES.length];
+  return fallback;
+}
+
 export default async function SubjectsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const searchQuery = params.q?.toLowerCase() || "";
@@ -25,15 +57,17 @@ export default async function SubjectsPage({ searchParams }: PageProps) {
   // Map enrollments to subjects with calculated data
   const allSubjects = enrollments.map((enrollment, index) => {
     const course = enrollment.course;
+    const theme = getSubjectTheme(course?.name || "", index);
     return {
       id: course?.id || enrollment.course_id,
       name: course?.name || "Unknown Course",
-      category: course?.subject_code || "General",
+      code: course?.subject_code || "",
       progress: enrollment.progress_percent || 0,
-      nextModule: "Continue Learning",
-      hasLiveClass: false,
-      pendingAssignments: 0,
-      image: getGradientForIndex(index),
+      totalLessons: enrollment.total_lessons || 0,
+      completedLessons: enrollment.completed_lessons || 0,
+      totalModules: enrollment.total_modules || 0,
+      teacherName: enrollment.teacher_name || "",
+      theme,
     };
   });
 
@@ -43,7 +77,8 @@ export default async function SubjectsPage({ searchParams }: PageProps) {
     subjects = subjects.filter(
       (s) =>
         s.name.toLowerCase().includes(searchQuery) ||
-        s.category.toLowerCase().includes(searchQuery)
+        s.code.toLowerCase().includes(searchQuery) ||
+        s.teacherName.toLowerCase().includes(searchQuery)
     );
   }
 
@@ -91,163 +126,89 @@ export default async function SubjectsPage({ searchParams }: PageProps) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {subjects.map((subject) => (
-            <div
+            <Link
               key={subject.id}
-              className="group bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm hover:shadow-lg hover:border-primary/30 transition-all duration-300 flex flex-col"
+              href={`/student/subjects/${subject.id}`}
+              className={`group bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 border-l-4 ${subject.theme.border} overflow-hidden shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200 flex flex-col p-5`}
             >
-              {/* Subject Image */}
-              <div className={`h-40 ${subject.image} relative`}>
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent"></div>
-                <div className="absolute bottom-4 left-4 text-white pr-4">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-msu-gold mb-1">
-                    {subject.category}
-                  </p>
-                  <h3 className="text-xl font-bold leading-tight">{subject.name}</h3>
+              {/* Top row: Icon + Name + Status badge */}
+              <div className="flex items-start gap-3.5 mb-4">
+                {/* Subject Icon */}
+                <div className={`size-12 rounded-xl ${subject.theme.bg} flex items-center justify-center shrink-0`}>
+                  <span className={`material-symbols-outlined text-[24px] ${subject.theme.text}`}>
+                    {subject.theme.icon}
+                  </span>
+                </div>
+
+                {/* Name, code, teacher */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <h3 className="text-base font-bold text-slate-900 dark:text-white leading-tight truncate">
+                      {subject.name}
+                    </h3>
+                    {/* Status pill */}
+                    {subject.progress >= 100 ? (
+                      <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+                        Completed
+                      </span>
+                    ) : subject.progress > 0 ? (
+                      <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        In Progress
+                      </span>
+                    ) : (
+                      <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                        Not Started
+                      </span>
+                    )}
+                  </div>
+                  {subject.code && (
+                    <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">{subject.code}</p>
+                  )}
+                  {subject.teacherName && (
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+                      {subject.teacherName}
+                    </p>
+                  )}
                 </div>
               </div>
 
-              {/* Subject Info */}
-              <div className="p-5 flex flex-col gap-4 flex-1">
-                <div className="flex flex-col gap-1.5">
-                  <div className="flex justify-between text-xs font-medium text-slate-500 dark:text-slate-400">
-                    <span>Course Progress</span>
-                    <span className="text-primary font-bold">{subject.progress}%</span>
-                  </div>
-                  <div className="h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-primary to-[#5a0c0e] rounded-full"
-                      style={{ width: `${subject.progress}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Next:{" "}
-                    <span className="text-slate-800 dark:text-slate-200 font-semibold">
-                      {subject.nextModule}
-                    </span>
+              {/* Progress bar */}
+              <div className="mb-3">
+                <div className="h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${subject.theme.bar} rounded-full transition-all duration-500`}
+                    style={{ width: `${subject.progress}%` }}
+                  />
+                </div>
+                <div className="flex items-center justify-between mt-1.5">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {subject.completedLessons}/{subject.totalLessons} lessons completed
+                    {subject.totalModules > 0 && (
+                      <span className="text-slate-300 dark:text-slate-600"> &middot; </span>
+                    )}
+                    {subject.totalModules > 0 && `${subject.totalModules} module${subject.totalModules !== 1 ? "s" : ""}`}
                   </p>
+                  <span className={`text-xs font-bold ${subject.theme.text}`}>
+                    {subject.progress}%
+                  </span>
                 </div>
-
-                {/* Status Cards */}
-                <div className="flex flex-col gap-2 mt-auto">
-                  {subject.hasLiveClass && (
-                    <div className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-200 bg-red-50 dark:bg-red-900/10 p-2.5 rounded-lg border border-red-100 dark:border-red-900/20">
-                      <div className="size-8 rounded-md bg-red-100 text-red-600 flex items-center justify-center shrink-0">
-                        <span className="material-symbols-outlined text-[18px]">videocam</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs text-red-600/80 font-bold uppercase">Live Class</span>
-                        <span className="font-medium text-xs">Available</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {subject.progress >= 100 ? (
-                    <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300 p-2">
-                      <span className="material-symbols-outlined text-msu-green text-[20px]">
-                        check_circle
-                      </span>
-                      <span className="text-xs font-medium">Course Completed</span>
-                    </div>
-                  ) : subject.progress > 0 ? (
-                    <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300 p-2">
-                      <span className="material-symbols-outlined text-msu-gold text-[20px]">
-                        trending_up
-                      </span>
-                      <span className="text-xs font-medium">In Progress</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-3 text-sm text-slate-600 dark:text-slate-300 p-2">
-                      <span className="material-symbols-outlined text-slate-400 text-[20px]">
-                        play_circle
-                      </span>
-                      <span className="text-xs font-medium">Not Started</span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Action Button */}
-                <Link
-                  href={`/student/subjects/${subject.id}`}
-                  className="w-full py-2.5 rounded-lg bg-primary text-white font-medium hover:bg-[#5a0c0e] transition-colors flex items-center justify-center gap-2 shadow-sm"
-                >
-                  <span>{subject.progress > 0 ? "Continue Module" : "Start Learning"}</span>
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </Link>
               </div>
-            </div>
+
+              {/* Action row */}
+              <div className="mt-auto pt-2 flex items-center justify-between">
+                <span className="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-primary transition-colors">
+                  {subject.progress > 0 ? "Continue Module" : "Start Learning"}
+                </span>
+                <span className="material-symbols-outlined text-[18px] text-slate-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all">
+                  arrow_forward
+                </span>
+              </div>
+            </Link>
           ))}
         </div>
       )}
-
-      {/* Explore Section */}
-      <div className="pt-8 border-t border-slate-200 dark:border-slate-800">
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h3 className="text-2xl font-bold text-slate-900 dark:text-white">Explore New Topics</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-sm">
-              Discover additional learning resources.
-            </p>
-          </div>
-          <button
-            disabled
-            className="text-slate-400 cursor-not-allowed font-bold text-sm flex items-center gap-1"
-            title="Coming soon"
-          >
-            View all catalog
-            <span className="material-symbols-outlined text-sm">arrow_forward</span>
-          </button>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {[
-            { name: "Intro to Python", icon: "code", desc: "Learn the basics of programming with Python." },
-            { name: "Psychology 101", icon: "psychology", desc: "Understanding human behavior and mental processes." },
-            { name: "Digital Art Basics", icon: "brush", desc: "Start your journey in digital illustration." },
-          ].map((demo, idx) => (
-            <div
-              key={idx}
-              className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 hover:border-primary transition-all cursor-pointer group hover:shadow-md"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="size-10 rounded-lg bg-msu-green/10 flex items-center justify-center text-msu-green">
-                  <span className="material-symbols-outlined">{demo.icon}</span>
-                </div>
-                <span className="px-2 py-1 rounded text-[10px] font-bold bg-msu-gold/20 text-yellow-700 dark:text-yellow-400 uppercase tracking-wide">
-                  Free Demo
-                </span>
-              </div>
-              <h4 className="font-bold text-slate-900 dark:text-white mb-2 text-lg">{demo.name}</h4>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 line-clamp-2 leading-relaxed">
-                {demo.desc}
-              </p>
-              <button className="w-full py-2 text-sm rounded-lg bg-slate-50 dark:bg-slate-700 text-slate-700 dark:text-white font-semibold group-hover:bg-primary group-hover:text-white transition-all">
-                Try Now
-              </button>
-            </div>
-          ))}
-          <div className="bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 p-4 hover:border-primary/50 hover:bg-white dark:hover:bg-slate-800 transition-all cursor-pointer group flex flex-col justify-center items-center text-center">
-            <div className="size-14 rounded-full bg-white dark:bg-slate-700 flex items-center justify-center text-slate-400 mb-3 group-hover:text-primary group-hover:scale-110 transition-all shadow-sm">
-              <span className="material-symbols-outlined text-2xl">add</span>
-            </div>
-            <h4 className="font-bold text-slate-900 dark:text-white text-base">View Full Catalog</h4>
-            <p className="text-[11px] text-slate-500 mt-1">More Subjects available</p>
-          </div>
-        </div>
-      </div>
     </>
   );
-}
-
-// Helper function to get gradient colors for subjects
-function getGradientForIndex(index: number): string {
-  const gradients = [
-    "bg-gradient-to-br from-blue-500 to-indigo-600",
-    "bg-gradient-to-br from-purple-500 to-pink-600",
-    "bg-gradient-to-br from-amber-500 to-orange-600",
-    "bg-gradient-to-br from-emerald-500 to-teal-600",
-    "bg-gradient-to-br from-rose-500 to-red-600",
-    "bg-gradient-to-br from-cyan-500 to-blue-600",
-  ];
-  return gradients[index % gradients.length];
 }

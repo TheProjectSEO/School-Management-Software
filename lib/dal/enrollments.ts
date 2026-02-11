@@ -611,10 +611,10 @@ export async function listGroupedStudentEnrollments(params: {
     const supabase = createServiceClient();
     const { schoolId, sectionId, courseId, status, search, page = 1, pageSize = 20 } = params;
 
-    // Step 1: Get flat enrollment records matching filters
+    // Step 1: Get flat enrollment records matching filters (use * to avoid column-not-found errors)
     let baseQuery = supabase
       .from('enrollments')
-      .select('id, student_id, course_id, section_id, status, enrolled_at, created_at');
+      .select('*');
 
     if (schoolId) baseQuery = baseQuery.eq('school_id', schoolId);
     if (sectionId) baseQuery = baseQuery.eq('section_id', sectionId);

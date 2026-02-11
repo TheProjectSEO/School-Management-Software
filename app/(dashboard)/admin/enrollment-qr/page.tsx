@@ -16,10 +16,13 @@ type QRCode = {
   expires_at?: string;
 };
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "";
+function getBaseUrl() {
+  if (typeof window !== "undefined") return window.location.origin;
+  return process.env.NEXT_PUBLIC_APP_URL || "";
+}
 
 function getEnrollmentUrl(code: string) {
-  return `${APP_URL}/apply?qr=${encodeURIComponent(code)}`;
+  return `${getBaseUrl()}/apply?qr=${encodeURIComponent(code)}`;
 }
 
 export default function EnrollmentQRPage() {

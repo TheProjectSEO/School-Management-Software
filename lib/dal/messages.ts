@@ -109,6 +109,7 @@ export async function getTeacherConversations(
 
   // Enrich with student/admin info
   const allConversations: Conversation[] = []
+  const seenPartnerIds = new Set<string>()
 
   for (const conv of conversations || []) {
     if (conv.partner_role === 'student') {
@@ -123,6 +124,7 @@ export async function getTeacherConversations(
         .eq('profile_id', conv.partner_profile_id)
         .single()
 
+      seenPartnerIds.add(conv.partner_profile_id)
       allConversations.push({
         partner_profile_id: conv.partner_profile_id,
         partner_name: conv.partner_name || 'Student',
@@ -138,6 +140,7 @@ export async function getTeacherConversations(
         grade_level: student?.grade_level || (student?.section as any)?.grade_level,
       })
     } else if (conv.partner_role === 'admin') {
+      seenPartnerIds.add(conv.partner_profile_id)
       allConversations.push({
         partner_profile_id: conv.partner_profile_id,
         partner_name: conv.partner_name || 'Admin',
@@ -159,6 +162,7 @@ export async function getTeacherConversations(
         .maybeSingle()
 
       if (adminRecord) {
+        seenPartnerIds.add(conv.partner_profile_id)
         allConversations.push({
           partner_profile_id: conv.partner_profile_id,
           partner_name: conv.partner_name || 'Admin',
@@ -169,6 +173,58 @@ export async function getTeacherConversations(
           last_message_sender_type: conv.last_message_sender_type,
           unread_count: Number(conv.unread_count) || 0,
           total_messages: Number(conv.total_messages) || 0,
+        })
+      }
+    }
+  }
+
+  // Direct fallback: find admin conversations from teacher_direct_messages
+  // in case the RPC missed them entirely (e.g. migration not applied)
+  const { data: adminDirectMsgs } = await supabase
+    .from('teacher_direct_messages')
+    .select('from_profile_id, to_profile_id, body, created_at, sender_type, is_read')
+    .or(`from_profile_id.eq.${teacher.profile_id},to_profile_id.eq.${teacher.profile_id}`)
+    .eq('sender_type', 'admin')
+    .order('created_at', { ascending: false })
+
+  if (adminDirectMsgs && adminDirectMsgs.length > 0) {
+    // Collect unique admin partner IDs not already in conversations
+    const missingAdminPids = new Map<string, typeof adminDirectMsgs[0]>()
+    for (const msg of adminDirectMsgs) {
+      const adminPid = msg.from_profile_id === teacher.profile_id
+        ? msg.to_profile_id
+        : msg.from_profile_id
+      if (!seenPartnerIds.has(adminPid) && !missingAdminPids.has(adminPid)) {
+        missingAdminPids.set(adminPid, msg) // store latest message
+      }
+    }
+
+    if (missingAdminPids.size > 0) {
+      const { data: adminProfiles } = await supabase
+        .from('school_profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', [...missingAdminPids.keys()])
+
+      const profileMap = new Map((adminProfiles || []).map(p => [p.id, p]))
+
+      for (const [adminPid, latestMsg] of missingAdminPids) {
+        const profile = profileMap.get(adminPid)
+        const unreadCount = adminDirectMsgs.filter(
+          m => m.from_profile_id === adminPid && m.to_profile_id === teacher.profile_id && !m.is_read
+        ).length
+
+        allConversations.push({
+          partner_profile_id: adminPid,
+          partner_name: profile?.full_name || 'Admin',
+          partner_avatar_url: profile?.avatar_url,
+          partner_role: 'admin',
+          last_message_body: latestMsg.body || '',
+          last_message_at: latestMsg.created_at,
+          last_message_sender_type: 'admin',
+          unread_count: unreadCount,
+          total_messages: adminDirectMsgs.filter(
+            m => m.from_profile_id === adminPid || m.to_profile_id === adminPid
+          ).length,
         })
       }
     }

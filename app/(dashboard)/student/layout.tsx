@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { AppShell } from '@/components/student/layout/AppShell';
 import { RealtimeProvider } from '@/components/student/providers/RealtimeProvider';
 import { MessageNotificationProvider } from '@/components/student/providers/MessageNotificationProvider';
+import { StudentThemeProvider } from '@/components/student/providers/StudentThemeProvider';
 
 interface StudentLayoutProps {
   children: React.ReactNode;
@@ -13,7 +14,7 @@ interface StudentLayoutProps {
 
 export default function StudentLayout({ children }: StudentLayoutProps) {
   const { user } = useAuth();
-  const [profileData, setProfileData] = useState<{ full_name: string; avatar_url: string | null } | null>(null);
+  const [profileData, setProfileData] = useState<{ full_name: string; avatar_url: string | null; grade_level: string | null } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -44,17 +45,19 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
 
   return (
     <StudentGuard redirectTo="/login">
-      <RealtimeProvider initialStudentId={studentId}>
-        <MessageNotificationProvider
-          profileId={profileId}
-          studentId={studentId}
-          userName={appShellUser?.name}
-        >
-          <AppShell user={appShellUser} studentId={studentId}>
-            {children}
-          </AppShell>
-        </MessageNotificationProvider>
-      </RealtimeProvider>
+      <StudentThemeProvider gradeLevel={profileData?.grade_level}>
+        <RealtimeProvider initialStudentId={studentId}>
+          <MessageNotificationProvider
+            profileId={profileId}
+            studentId={studentId}
+            userName={appShellUser?.name}
+          >
+            <AppShell user={appShellUser} studentId={studentId}>
+              {children}
+            </AppShell>
+          </MessageNotificationProvider>
+        </RealtimeProvider>
+      </StudentThemeProvider>
     </StudentGuard>
   );
 }

@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/components/student/brand/BrandLogo";
 import { useRealtime } from "@/components/student/providers/RealtimeProvider";
 import { useMessageNotifications } from "@/components/student/providers/MessageNotificationProvider";
+import { useStudentTheme } from "@/components/student/providers/StudentThemeProvider";
 
 interface NavItem {
   href: string;
@@ -46,6 +47,7 @@ interface MobileNavProps {
 export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const { theme, isPlayful } = useStudentTheme();
 
   // Get realtime notification count - always call the hook (within RealtimeProvider)
   const { unreadCount: realtimeUnreadCount } = useRealtime();
@@ -58,13 +60,17 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
     return pathname.startsWith(href);
   };
 
+  const firstName = user?.name?.split(" ")[0] || "Student";
+
   return (
     <>
       {/* Mobile Header */}
-      <header className="flex items-center justify-between p-4 border-b border-slate-200 bg-white dark:bg-[#1a2634] dark:border-slate-700 lg:hidden">
+      <header className={`flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 lg:hidden ${isPlayful ? theme.layout.mobileBg : 'bg-white dark:bg-[#1a2634]'}`}>
         <div className="flex items-center gap-3">
           <BrandLogo size="sm" />
-          <span className="text-sm font-bold text-primary">MSU</span>
+          <span className={`text-sm font-bold ${isPlayful ? 'text-pink-600' : 'text-primary'}`}>
+            {isPlayful ? `Hi, ${firstName}!` : 'MSU'}
+          </span>
         </div>
         <button
           onClick={() => setIsOpen(!isOpen)}
@@ -83,7 +89,7 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
             className="absolute inset-0 bg-black/50"
             onClick={() => setIsOpen(false)}
           />
-          <nav className="absolute left-0 top-0 bottom-0 w-64 bg-white dark:bg-[#1a2634] p-4 overflow-y-auto">
+          <nav className={`absolute left-0 top-0 bottom-0 w-64 p-4 overflow-y-auto ${theme.layout.mobileBg}`}>
             <div className="flex flex-col gap-6">
               {/* Logo Section */}
               <div className="flex flex-col items-center justify-center pt-2 pb-2">
@@ -106,7 +112,7 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
                     aria-label={`${user?.name || "Student"}'s avatar`}
                   />
                 ) : (
-                  <div className="flex items-center justify-center rounded-full h-10 w-10 shrink-0 border border-slate-200 bg-primary/10 text-primary font-semibold text-sm">
+                  <div className={`flex items-center justify-center rounded-full h-10 w-10 shrink-0 border ${isPlayful ? 'border-pink-300 bg-pink-100 text-pink-700' : 'border-slate-200 bg-primary/10 text-primary'} font-semibold text-sm`}>
                     {user?.name
                       ? user.name
                           .split(" ")
@@ -118,51 +124,72 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
                   </div>
                 )}
                 <div className="flex flex-col overflow-hidden">
-                  <h1 className="text-sm font-bold leading-normal truncate text-slate-900 dark:text-white">
-                    {user?.name || "Student"}
+                  <h1 className={`text-sm font-bold leading-normal truncate ${theme.layout.headingColor}`}>
+                    {isPlayful ? `Hi, ${firstName}!` : (user?.name || "Student")}
                   </h1>
-                  <p className="text-slate-500 dark:text-slate-400 text-xs font-normal leading-normal truncate">
-                    {user?.role || "Student"}
+                  <p className={`text-xs font-normal leading-normal truncate ${isPlayful ? 'text-purple-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                    {isPlayful ? '\u{1F31F} Super Student' : (user?.role || "Student")}
                   </p>
                 </div>
               </div>
 
               {/* Navigation */}
               <div className="flex flex-col gap-2">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setIsOpen(false)}
-                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                      isActive(item.href)
-                        ? "bg-primary/10 text-primary border border-primary/10"
-                        : "text-slate-700 dark:text-slate-200 hover:bg-slate-50 hover:text-primary dark:hover:bg-slate-700"
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
-                    <span className="text-sm font-medium">{item.label}</span>
-                    {item.useRealtimeBadge && realtimeUnreadCount > 0 && (
-                      <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-msu-gold text-[10px] font-bold text-black shadow-sm px-1">
-                        {realtimeUnreadCount > 99 ? "99+" : realtimeUnreadCount}
+                {navItems.map((item) => {
+                  const active = isActive(item.href);
+                  const navOverride = theme.nav.items[item.href];
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      onClick={() => setIsOpen(false)}
+                      className={`flex items-center gap-3 ${theme.nav.itemPadding} ${theme.nav.itemRadius} transition-colors ${
+                        active
+                          ? `${theme.layout.sidebarActiveItemBg} ${theme.layout.sidebarActiveItemText} ${theme.layout.sidebarActiveItemBorder}`
+                          : `${theme.layout.sidebarText} ${theme.layout.sidebarHoverBg}`
+                      }`}
+                    >
+                      {theme.nav.useEmoji && navOverride ? (
+                        <span className="text-xl leading-none w-6 text-center">{navOverride.emoji}</span>
+                      ) : (
+                        <span className="material-symbols-outlined text-[20px]">{item.icon}</span>
+                      )}
+                      <span className={`${theme.nav.fontSize} ${theme.nav.fontWeight}`}>
+                        {theme.nav.useEmoji && navOverride ? navOverride.label : item.label}
                       </span>
-                    )}
-                    {item.useMessageBadge && messageUnreadCount > 0 && (
-                      <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-white shadow-sm px-1">
-                        {messageUnreadCount > 99 ? "99+" : messageUnreadCount}
-                      </span>
-                    )}
-                  </Link>
-                ))}
+                      {item.useRealtimeBadge && realtimeUnreadCount > 0 && (
+                        <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-msu-gold text-[10px] font-bold text-black shadow-sm px-1">
+                          {realtimeUnreadCount > 99 ? "99+" : realtimeUnreadCount}
+                        </span>
+                      )}
+                      {item.useMessageBadge && messageUnreadCount > 0 && (
+                        <span className={`ml-auto flex h-5 min-w-5 items-center justify-center rounded-full text-[10px] font-bold shadow-sm px-1 ${isPlayful ? 'bg-pink-500 text-white' : 'bg-primary text-white'}`}>
+                          {messageUnreadCount > 99 ? "99+" : messageUnreadCount}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
               </div>
 
               {/* Logout Button */}
               <button
                 onClick={onLogout}
-                className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg py-2.5 text-slate-500 dark:text-slate-400 hover:bg-red-50 hover:text-primary dark:hover:bg-slate-800 transition-colors mt-4"
+                className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg py-2.5 transition-colors mt-4 ${
+                  isPlayful
+                    ? 'text-purple-400 hover:bg-pink-100 hover:text-pink-600'
+                    : 'text-slate-500 dark:text-slate-400 hover:bg-red-50 hover:text-primary dark:hover:bg-slate-800'
+                }`}
               >
-                <span className="material-symbols-outlined text-[20px]">logout</span>
-                <span className="text-sm font-medium">Log Out</span>
+                {isPlayful ? (
+                  <span className="text-xl leading-none">{'\u{1F44B}'}</span>
+                ) : (
+                  <span className="material-symbols-outlined text-[20px]">logout</span>
+                )}
+                <span className={`${theme.nav.fontSize} ${theme.nav.fontWeight}`}>
+                  {isPlayful ? 'Bye Bye!' : 'Log Out'}
+                </span>
               </button>
             </div>
           </nav>

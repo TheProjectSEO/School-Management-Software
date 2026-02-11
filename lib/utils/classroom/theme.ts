@@ -5,6 +5,11 @@
 
 export type ClassroomTheme = 'playful' | 'professional';
 
+export interface NavItemOverride {
+  emoji: string;
+  label: string;
+}
+
 export interface ClassroomThemeConfig {
   type: ClassroomTheme;
   colors: {
@@ -44,7 +49,53 @@ export interface ClassroomThemeConfig {
     submit: string;
     leave: string;
   };
+  layout: {
+    sidebarBg: string;
+    sidebarText: string;
+    sidebarActiveItemBg: string;
+    sidebarActiveItemText: string;
+    sidebarActiveItemBorder: string;
+    sidebarHoverBg: string;
+    mobileBg: string;
+    contentBg: string;
+    cardBg: string;
+    cardBorder: string;
+    headingColor: string;
+    pageBorderRadius: string;
+  };
+  nav: {
+    /** Font size class for nav labels */
+    fontSize: string;
+    /** Font weight class */
+    fontWeight: string;
+    /** Padding class for nav items */
+    itemPadding: string;
+    /** Border radius class for nav items */
+    itemRadius: string;
+    /** Whether to show emoji instead of Material Symbols icon */
+    useEmoji: boolean;
+    /** Per-route overrides (emoji + kid-friendly label). Only used when useEmoji is true. */
+    items: Record<string, NavItemOverride>;
+  };
 }
+
+const playfulNavItems: Record<string, NavItemOverride> = {
+  '/student': { emoji: '\u{1F3E0}', label: 'My Home' },
+  '/student/subjects': { emoji: '\u{1F4DA}', label: 'My Subjects' },
+  '/student/live-sessions': { emoji: '\u{1F3A5}', label: 'Live Class' },
+  '/student/assessments': { emoji: '\u{1F4DD}', label: 'My Tests' },
+  '/student/grades': { emoji: '\u2B50', label: 'My Stars' },
+  '/student/attendance': { emoji: '\u2705', label: 'Attendance' },
+  '/student/progress': { emoji: '\u{1F4CA}', label: 'My Progress' },
+  '/student/notes': { emoji: '\u{1F4D2}', label: 'My Notes' },
+  '/student/ask-ai': { emoji: '\u{1F916}', label: 'Ask AI' },
+  '/student/downloads': { emoji: '\u{1F4E5}', label: 'Downloads' },
+  '/student/messages': { emoji: '\u{1F4AC}', label: 'Messages' },
+  '/student/announcements': { emoji: '\u{1F4E2}', label: 'News' },
+  '/student/notifications': { emoji: '\u{1F514}', label: 'Alerts' },
+  '/student/profile': { emoji: '\u{1F60A}', label: 'My Profile' },
+  '/student/help': { emoji: '\u2753', label: 'Help' },
+};
 
 /**
  * Determine theme based on grade level
@@ -52,8 +103,8 @@ export interface ClassroomThemeConfig {
 export function getClassroomTheme(gradeLevel: string): ClassroomThemeConfig {
   const grade = parseInt(gradeLevel);
 
-  // Grades 2-4: Playful, cartoonish
-  if (grade >= 2 && grade <= 4) {
+  // Grades 1-6: Playful, cartoonish
+  if (grade >= 1 && grade <= 6) {
     return {
       type: 'playful',
       colors: {
@@ -88,15 +139,37 @@ export function getClassroomTheme(gradeLevel: string): ClassroomThemeConfig {
         celebration: true,
       },
       language: {
-        raiseHand: '🙋 Raise Your Hand!',
-        askQuestion: '❓ Ask a Question',
-        submit: '🚀 Send!',
-        leave: '👋 Leave Class',
+        raiseHand: '\u{1F64B} Raise Your Hand!',
+        askQuestion: '\u2753 Ask a Question',
+        submit: '\u{1F680} Send!',
+        leave: '\u{1F44B} Leave Class',
+      },
+      layout: {
+        sidebarBg: 'bg-gradient-to-b from-pink-50 to-purple-50',
+        sidebarText: 'text-purple-900',
+        sidebarActiveItemBg: 'bg-pink-200/60',
+        sidebarActiveItemText: 'text-pink-700',
+        sidebarActiveItemBorder: 'border border-pink-300',
+        sidebarHoverBg: 'hover:bg-pink-100/50',
+        mobileBg: 'bg-gradient-to-b from-pink-50 to-purple-50',
+        contentBg: 'bg-gradient-to-br from-pink-50/30 via-white to-purple-50/30',
+        cardBg: 'bg-white',
+        cardBorder: 'border-2 border-pink-200',
+        headingColor: 'text-purple-900',
+        pageBorderRadius: 'rounded-2xl',
+      },
+      nav: {
+        fontSize: 'text-base',
+        fontWeight: 'font-bold',
+        itemPadding: 'px-3 py-3',
+        itemRadius: 'rounded-xl',
+        useEmoji: true,
+        items: playfulNavItems,
       },
     };
   }
 
-  // Grades 5-12: Professional, clean
+  // Grades 7-12 (or unknown): Professional, clean
   return {
     type: 'professional',
     colors: {
@@ -136,6 +209,28 @@ export function getClassroomTheme(gradeLevel: string): ClassroomThemeConfig {
       submit: 'Submit',
       leave: 'Leave Session',
     },
+    layout: {
+      sidebarBg: 'bg-white dark:bg-[#1a2634]',
+      sidebarText: 'text-slate-700 dark:text-slate-200',
+      sidebarActiveItemBg: 'bg-primary/10',
+      sidebarActiveItemText: 'text-primary',
+      sidebarActiveItemBorder: 'border border-primary/10',
+      sidebarHoverBg: 'hover:bg-slate-50 hover:text-primary dark:hover:bg-slate-700',
+      mobileBg: 'bg-white dark:bg-[#1a2634]',
+      contentBg: '',
+      cardBg: 'bg-white dark:bg-[#1a2634]',
+      cardBorder: 'border border-slate-200 dark:border-slate-700',
+      headingColor: 'text-slate-900 dark:text-white',
+      pageBorderRadius: 'rounded-xl',
+    },
+    nav: {
+      fontSize: 'text-sm',
+      fontWeight: 'font-medium',
+      itemPadding: 'px-3 py-2.5',
+      itemRadius: 'rounded-lg',
+      useEmoji: false,
+      items: {},
+    },
   };
 }
 
@@ -145,21 +240,21 @@ export function getClassroomTheme(gradeLevel: string): ClassroomThemeConfig {
 export function getReactionConfig(theme: ClassroomTheme) {
   if (theme === 'playful') {
     return [
-      { emoji: '🙋‍♂️', type: 'raise_hand', label: 'Raise Hand!', color: '#FF6B9D' },
-      { emoji: '👍', type: 'thumbs_up', label: 'Got It!', color: '#4ECDC4' },
-      { emoji: '👏', type: 'clap', label: 'Amazing!', color: '#FFE66D' },
-      { emoji: '😕', type: 'confused', label: 'Confused', color: '#FF8B94' },
-      { emoji: '⚡', type: 'speed_up', label: 'Too Slow', color: '#A8E6CF' },
-      { emoji: '🐌', type: 'slow_down', label: 'Too Fast', color: '#DDA15E' },
+      { emoji: '\u{1F64B}\u200D\u2642\uFE0F', type: 'raise_hand', label: 'Raise Hand!', color: '#FF6B9D' },
+      { emoji: '\u{1F44D}', type: 'thumbs_up', label: 'Got It!', color: '#4ECDC4' },
+      { emoji: '\u{1F44F}', type: 'clap', label: 'Amazing!', color: '#FFE66D' },
+      { emoji: '\u{1F615}', type: 'confused', label: 'Confused', color: '#FF8B94' },
+      { emoji: '\u26A1', type: 'speed_up', label: 'Too Slow', color: '#A8E6CF' },
+      { emoji: '\u{1F40C}', type: 'slow_down', label: 'Too Fast', color: '#DDA15E' },
     ];
   }
 
   return [
-    { emoji: '✋', type: 'raise_hand', label: 'Raise Hand', color: '#3B82F6' },
-    { emoji: '👍', type: 'thumbs_up', label: 'Understood', color: '#10B981' },
-    { emoji: '👏', type: 'clap', label: 'Great', color: '#8B5CF6' },
-    { emoji: '🤔', type: 'confused', label: 'Unclear', color: '#F59E0B' },
-    { emoji: '⚡', type: 'speed_up', label: 'Speed Up', color: '#EF4444' },
-    { emoji: '🐢', type: 'slow_down', label: 'Slow Down', color: '#6366F1' },
+    { emoji: '\u270B', type: 'raise_hand', label: 'Raise Hand', color: '#3B82F6' },
+    { emoji: '\u{1F44D}', type: 'thumbs_up', label: 'Understood', color: '#10B981' },
+    { emoji: '\u{1F44F}', type: 'clap', label: 'Great', color: '#8B5CF6' },
+    { emoji: '\u{1F914}', type: 'confused', label: 'Unclear', color: '#F59E0B' },
+    { emoji: '\u26A1', type: 'speed_up', label: 'Speed Up', color: '#EF4444' },
+    { emoji: '\u{1F422}', type: 'slow_down', label: 'Slow Down', color: '#6366F1' },
   ];
 }

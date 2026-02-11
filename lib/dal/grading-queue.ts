@@ -324,13 +324,20 @@ export async function gradeQueueItem(
     return { success: false, error: `Points must be between 0 and ${queueItem.max_points}` }
   }
 
+  // Resolve teacher's school profile_id for the graded_by FK (references school_profiles)
+  const { data: teacherProfile } = await supabase
+    .from('teacher_profiles')
+    .select('profile_id')
+    .eq('id', teacherId)
+    .single()
+
   // Update the queue item
   const { error: updateError } = await supabase
     .from('teacher_grading_queue')
     .update({
       points_awarded: input.points,
       feedback: input.feedback || null,
-      graded_by: teacherId,
+      graded_by: teacherProfile?.profile_id || teacherId,
       graded_at: new Date().toISOString(),
       status: 'graded'
     })

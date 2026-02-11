@@ -611,7 +611,6 @@ export async function getQuizResult(
 
   // Get questions with answers
   const questions = await getQuestionsWithAnswers(submission.assessment_id);
-  const questionMap = new Map(questions.map((q) => [q.id, q]));
 
   // Get student answers
   const { data: answers, error: ansError } = await supabase
@@ -629,18 +628,47 @@ export async function getQuizResult(
 
   const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
 
+  // Build a lookup from question_id → student answer
+  const answersMap = new Map(
+    (answers || []).map((a) => [a.question_id, a])
+  );
+
+  // Iterate over ALL questions (not just student_answers) so that
+  // even when student_answers rows are missing, every question still appears.
+  const resultAnswers = questions
+    .sort((a, b) => (a.order_index ?? 0) - (b.order_index ?? 0))
+    .map((q) => {
+      const studentAnswer = answersMap.get(q.id);
+      if (studentAnswer) {
+        return {
+          ...studentAnswer,
+          question: q,
+          selected_option: studentAnswer.selected_option_id
+            ? q.options?.find((o) => o.id === studentAnswer.selected_option_id)
+            : undefined,
+        };
+      }
+      // No student answer row for this question — create a placeholder
+      return {
+        id: `no-answer-${q.id}`,
+        submission_id: submissionId,
+        question_id: q.id,
+        selected_option_id: undefined,
+        text_answer: undefined,
+        is_correct: false,
+        points_earned: 0,
+        created_at: "",
+        question: q,
+        selected_option: undefined,
+      };
+    });
+
   return {
     submission_id: submissionId,
     score: submission.score || 0,
     total_points: totalPoints,
     percentage: totalPoints > 0 ? Math.round(((submission.score || 0) / totalPoints) * 100) : 0,
-    answers: (answers || []).map((a) => ({
-      ...a,
-      question: questionMap.get(a.question_id)!,
-      selected_option: a.selected_option_id
-        ? questionMap.get(a.question_id)?.options?.find((o) => o.id === a.selected_option_id)
-        : undefined,
-    })),
+    answers: resultAnswers,
   };
 }
 

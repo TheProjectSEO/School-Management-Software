@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { StudentGuard } from '@/components/auth/RoleGuard';
 import { useAuth } from '@/hooks/useAuth';
 import { AppShell } from '@/components/student/layout/AppShell';
@@ -13,12 +13,27 @@ interface StudentLayoutProps {
 
 export default function StudentLayout({ children }: StudentLayoutProps) {
   const { user } = useAuth();
+  const [profileData, setProfileData] = useState<{ full_name: string; avatar_url: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+
+    fetch('/api/student/profile')
+      .then((res) => res.ok ? res.json() : null)
+      .then((data) => {
+        if (!cancelled && data) setProfileData(data);
+      })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
+  }, [user]);
 
   // Convert auth user to the format expected by AppShell
   const appShellUser = user ? {
-    name: user.email?.split('@')[0] || 'Student',
+    name: profileData?.full_name || user.email?.split('@')[0] || 'Student',
     role: user.role || 'student',
-    avatar: undefined,
+    avatar: profileData?.avatar_url || undefined,
   } : undefined;
 
   // Get profileId and studentId for providers

@@ -646,7 +646,9 @@ export async function listGroupedStudentEnrollments(params: {
         .select('id, profile_id')
         .in('id', uniqueStudentIds);
 
-      const profileIds = (studentRows || []).map(s => s.profile_id);
+      const profileIds = (studentRows || []).map(s => s.profile_id).filter(Boolean);
+
+      // Search by school_profiles.id first
       const { data: matchedProfiles } = await supabase
         .from('school_profiles')
         .select('id')
@@ -654,6 +656,18 @@ export async function listGroupedStudentEnrollments(params: {
         .ilike('full_name', `%${search}%`);
 
       const matchedProfileIds = new Set((matchedProfiles || []).map(p => p.id));
+
+      // Also search by auth_user_id for legacy profile_id values
+      const { data: matchedByAuth } = await supabase
+        .from('school_profiles')
+        .select('auth_user_id')
+        .in('auth_user_id', profileIds)
+        .ilike('full_name', `%${search}%`);
+
+      for (const p of matchedByAuth || []) {
+        if (p.auth_user_id) matchedProfileIds.add(p.auth_user_id);
+      }
+
       const studentProfileMap = new Map((studentRows || []).map(s => [s.id, s.profile_id]));
 
       uniqueStudentIds = uniqueStudentIds.filter(id => {
@@ -678,13 +692,32 @@ export async function listGroupedStudentEnrollments(params: {
       .select('id, profile_id, section_id, grade_level')
       .in('id', pageStudentIds);
 
-    const profileIds = [...new Set((students || []).map(s => s.profile_id))];
-    const { data: profiles } = await supabase
-      .from('school_profiles')
-      .select('id, full_name, avatar_url, email')
-      .in('id', profileIds);
+    const profileIds = [...new Set((students || []).map(s => s.profile_id).filter(Boolean))];
 
-    const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+    // Look up school_profiles by id first
+    let profiles: { id: string; full_name: string; avatar_url?: string; email?: string }[] = [];
+    if (profileIds.length > 0) {
+      const { data } = await supabase
+        .from('school_profiles')
+        .select('id, full_name, avatar_url, email')
+        .in('id', profileIds);
+      profiles = data || [];
+    }
+
+    const profileMap = new Map(profiles.map(p => [p.id, p]));
+
+    // For unresolved profile_ids, try school_profiles.auth_user_id
+    // (handles legacy case where students.profile_id = auth.users.id)
+    const unresolvedIds = profileIds.filter(pid => !profileMap.has(pid));
+    if (unresolvedIds.length > 0) {
+      const { data: fallbackProfiles } = await supabase
+        .from('school_profiles')
+        .select('id, auth_user_id, full_name, avatar_url, email')
+        .in('auth_user_id', unresolvedIds);
+      for (const p of fallbackProfiles || []) {
+        if (p.auth_user_id) profileMap.set(p.auth_user_id, p);
+      }
+    }
     const studentMap = new Map((students || []).map(s => [s.id, s]));
 
     // Step 6: Fetch all referenced sections

@@ -105,15 +105,19 @@ export async function POST(request: NextRequest) {
 
     const userId = authData.user.id;
 
-    // Create profile record first (profiles.id = auth.users.id)
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: userId,
-      email: body.email,
-      full_name: `${body.firstName} ${body.lastName}`,
-      profile_completed: false,
-    });
+    // Create school_profiles record (the unified profile table used across the app)
+    const { data: profile, error: profileError } = await supabase
+      .from('school_profiles')
+      .insert({
+        auth_user_id: userId,
+        email: body.email,
+        full_name: `${body.firstName} ${body.lastName}`,
+        role: body.type,
+      })
+      .select('id')
+      .single();
 
-    if (profileError) {
+    if (profileError || !profile) {
       // Rollback: delete auth user
       await supabase.auth.admin.deleteUser(userId);
       console.error('Profile creation error:', profileError);
@@ -123,13 +127,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const profileId = profile.id;
+
     // Create role-specific record
     if (body.type === 'student') {
       const studentBody = body as RegisterStudentBody;
 
       const { error: studentError } = await supabase.from('students').insert({
         school_id: body.schoolId,
-        profile_id: userId,
+        profile_id: profileId,
         grade_level: studentBody.gradeLevel || null,
         lrn: studentBody.lrn || null,
         status: 'pending',
@@ -138,7 +144,7 @@ export async function POST(request: NextRequest) {
 
       if (studentError) {
         // Rollback: delete profile and auth user
-        await supabase.from('profiles').delete().eq('id', userId);
+        await supabase.from('school_profiles').delete().eq('id', profileId);
         await supabase.auth.admin.deleteUser(userId);
 
         console.error('Student record error:', studentError);
@@ -152,13 +158,13 @@ export async function POST(request: NextRequest) {
 
       const { error: teacherError } = await supabase.from('teachers').insert({
         school_id: body.schoolId,
-        profile_id: userId,
+        profile_id: profileId,
         employee_id: teacherBody.employeeId || null,
       });
 
       if (teacherError) {
         // Rollback: delete profile and auth user
-        await supabase.from('profiles').delete().eq('id', userId);
+        await supabase.from('school_profiles').delete().eq('id', profileId);
         await supabase.auth.admin.deleteUser(userId);
 
         console.error('Teacher record error:', teacherError);

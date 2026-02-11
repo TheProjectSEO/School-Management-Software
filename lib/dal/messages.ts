@@ -104,7 +104,7 @@ export async function getTeacherConversations(
 
   if (error) {
     console.error('Error fetching conversations:', error)
-    return []
+    // Don't return early — fallback below will find admin conversations directly
   }
 
   // Enrich with student/admin info

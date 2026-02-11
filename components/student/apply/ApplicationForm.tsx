@@ -133,18 +133,53 @@ export function ApplicationForm({ qrCodeId }: { qrCodeId?: string }) {
           value={form.previousSchool}
           onChange={(v) => onChange("previousSchool", v)}
         />
-        <Input
+        <Select
           label="Last Grade Completed"
           value={form.lastGradeCompleted}
           onChange={(v) => onChange("lastGradeCompleted", v)}
+          options={[
+            { value: "", label: "Select grade" },
+            { value: "Kindergarten", label: "Kindergarten" },
+            ...Array.from({ length: 12 }, (_, i) => ({
+              value: String(i + 1),
+              label: `Grade ${i + 1}`,
+            })),
+          ]}
         />
-        <Input
+        <Select
           label="Applying For Grade"
           value={form.applyingForGrade}
           required
-          onChange={(v) => onChange("applyingForGrade", v)}
+          onChange={(v) => {
+            onChange("applyingForGrade", v);
+            // Clear track if grade doesn't need one
+            if (Number(v) < 11) onChange("preferredTrack", "");
+          }}
+          options={[
+            { value: "", label: "Select grade" },
+            ...Array.from({ length: 12 }, (_, i) => ({
+              value: String(i + 1),
+              label: `Grade ${i + 1}`,
+            })),
+          ]}
         />
-        <Input label="Preferred Track" value={form.preferredTrack} onChange={(v) => onChange("preferredTrack", v)} />
+        {Number(form.applyingForGrade) >= 11 && (
+          <Select
+            label="Preferred Track"
+            value={form.preferredTrack}
+            onChange={(v) => onChange("preferredTrack", v)}
+            options={[
+              { value: "", label: "Select track" },
+              { value: "STEM", label: "STEM" },
+              { value: "ABM", label: "ABM" },
+              { value: "HUMSS", label: "HUMSS" },
+              { value: "GAS", label: "GAS" },
+              { value: "TVL", label: "TVL" },
+              { value: "Sports", label: "Sports" },
+              { value: "Arts & Design", label: "Arts & Design" },
+            ]}
+          />
+        )}
         <Input
           label="How did you hear about us?"
           value={form.howDidYouHear}
@@ -250,11 +285,13 @@ function Select({
   value,
   onChange,
   options,
+  required,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
+  required?: boolean;
 }) {
   return (
     <label className="block text-sm font-medium text-gray-800">
@@ -262,6 +299,7 @@ function Select({
       <select
         className="mt-1 w-full rounded border border-gray-300 px-3 py-2 focus:outline-none focus:ring focus:border-blue-500"
         value={value}
+        required={required}
         onChange={(e) => onChange(e.target.value)}
       >
         {options.map((opt) => (

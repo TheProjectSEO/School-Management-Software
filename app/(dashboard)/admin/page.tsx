@@ -1,12 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { createServiceClient } from '@/lib/supabase/service';
-import StatCard from "@/components/admin/ui/StatCard";
-import ChartCard from "@/components/admin/ui/ChartCard";
-import EnrollmentChart from "@/components/admin/dashboard/EnrollmentChart";
-import GradeDistributionChart from "@/components/admin/dashboard/GradeDistributionChart";
-import AttendanceOverviewChart from "@/components/admin/dashboard/AttendanceOverviewChart";
-import ActivityFeed from "@/components/admin/dashboard/ActivityFeed";
+import AdminSummaryCardsGrid from "@/components/admin/dashboard/AdminSummaryCardsGrid";
 
 interface DashboardStats {
   totalStudents: number;
@@ -190,165 +185,100 @@ async function getRecentActivity() {
   }));
 }
 
-function StatsSkeleton() {
+function DashboardSkeleton() {
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {[1, 2, 3, 4].map((i) => (
-        <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 animate-pulse">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="h-4 bg-gray-200 rounded w-24 mb-2" />
-              <div className="h-8 bg-gray-200 rounded w-16" />
+    <div className="space-y-6">
+      {/* Stat cards skeleton */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 animate-pulse">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="h-4 bg-gray-200 rounded w-24 mb-2" />
+                <div className="h-8 bg-gray-200 rounded w-16" />
+              </div>
+              <div className="w-14 h-14 bg-gray-200 rounded-xl" />
             </div>
-            <div className="w-14 h-14 bg-gray-200 rounded-xl" />
           </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ChartSkeleton() {
-  return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 animate-pulse">
-      <div className="h-6 bg-gray-200 rounded w-32 mb-4" />
-      <div className="h-[300px] bg-gray-100 rounded" />
-    </div>
-  );
-}
-
-async function StatsSection() {
-  const stats = await getDashboardStats();
-
-  const statCards = [
-    {
-      label: "Total Students",
-      value: stats.totalStudents,
-      icon: "school",
-      color: "bg-blue-500",
-    },
-    {
-      label: "Total Teachers",
-      value: stats.totalTeachers,
-      icon: "person",
-      color: "bg-green-500",
-    },
-    {
-      label: "Active Courses",
-      value: stats.totalCourses,
-      icon: "menu_book",
-      color: "bg-purple-500",
-    },
-    {
-      label: "Active Enrollments",
-      value: stats.activeEnrollments,
-      icon: "assignment_ind",
-      color: "bg-orange-500",
-    },
-  ];
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {statCards.map((stat) => (
-        <StatCard key={stat.label} {...stat} />
-      ))}
-    </div>
-  );
-}
-
-async function EnrollmentTrendsSection() {
-  const data = await getEnrollmentTrends();
-
-  return (
-    <ChartCard
-      title="Enrollment Trends"
-      subtitle="Monthly enrollment count"
-      action={
-        <Link
-          href="/admin/reports/progress"
-          className="text-sm text-primary hover:underline"
-        >
-          View Report
-        </Link>
-      }
-    >
-      <EnrollmentChart data={data} />
-    </ChartCard>
-  );
-}
-
-async function GradeDistributionSection() {
-  const data = await getGradeDistribution();
-
-  return (
-    <ChartCard
-      title="Grade Distribution"
-      subtitle="Current grading period"
-      action={
-        <Link
-          href="/admin/reports/grades"
-          className="text-sm text-primary hover:underline"
-        >
-          View Report
-        </Link>
-      }
-    >
-      <GradeDistributionChart data={data} />
-    </ChartCard>
-  );
-}
-
-async function AttendanceSection() {
-  const data = await getAttendanceOverview();
-
-  return (
-    <ChartCard
-      title="Attendance Overview"
-      subtitle="This month"
-      action={
-        <Link
-          href="/admin/reports/attendance"
-          className="text-sm text-primary hover:underline"
-        >
-          View Report
-        </Link>
-      }
-    >
-      <AttendanceOverviewChart data={data} />
-    </ChartCard>
-  );
-}
-
-async function RecentActivitySection() {
-  const activities = await getRecentActivity();
-
-  return (
-    <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-900">Recent Activity</h2>
-        <Link
-          href="/admin/audit-logs"
-          className="text-sm text-primary hover:underline"
-        >
-          View All
-        </Link>
+        ))}
       </div>
-      <ActivityFeed activities={activities} />
+      {/* Summary cards skeleton */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="bg-white rounded-xl p-4 border border-gray-200 animate-pulse">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gray-200 rounded-lg" />
+              <div>
+                <div className="h-3 bg-gray-200 rounded w-20 mb-2" />
+                <div className="h-6 bg-gray-200 rounded w-10" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
+  );
+}
+
+async function DashboardDataWrapper() {
+  const [stats, enrollmentTrends, gradeDistribution, attendanceOverview, recentActivities] =
+    await Promise.all([
+      getDashboardStats(),
+      getEnrollmentTrends(),
+      getGradeDistribution(),
+      getAttendanceOverview(),
+      getRecentActivity(),
+    ]);
+
+  return (
+    <AdminSummaryCardsGrid
+      stats={stats}
+      enrollmentTrends={enrollmentTrends}
+      gradeDistribution={gradeDistribution}
+      attendanceOverview={attendanceOverview}
+      recentActivities={recentActivities}
+    />
   );
 }
 
 export default async function AdminDashboardPage() {
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* Header with quick action icon buttons */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-500 mt-1">Welcome to the MSU Admin Portal</p>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">
+        <div className="flex items-center gap-2">
+          <Link
+            href="/admin/users/import"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 hover:border-primary hover:bg-red-50 transition-colors group"
+            title="Import Students"
+          >
+            <span className="material-symbols-outlined text-xl text-gray-400 group-hover:text-primary">
+              upload
+            </span>
+          </Link>
+          <Link
+            href="/admin/users/teachers"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 hover:border-primary hover:bg-red-50 transition-colors group"
+            title="Add Teacher"
+          >
+            <span className="material-symbols-outlined text-xl text-gray-400 group-hover:text-primary">
+              person_add
+            </span>
+          </Link>
+          <Link
+            href="/admin/enrollments/bulk"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-lg border border-gray-200 hover:border-primary hover:bg-red-50 transition-colors group"
+            title="Bulk Enroll"
+          >
+            <span className="material-symbols-outlined text-xl text-gray-400 group-hover:text-primary">
+              group_add
+            </span>
+          </Link>
+          <span className="ml-2 text-sm text-gray-500 hidden sm:inline">
             {new Date().toLocaleDateString("en-US", {
               weekday: "long",
               year: "numeric",
@@ -359,94 +289,11 @@ export default async function AdminDashboardPage() {
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <Suspense fallback={<StatsSkeleton />}>
-        <StatsSection />
+      {/* Single Suspense boundary — all data fetched in parallel */}
+      <Suspense fallback={<DashboardSkeleton />}>
+        <DashboardDataWrapper />
       </Suspense>
-
-      {/* Quick Actions */}
-      <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <ActionButton
-            href="/admin/users/import"
-            icon="upload"
-            label="Import Students"
-          />
-          <ActionButton
-            href="/admin/users/teachers"
-            icon="person_add"
-            label="Add Teacher"
-          />
-          <ActionButton
-            href="/admin/enrollments/bulk"
-            icon="group_add"
-            label="Bulk Enroll"
-          />
-        </div>
-      </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Suspense fallback={<ChartSkeleton />}>
-          <EnrollmentTrendsSection />
-        </Suspense>
-        <Suspense fallback={<ChartSkeleton />}>
-          <GradeDistributionSection />
-        </Suspense>
-      </div>
-
-      {/* Bottom Row: Attendance + Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <Suspense fallback={<ChartSkeleton />}>
-          <AttendanceSection />
-        </Suspense>
-        <div className="lg:col-span-2">
-          <Suspense fallback={
-            <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 animate-pulse">
-              <div className="h-6 bg-gray-200 rounded w-32 mb-4" />
-              <div className="space-y-4">
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="flex items-start gap-3">
-                    <div className="w-8 h-8 bg-gray-200 rounded-full" />
-                    <div className="flex-1">
-                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
-                      <div className="h-3 bg-gray-100 rounded w-1/4" />
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          }>
-            <RecentActivitySection />
-          </Suspense>
-        </div>
-      </div>
     </div>
-  );
-}
-
-function ActionButton({
-  href,
-  icon,
-  label,
-}: {
-  href: string;
-  icon: string;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex flex-col items-center justify-center p-4 border border-gray-200 rounded-xl hover:border-primary hover:bg-red-50 transition-colors group"
-    >
-      <span className="material-symbols-outlined text-2xl text-gray-400 group-hover:text-primary mb-2">
-        {icon}
-      </span>
-      <span className="text-sm text-gray-600 group-hover:text-primary text-center">
-        {label}
-      </span>
-    </Link>
   );
 }
 

@@ -20,24 +20,26 @@ Next.js 15 App Router + Supabase (PostgreSQL) + TailwindCSS. Three role-based da
 ### Directory Layout
 
 - `app/(auth)/` — Login, register, forgot/reset password
+- `app/(public)/` — Public marketing pages (about, contact, features, pricing, apply)
 - `app/(dashboard)/admin|teacher|student/` — Role-gated pages (server components by default)
 - `app/api/admin|teacher|student/` — Role-gated API route handlers
-- `lib/auth/` — JWT, RBAC, permissions, session, require*API helpers
+- `lib/auth/` — JWT (`jwt.ts`), RBAC (`rbac.ts`), permissions, session, requireTeacherAPI, requireStudentAPI
 - `lib/supabase/` — Four Supabase clients (see below)
-- `lib/dal/` — Data Access Layer (36+ files, typed Supabase queries)
+- `lib/dal/` — Data Access Layer (~30 files, typed Supabase queries). Admin auth (`requireAdminAPI`) lives here too.
 - `lib/services/` — External services (Daily.co video, OpenAI AI)
 - `components/auth/` — AuthProvider, RoleGuard
 - `components/admin|teacher|student/` — Role-specific components
-- `hooks/` — Client hooks (useAuth, usePermissions, etc.)
+- `hooks/` — Client hooks (useAuth, usePermissions, useRole, useRealtime*, useTypingIndicator, usePresence, etc.)
+- `types/` — Root-level shared types (`auth.ts`, `rbac.ts`)
 - `supabase/migrations/` — SQL migration files
 
 ### Authentication Flow
 
-Tokens are JWT (not Supabase sessions). Access token (15min) + refresh token (7d) stored in httpOnly cookies.
+Tokens are JWT (not Supabase sessions). Access token (15min) + refresh token (7d) stored in httpOnly cookies (`access_token`, `refresh_token`).
 
-- **Middleware** (`middleware.ts`): Validates JWT, checks role for dashboard routes, checks permissions for API routes. Injects `x-user-id`, `x-user-role`, `x-user-profile-id`, `x-user-permissions` headers.
+- **Middleware** (`middleware.ts`): Validates JWT, checks role for dashboard routes, checks permissions for API routes. Injects headers: `x-user-id`, `x-user-email`, `x-user-role`, `x-user-profile-id`, `x-user-school-id`, `x-user-permissions` (JSON array).
 - **Server components**: Use `getCurrentUser()` from `lib/auth/session.ts` to read the JWT from cookies.
-- **API routes**: Use `requireTeacherAPI()`, `requireStudentAPI()`, or check headers set by middleware. These return `{ success, teacher/student }` or `{ success: false, response }`.
+- **API routes**: Use role-specific auth helpers (see API Route Patterns below). These return `{ success, teacher/student/admin }` or `{ success: false, response }`.
 - **Client components**: Use `useAuth()` hook from `AuthProvider`.
 
 ### Supabase Clients — When to Use Which
@@ -99,8 +101,11 @@ Defined in `lib/auth/permissions.ts`. Format: `resource:action` (e.g., `content:
 
 API route permission mapping is in `API_ROUTE_PERMISSIONS` in the same file. Middleware enforces these automatically.
 
-### API Route Pattern
+Admin has additional sub-roles (`super_admin`, `school_admin`, `admin`, `registrar`, `support`) with granular permissions defined in `lib/dal/admin.ts`.
 
+### API Route Patterns
+
+**Teacher API routes** — use `requireTeacherAPI()` from `lib/auth/requireTeacherAPI`:
 ```typescript
 import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI'
 import { createServiceClient } from '@/lib/supabase/service'
@@ -110,14 +115,29 @@ export async function GET(req: NextRequest) {
   if (!auth.success) return auth.response
 
   const supabase = createServiceClient()
-  // Use auth.teacher.teacherId for teacher_profile_id lookups
-  // Use auth.teacher.userId for auth.users.id lookups
+  // auth.teacher.teacherId → teacher_profile_id
+  // auth.teacher.userId → auth.users.id
 }
 ```
 
+**Student API routes** — use `requireStudentAPI()` from `lib/auth/requireStudentAPI` (same pattern, `auth.student.studentId`).
+
+**Admin API routes** — use `requireAdminAPI()` from `lib/dal/admin` (note: lives in DAL, not lib/auth):
+```typescript
+import { requireAdminAPI } from '@/lib/dal/admin'
+
+export async function GET(req: NextRequest) {
+  const auth = await requireAdminAPI('users:read') // optional permission check
+  if (!auth.success) return auth.response
+  // auth.admin.adminId, auth.admin.schoolId, auth.admin.role
+}
+```
+
+Admin auth reads middleware-injected headers via `getUserFromHeaders()` (also exported from `lib/dal/admin`), unlike teacher/student which use `getCurrentUser()` from JWT cookies.
+
 ### DAL Pattern
 
-DAL files in `lib/dal/` export typed async functions that use the service client. SSR pages call DAL functions directly. Client components call API routes which may also use DAL functions internally.
+DAL files in `lib/dal/` export typed async functions that use the service client. SSR pages call DAL functions directly. Client components call API routes which may also use DAL functions internally. Types are in `lib/dal/types.ts` and `lib/dal/types/`.
 
 ### Conventions
 

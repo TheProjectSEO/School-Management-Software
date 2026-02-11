@@ -43,6 +43,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (questions.length === 0) {
+      return NextResponse.json(
+        { error: "Cannot save an assessment with 0 questions. Please generate or add questions first." },
+        { status: 400 }
+      );
+    }
+
     const { count } = await supabase
       .from("teacher_assignments")
       .select("*", { count: "exact", head: true })
@@ -141,16 +148,18 @@ export async function POST(request: NextRequest) {
       };
     });
 
+    console.log(`[save-assessment] Inserting ${questionRows.length} questions for assessment ${assessment.id}. First question: "${questionRows[0]?.question_text?.slice(0, 80)}..."`)
+
     const { error: questionsError } = await supabase
       .from("teacher_assessment_questions")
       .insert(questionRows);
 
     if (questionsError) {
-      console.error("Question insert error:", questionsError.message, questionsError.code, questionsError.details);
+      console.error(`[save-assessment] Question insert FAILED for assessment ${assessment.id}:`, questionsError.message, questionsError.code, questionsError.details);
       // Rollback the assessment
       await supabase.from("assessments").delete().eq("id", assessment.id);
       return NextResponse.json(
-        { error: questionsError.message || "Failed to create questions" },
+        { error: `Failed to save questions: ${questionsError.message}` },
         { status: 500 }
       );
     }

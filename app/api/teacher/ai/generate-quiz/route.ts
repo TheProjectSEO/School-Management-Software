@@ -118,6 +118,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (parsed.questions.length === 0) {
+      return NextResponse.json(
+        { error: "AI generated 0 questions. Try a different topic or increase the question count." },
+        { status: 500 }
+      );
+    }
+
     // Warn if we got fewer questions than requested
     if (parsed.questions.length < questionCount) {
       console.warn(`Requested ${questionCount} questions but only got ${parsed.questions.length}`);

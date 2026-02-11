@@ -356,6 +356,22 @@ export default async function AssessmentDetailPage({
                   </Link>
                 )}
               </>
+            ) : questionCount === 0 ? (
+              <div className="rounded-xl border border-blue-200 bg-blue-50 dark:bg-blue-900/10 dark:border-blue-800 p-4">
+                <div className="flex items-start gap-3">
+                  <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 mt-0.5">
+                    info
+                  </span>
+                  <div>
+                    <h4 className="font-semibold text-blue-900 dark:text-blue-200 text-sm">
+                      No Questions Yet
+                    </h4>
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                      This assessment has no questions yet. Please check back later.
+                    </p>
+                  </div>
+                </div>
+              </div>
             ) : canTake ? (
               <Link
                 href={`/student/assessments/${id}/quiz`}

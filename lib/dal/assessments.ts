@@ -93,13 +93,7 @@ export async function getTeacherAssessments(teacherId: string, filters?: {
 
   let query = supabase
     .from('assessments')
-    .select(`
-      *,
-      course:courses!inner(
-        name,
-        section:sections!inner(name)
-      )
-    `)
+    .select('*')
     .in('course_id', courseIds)
 
   // Apply type filter
@@ -124,6 +118,25 @@ export async function getTeacherAssessments(teacherId: string, filters?: {
     return []
   }
 
+  // Fetch courses and sections separately (no FK joins)
+  const uniqueCourseIds = [...new Set(data.map(a => a.course_id))]
+  const { data: courses } = await supabase
+    .from('courses')
+    .select('id, name, section_id')
+    .in('id', uniqueCourseIds)
+
+  const courseMap = new Map(courses?.map(c => [c.id, c]) || [])
+
+  const uniqueSectionIds = [...new Set(courses?.map(c => c.section_id).filter(Boolean) || [])]
+  const sectionMap = new Map<string, string>()
+  if (uniqueSectionIds.length > 0) {
+    const { data: sections } = await supabase
+      .from('sections')
+      .select('id, name')
+      .in('id', uniqueSectionIds)
+    sections?.forEach(s => sectionMap.set(s.id, s.name))
+  }
+
   // Enrich with submission counts
   const enriched = await Promise.all(
     data.map(async (assessment) => {
@@ -131,6 +144,8 @@ export async function getTeacherAssessments(teacherId: string, filters?: {
         getSubmissionCount(assessment.id),
         getGradedCount(assessment.id)
       ])
+
+      const course = courseMap.get(assessment.course_id)
 
       return {
         id: assessment.id,
@@ -143,8 +158,8 @@ export async function getTeacherAssessments(teacherId: string, filters?: {
         max_attempts: assessment.max_attempts,
         instructions: assessment.instructions,
         course_id: assessment.course_id,
-        course_name: assessment.course.name,
-        section_name: assessment.course.section.name,
+        course_name: course?.name || 'Unknown Course',
+        section_name: course?.section_id ? (sectionMap.get(course.section_id) || 'Unknown Section') : 'No Section',
         submission_count: submissionCount,
         graded_count: gradedCount,
         status: determineAssessmentStatus(assessment),
@@ -176,32 +191,22 @@ export async function getPendingSubmissions(teacherId: string, filters?: {
 
   const courseIds = assignments.map(a => a.course_id)
 
+  // Get assessment IDs for teacher's courses
+  const { data: assessments } = await supabase
+    .from('assessments')
+    .select('id, title, type, course_id')
+    .in('course_id', filters?.courseId ? [filters.courseId] : courseIds)
+
+  if (!assessments || assessments.length === 0) return []
+
+  const assessmentIds = assessments.map(a => a.id)
+  const assessmentMap = new Map(assessments.map(a => [a.id, a]))
+
   let query = supabase
     .from('submissions')
-    .select(`
-      *,
-      assessment:assessments!inner(
-        id,
-        title,
-        type,
-        course_id
-      ),
-      student:students!inner(
-        id,
-        lrn,
-        profile:school_profiles!inner(full_name)
-      )
-    `)
-    .in('assessment.course_id', courseIds)
+    .select('*')
+    .in('assessment_id', filters?.assessmentId ? [filters.assessmentId] : assessmentIds)
     .order('submitted_at', { ascending: true })
-
-  if (filters?.courseId) {
-    query = query.eq('assessment.course_id', filters.courseId)
-  }
-
-  if (filters?.assessmentId) {
-    query = query.eq('assessment_id', filters.assessmentId)
-  }
 
   if (filters?.status) {
     query = query.eq('status', filters.status)
@@ -217,6 +222,27 @@ export async function getPendingSubmissions(teacherId: string, filters?: {
     return []
   }
 
+  // Fetch students and profiles separately (no FK joins)
+  const uniqueStudentIds = [...new Set(data.map(s => s.student_id))]
+  const studentMap = new Map<string, { id: string; lrn: string; profile_id: string }>()
+  if (uniqueStudentIds.length > 0) {
+    const { data: students } = await supabase
+      .from('students')
+      .select('id, lrn, profile_id')
+      .in('id', uniqueStudentIds)
+    students?.forEach(s => studentMap.set(s.id, s))
+  }
+
+  const uniqueProfileIds = [...new Set([...studentMap.values()].map(s => s.profile_id).filter(Boolean))]
+  const profileMap = new Map<string, string>()
+  if (uniqueProfileIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('school_profiles')
+      .select('id, full_name')
+      .in('id', uniqueProfileIds)
+    profiles?.forEach(p => profileMap.set(p.id, p.full_name))
+  }
+
   // Enrich with additional data
   const enriched = await Promise.all(
     data.map(async (submission) => {
@@ -225,13 +251,17 @@ export async function getPendingSubmissions(teacherId: string, filters?: {
         checkSubmissionHasFeedback(submission.id)
       ])
 
+      const assessment = assessmentMap.get(submission.assessment_id)
+      const student = studentMap.get(submission.student_id)
+      const studentName = student?.profile_id ? (profileMap.get(student.profile_id) || 'Unknown Student') : 'Unknown Student'
+
       return {
         id: submission.id,
         assessment_id: submission.assessment_id,
-        assessment_title: submission.assessment.title,
+        assessment_title: assessment?.title || 'Unknown Assessment',
         student_id: submission.student_id,
-        student_name: submission.student.profile.full_name,
-        student_lrn: submission.student.lrn,
+        student_name: studentName,
+        student_lrn: student?.lrn || '',
         score: submission.score,
         status: submission.status,
         submitted_at: submission.submitted_at,
@@ -252,27 +282,10 @@ export async function getPendingSubmissions(teacherId: string, filters?: {
 export async function getSubmissionDetail(submissionId: string, teacherId: string) {
   const supabase = createServiceClient()
 
+  // Fetch submission flat (no FK joins)
   const { data: submission, error: submissionError } = await supabase
     .from('submissions')
-    .select(`
-      *,
-      assessment:assessments!inner(
-        id,
-        title,
-        type,
-        total_points,
-        instructions,
-        course_id
-      ),
-      student:students!inner(
-        id,
-        lrn,
-        profile:school_profiles!inner(
-          full_name,
-          avatar_url
-        )
-      )
-    `)
+    .select('*')
     .eq('id', submissionId)
     .single()
 
@@ -281,39 +294,85 @@ export async function getSubmissionDetail(submissionId: string, teacherId: strin
     return null
   }
 
+  // Fetch assessment separately
+  const { data: assessment } = await supabase
+    .from('assessments')
+    .select('id, title, type, total_points, instructions, course_id')
+    .eq('id', submission.assessment_id)
+    .single()
+
+  if (!assessment) return null
+
   // Verify teacher access
-  const hasAccess = await verifyTeacherAssessmentAccess(teacherId, submission.assessment.course_id)
+  const hasAccess = await verifyTeacherAssessmentAccess(teacherId, assessment.course_id)
   if (!hasAccess) return null
 
-  // Get answers
+  // Fetch student separately
+  const { data: student } = await supabase
+    .from('students')
+    .select('id, lrn, profile_id')
+    .eq('id', submission.student_id)
+    .single()
+
+  // Fetch student profile separately
+  let fullName = 'Unknown Student'
+  let avatarUrl: string | null = null
+  if (student?.profile_id) {
+    const { data: profile } = await supabase
+      .from('school_profiles')
+      .select('full_name, avatar_url')
+      .eq('id', student.profile_id)
+      .single()
+    if (profile) {
+      fullName = profile.full_name
+      avatarUrl = profile.avatar_url
+    }
+  }
+
+  // Get answers flat (no FK joins)
   const { data: answers } = await supabase
     .from('student_answers')
-    .select(`
-      *,
-      question:questions!inner(
-        id,
-        question_text,
-        question_type,
-        points
-      )
-    `)
+    .select('*')
     .eq('submission_id', submissionId)
     .order('created_at', { ascending: true })
+
+  // Fetch questions separately, with fallback to teacher_assessment_questions
+  const questionIds = [...new Set(answers?.map(a => a.question_id).filter(Boolean) || [])]
+  const questionMap = new Map<string, { question_text: string; question_type: string; points: number }>()
+
+  if (questionIds.length > 0) {
+    // Try the questions table first
+    const { data: questions } = await supabase
+      .from('questions')
+      .select('id, question_text, question_type, points')
+      .in('id', questionIds)
+    questions?.forEach(q => questionMap.set(q.id, q))
+
+    // Fallback: for any question IDs not found, try teacher_assessment_questions
+    const missingIds = questionIds.filter(id => !questionMap.has(id))
+    if (missingIds.length > 0) {
+      const { data: teacherQuestions } = await supabase
+        .from('teacher_assessment_questions')
+        .select('id, question_text, question_type, points')
+        .in('id', missingIds)
+      teacherQuestions?.forEach(q => questionMap.set(q.id, q))
+    }
+  }
 
   return {
     id: submission.id,
     assessment: {
-      id: submission.assessment.id,
-      title: submission.assessment.title,
-      type: submission.assessment.type,
-      total_points: submission.assessment.total_points,
-      instructions: submission.assessment.instructions
+      id: assessment.id,
+      title: assessment.title,
+      type: assessment.type,
+      total_points: assessment.total_points,
+      instructions: assessment.instructions
     },
     student: {
-      id: submission.student.id,
-      full_name: submission.student.profile.full_name,
-      lrn: submission.student.lrn,
-      avatar_url: submission.student.profile.avatar_url
+      id: student?.id || submission.student_id,
+      full_name: fullName,
+      lrn: student?.lrn || '',
+      avatar_url: avatarUrl
     },
     score: submission.score,
     ai_score: submission.ai_score ?? null,
@@ -324,17 +383,20 @@ export async function getSubmissionDetail(submissionId: string, teacherId: strin
     feedback: submission.feedback,
     status: submission.status,
     attempt_number: submission.attempt_number,
-    answers: answers?.map(a => ({
-      id: a.id,
-      question_id: a.question_id,
-      question_text: a.question.question_text,
-      question_type: a.question.question_type,
-      points: a.question.points,
-      selected_option_id: a.selected_option_id,
-      text_answer: a.text_answer,
-      is_correct: a.is_correct,
-      points_earned: a.points_earned
-    })) || []
+    answers: answers?.map(a => {
+      const question = questionMap.get(a.question_id)
+      return {
+        id: a.id,
+        question_id: a.question_id,
+        question_text: question?.question_text || 'Question not found',
+        question_type: question?.question_type || 'unknown',
+        points: question?.points || 0,
+        selected_option_id: a.selected_option_id,
+        text_answer: a.text_answer,
+        is_correct: a.is_correct,
+        points_earned: a.points_earned
+      }
+    }) || []
   } as SubmissionDetail
 }
 

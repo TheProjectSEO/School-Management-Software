@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { useRouter } from 'next/navigation'
+import { authFetch } from '@/lib/utils/authFetch'
 
 type QuickModuleDraft = {
   title: string
@@ -50,7 +51,7 @@ export default function AIPlannerQuickModal({
     setIsGenerating(true)
     try {
       if (planType === 'module') {
-        const res = await fetch('/api/teacher/ai/generate-module', {
+        const res = await authFetch('/api/teacher/ai/generate-module', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -68,7 +69,7 @@ export default function AIPlannerQuickModal({
           setAssessmentDraft(null)
         }
       } else {
-        const res = await fetch('/api/teacher/ai/generate-quiz', {
+        const res = await authFetch('/api/teacher/ai/generate-quiz', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -104,7 +105,7 @@ export default function AIPlannerQuickModal({
   const handleSave = async () => {
     try {
       if (planType === 'module' && moduleDraft) {
-        const res = await fetch('/api/teacher/ai/save-module', {
+        const res = await authFetch('/api/teacher/ai/save-module', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -125,7 +126,7 @@ export default function AIPlannerQuickModal({
       }
 
       if (planType === 'assessment' && assessmentDraft) {
-        const res = await fetch('/api/teacher/ai/save-assessment', {
+        const res = await authFetch('/api/teacher/ai/save-assessment', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

@@ -27,7 +27,7 @@ export type Submission = {
   student_name: string
   student_lrn: string
   score: number | null
-  status: 'submitted' | 'graded' | 'returned'
+  status: 'submitted' | 'graded' | 'returned' | 'released'
   submitted_at: string
   graded_at: string | null
   attempt_number: number
@@ -210,10 +210,8 @@ export async function getPendingSubmissions(teacherId: string, filters?: {
 
   if (filters?.status) {
     query = query.eq('status', filters.status)
-  } else {
-    // Default to pending only
-    query = query.eq('status', 'submitted')
   }
+  // No default filter — return all statuses so the page can compute stats
 
   const { data, error } = await query
 
@@ -243,35 +241,29 @@ export async function getPendingSubmissions(teacherId: string, filters?: {
     profiles?.forEach(p => profileMap.set(p.id, p.full_name))
   }
 
-  // Enrich with additional data
-  const enriched = await Promise.all(
-    data.map(async (submission) => {
-      const [hasRubricScore, hasFeedback] = await Promise.all([
-        checkSubmissionHasRubricScore(submission.id),
-        checkSubmissionHasFeedback(submission.id)
-      ])
+  // Enrich submissions — check feedback from the submission's own feedback column
+  // instead of querying separate tables per submission (much faster)
+  const enriched = data.map((submission) => {
+    const assessment = assessmentMap.get(submission.assessment_id)
+    const student = studentMap.get(submission.student_id)
+    const studentName = student?.profile_id ? (profileMap.get(student.profile_id) || 'Unknown Student') : 'Unknown Student'
 
-      const assessment = assessmentMap.get(submission.assessment_id)
-      const student = studentMap.get(submission.student_id)
-      const studentName = student?.profile_id ? (profileMap.get(student.profile_id) || 'Unknown Student') : 'Unknown Student'
-
-      return {
-        id: submission.id,
-        assessment_id: submission.assessment_id,
-        assessment_title: assessment?.title || 'Unknown Assessment',
-        student_id: submission.student_id,
-        student_name: studentName,
-        student_lrn: student?.lrn || '',
-        score: submission.score,
-        status: submission.status,
-        submitted_at: submission.submitted_at,
-        graded_at: submission.graded_at,
-        attempt_number: submission.attempt_number,
-        has_rubric_score: hasRubricScore,
-        has_feedback: hasFeedback
-      } as Submission
-    })
-  )
+    return {
+      id: submission.id,
+      assessment_id: submission.assessment_id,
+      assessment_title: assessment?.title || 'Unknown Assessment',
+      student_id: submission.student_id,
+      student_name: studentName,
+      student_lrn: student?.lrn || '',
+      score: submission.score,
+      status: submission.status,
+      submitted_at: submission.submitted_at,
+      graded_at: submission.graded_at,
+      attempt_number: submission.attempt_number,
+      has_rubric_score: submission.score !== null,
+      has_feedback: !!submission.feedback
+    } as Submission
+  })
 
   return enriched
 }

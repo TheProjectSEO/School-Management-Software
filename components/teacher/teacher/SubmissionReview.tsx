@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { authFetch } from '@/lib/utils/authFetch'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
@@ -46,7 +47,7 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
     setError(null)
 
     try {
-      const response = await fetch('/api/teacher/ai/grade-response', {
+      const response = await authFetch('/api/teacher/ai/grade-response', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -79,7 +80,7 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
     setSuccess(null)
 
     try {
-      const response = await fetch(`/api/teacher/grading/${submission.id}`, {
+      const response = await authFetch(`/api/teacher/grading/${submission.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -111,7 +112,7 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
     setSuccess(null)
 
     try {
-      const response = await fetch(`/api/teacher/grading/${submission.id}`, {
+      const response = await authFetch(`/api/teacher/grading/${submission.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -61,18 +61,10 @@ export async function POST(
     const submissionId = itemId
 
     // Verify the submission exists and belongs to a course this teacher teaches
+    // Step 1: Fetch the submission to get assessment_id
     const { data: submission, error: fetchError } = await supabase
       .from('submissions')
-      .select(`
-        id,
-        assessment:assessments!inner(
-          id,
-          course_id,
-          courses!inner(
-            teacher_assignments!inner(teacher_profile_id)
-          )
-        )
-      `)
+      .select('id, assessment_id')
       .eq('id', submissionId)
       .single()
 
@@ -83,16 +75,30 @@ export async function POST(
       )
     }
 
-    // Verify teacher has access to this submission's course
-    const assignments = (submission.assessment as unknown as {
-      courses: { teacher_assignments: { teacher_profile_id: string }[] }
-    }).courses?.teacher_assignments || []
+    // Step 2: Fetch the assessment to get course_id
+    const { data: assessment } = await supabase
+      .from('assessments')
+      .select('id, course_id')
+      .eq('id', submission.assessment_id)
+      .single()
 
-    const hasAccess = assignments.some(
-      (a: { teacher_profile_id: string }) => a.teacher_profile_id === teacherProfile.id
-    )
+    if (!assessment) {
+      return NextResponse.json(
+        { success: false, error: 'Assessment not found' },
+        { status: 404 }
+      )
+    }
 
-    if (!hasAccess) {
+    // Step 3: Verify teacher is assigned to this course
+    const { data: teacherAssignment } = await supabase
+      .from('teacher_assignments')
+      .select('id')
+      .eq('teacher_profile_id', teacherProfile.id)
+      .eq('course_id', assessment.course_id)
+      .limit(1)
+      .single()
+
+    if (!teacherAssignment) {
       return NextResponse.json(
         { success: false, error: 'You do not have access to grade this submission' },
         { status: 403 }

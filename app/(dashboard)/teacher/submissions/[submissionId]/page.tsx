@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { getCurrentUser } from '@/lib/auth/session'
 import { getSubmissionDetail } from '@/lib/dal/assessments'
+import { createServiceClient } from '@/lib/supabase/service'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import SubmissionReview from '@/components/teacher/teacher/SubmissionReview'
 
@@ -23,7 +24,21 @@ async function SubmissionReviewContent({ submissionId }: { submissionId: string 
     redirect('/login')
   }
 
-  const submission = await getSubmissionDetail(submissionId, user.profile_id)
+  // Look up teacher_profiles.id from school_profiles.id (profile_id)
+  // getSubmissionDetail checks teacher_assignments.teacher_profile_id which is teacher_profiles.id,
+  // NOT school_profiles.id (user.profile_id)
+  const supabase = createServiceClient()
+  const { data: teacherProfile } = await supabase
+    .from('teacher_profiles')
+    .select('id')
+    .eq('profile_id', user.profile_id)
+    .single()
+
+  if (!teacherProfile) {
+    redirect('/teacher/submissions')
+  }
+
+  const submission = await getSubmissionDetail(submissionId, teacherProfile.id)
 
   if (!submission) {
     redirect('/teacher/submissions')

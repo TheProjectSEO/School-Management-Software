@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { Download } from "@/lib/dal";
+import { useStudentTheme } from "@/components/student/providers/StudentThemeProvider";
 
 type DownloadStatus = "ready" | "syncing" | "queued" | "error";
 
@@ -188,6 +189,7 @@ function getActionButtons(
 
 export default function DownloadsClient({ downloads, stats }: DownloadsClientProps) {
   const router = useRouter();
+  const { isPlayful } = useStudentTheme();
   const [activeTab, setActiveTab] = useState<"all" | "queued" | "history">("all");
   const [fileTypeFilter, setFileTypeFilter] = useState<string>("all");
   const [isSeeding, setIsSeeding] = useState(false);
@@ -376,18 +378,23 @@ export default function DownloadsClient({ downloads, stats }: DownloadsClientPro
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-10">
         <div className="flex-1 max-w-2xl">
           <div className="flex items-center gap-3 mb-2">
-            <span className="material-symbols-outlined text-primary text-4xl">offline_pin</span>
+            <span className={isPlayful ? "material-symbols-outlined text-pink-500 text-4xl" : "material-symbols-outlined text-primary text-4xl"}>offline_pin</span>
             <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white tracking-tight">
-              Offline Learning Manager
+              {isPlayful ? "\u{1F4E5} My Downloads" : "Offline Learning Manager"}
             </h1>
           </div>
-          <p className="text-slate-500 dark:text-slate-400 text-lg">
-            Manage your downloaded course packs and sync your progress when internet connectivity is available.
+          <p className={isPlayful ? "text-purple-500 text-lg font-medium" : "text-slate-500 dark:text-slate-400 text-lg"}>
+            {isPlayful
+              ? "All your saved lessons and files are right here! \u{1F4DA}"
+              : "Manage your downloaded course packs and sync your progress when internet connectivity is available."}
           </p>
         </div>
 
         {/* Storage Card */}
-        <div className="w-full lg:w-96 bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm">
+        <div className={isPlayful
+          ? "w-full lg:w-96 bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200 p-5 shadow-sm"
+          : "w-full lg:w-96 bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 p-5 shadow-sm"
+        }>
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm font-semibold text-slate-700 dark:text-slate-200">Device Storage</span>
             <span className="text-xs font-bold px-2 py-0.5 rounded bg-msu-gold/10 dark:bg-slate-800 text-yellow-700 dark:text-msu-gold">
@@ -396,7 +403,10 @@ export default function DownloadsClient({ downloads, stats }: DownloadsClientPro
           </div>
           <div className="relative h-2.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
             <div
-              className="absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-500"
+              className={isPlayful
+                ? "absolute top-0 left-0 h-full bg-gradient-to-r from-pink-500 to-purple-500 rounded-full transition-all duration-500"
+                : "absolute top-0 left-0 h-full bg-primary rounded-full transition-all duration-500"
+              }
               style={{ width: `${storagePercent}%` }}
             ></div>
           </div>
@@ -409,41 +419,63 @@ export default function DownloadsClient({ downloads, stats }: DownloadsClientPro
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
-        <div className="bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col gap-1 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-16 h-16 bg-msu-green/5 rounded-bl-full -mr-4 -mt-4"></div>
+        <div className={isPlayful
+          ? "bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border-2 border-green-200 p-6 flex flex-col gap-1 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden"
+          : "bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col gap-1 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden"
+        }>
+          <div className={isPlayful ? "absolute top-0 right-0 w-16 h-16 bg-green-100 rounded-bl-full -mr-4 -mt-4" : "absolute top-0 right-0 w-16 h-16 bg-msu-green/5 rounded-bl-full -mr-4 -mt-4"}></div>
           <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
             <span className="material-symbols-outlined text-msu-green text-3xl">folder_zip</span>
-            <span className="text-sm font-bold uppercase tracking-wider text-msu-green">Downloaded Packs</span>
+            <span className="text-sm font-bold uppercase tracking-wider text-msu-green">
+              {isPlayful ? "\u{1F4E6} Downloaded Packs" : "Downloaded Packs"}
+            </span>
           </div>
           <span className="text-4xl font-bold text-slate-900 dark:text-white">{stats.readyDownloads}</span>
-          <span className="text-sm text-slate-400 dark:text-slate-500">Ready for offline use</span>
+          <span className={isPlayful ? "text-sm text-green-500 font-medium" : "text-sm text-slate-400 dark:text-slate-500"}>
+            {isPlayful ? "Ready to use anytime!" : "Ready for offline use"}
+          </span>
         </div>
 
-        <div className="bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col gap-1 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-16 h-16 bg-msu-gold/10 rounded-bl-full -mr-4 -mt-4"></div>
+        <div className={isPlayful
+          ? "bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl border-2 border-yellow-200 p-6 flex flex-col gap-1 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden"
+          : "bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col gap-1 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden"
+        }>
+          <div className={isPlayful ? "absolute top-0 right-0 w-16 h-16 bg-yellow-100 rounded-bl-full -mr-4 -mt-4" : "absolute top-0 right-0 w-16 h-16 bg-msu-gold/10 rounded-bl-full -mr-4 -mt-4"}></div>
           <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
             <span className="material-symbols-outlined text-yellow-700 dark:text-msu-gold">cloud_upload</span>
             <span className="text-sm font-bold uppercase tracking-wider text-yellow-700 dark:text-msu-gold">
-              Pending Uploads
+              {isPlayful ? "\u{23F3} Pending Uploads" : "Pending Uploads"}
             </span>
           </div>
           <span className="text-4xl font-bold text-slate-900 dark:text-white">{stats.queuedDownloads}</span>
-          <span className="text-sm text-slate-400 dark:text-slate-500">Waiting for connection</span>
+          <span className={isPlayful ? "text-sm text-orange-500 font-medium" : "text-sm text-slate-400 dark:text-slate-500"}>
+            {isPlayful ? "Waiting for internet!" : "Waiting for connection"}
+          </span>
         </div>
 
-        <div className="bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col gap-1 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-bl-full -mr-4 -mt-4"></div>
+        <div className={isPlayful
+          ? "bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200 p-6 flex flex-col gap-1 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden"
+          : "bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 p-6 flex flex-col gap-1 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden"
+        }>
+          <div className={isPlayful ? "absolute top-0 right-0 w-16 h-16 bg-pink-100 rounded-bl-full -mr-4 -mt-4" : "absolute top-0 right-0 w-16 h-16 bg-primary/5 rounded-bl-full -mr-4 -mt-4"}></div>
           <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-2">
-            <span className="material-symbols-outlined text-primary">sync</span>
-            <span className="text-sm font-bold uppercase tracking-wider text-primary">Syncing Now</span>
+            <span className={isPlayful ? "material-symbols-outlined text-pink-500" : "material-symbols-outlined text-primary"}>sync</span>
+            <span className={isPlayful ? "text-sm font-bold uppercase tracking-wider text-pink-500" : "text-sm font-bold uppercase tracking-wider text-primary"}>
+              {isPlayful ? "\u{1F504} Syncing Now" : "Syncing Now"}
+            </span>
           </div>
           <span className="text-4xl font-bold text-slate-900 dark:text-white">{stats.syncingDownloads}</span>
-          <span className="text-sm text-slate-400 dark:text-slate-500">Downloads in progress</span>
+          <span className={isPlayful ? "text-sm text-purple-500 font-medium" : "text-sm text-slate-400 dark:text-slate-500"}>
+            {isPlayful ? "Getting your files ready!" : "Downloads in progress"}
+          </span>
         </div>
       </div>
 
       {/* Downloads Table Card */}
-      <div className="bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col">
+      <div className={isPlayful
+        ? "bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200 shadow-sm overflow-hidden flex flex-col"
+        : "bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col"
+      }>
         {/* Tabs */}
         <div className="border-b border-slate-200 dark:border-slate-700 px-6 pt-2">
           <div className="flex gap-8 overflow-x-auto">
@@ -451,44 +483,47 @@ export default function DownloadsClient({ downloads, stats }: DownloadsClientPro
               onClick={() => setActiveTab("all")}
               className={`relative pb-4 pt-2 text-sm tracking-wide transition-colors ${
                 activeTab === "all"
-                  ? "text-primary font-bold"
+                  ? isPlayful ? "text-pink-500 font-bold" : "text-primary font-bold"
                   : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-medium"
               }`}
             >
               All Downloads
               {activeTab === "all" && (
-                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>
+                <div className={isPlayful ? "absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-pink-500 to-purple-500 rounded-t-full" : "absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"}></div>
               )}
             </button>
             <button
               onClick={() => setActiveTab("queued")}
               className={`relative pb-4 pt-2 text-sm tracking-wide transition-colors ${
                 activeTab === "queued"
-                  ? "text-primary font-bold"
+                  ? isPlayful ? "text-pink-500 font-bold" : "text-primary font-bold"
                   : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-medium"
               }`}
             >
               Queued Uploads
               {(stats.queuedDownloads > 0 || stats.syncingDownloads > 0) && (
-                <span className="ml-1.5 bg-msu-gold text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                <span className={isPlayful
+                  ? "ml-1.5 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                  : "ml-1.5 bg-msu-gold text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                }>
                   {stats.queuedDownloads + stats.syncingDownloads}
                 </span>
               )}
               {activeTab === "queued" && (
-                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>
+                <div className={isPlayful ? "absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-pink-500 to-purple-500 rounded-t-full" : "absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"}></div>
               )}
             </button>
             <button
               onClick={() => setActiveTab("history")}
               className={`relative pb-4 pt-2 text-sm tracking-wide transition-colors ${
                 activeTab === "history"
-                  ? "text-primary font-bold"
+                  ? isPlayful ? "text-pink-500 font-bold" : "text-primary font-bold"
                   : "text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 font-medium"
               }`}
             >
               Sync History
               {activeTab === "history" && (
-                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"></div>
+                <div className={isPlayful ? "absolute bottom-0 left-0 w-full h-0.5 bg-gradient-to-r from-pink-500 to-purple-500 rounded-t-full" : "absolute bottom-0 left-0 w-full h-0.5 bg-primary rounded-t-full"}></div>
               )}
             </button>
           </div>
@@ -516,7 +551,10 @@ export default function DownloadsClient({ downloads, stats }: DownloadsClientPro
             <button
               onClick={handleDownloadAll}
               disabled={isBatchDownloading || filteredDownloads.filter((d) => d.status === "ready").length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-msu-green hover:bg-green-700 text-white rounded-lg text-sm font-medium shadow-sm shadow-msu-green/20 dark:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className={isPlayful
+                ? "flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white rounded-xl text-sm font-medium shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                : "flex items-center gap-2 px-4 py-2 bg-msu-green hover:bg-green-700 text-white rounded-lg text-sm font-medium shadow-sm shadow-msu-green/20 dark:shadow-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              }
             >
               <span className="material-symbols-outlined text-lg">
                 {isBatchDownloading ? "hourglass_empty" : "download_for_offline"}
@@ -534,20 +572,23 @@ export default function DownloadsClient({ downloads, stats }: DownloadsClientPro
                 cloud_off
               </span>
               <h3 className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                No downloads yet
+                {isPlayful ? "\u{1F4ED} No Downloads Yet!" : "No downloads yet"}
               </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-md mb-6">
+              <p className={isPlayful ? "text-sm text-purple-500 font-medium text-center max-w-md mb-6" : "text-sm text-slate-500 dark:text-slate-400 text-center max-w-md mb-6"}>
                 {activeTab === "all"
-                  ? "Start downloading course materials to access them offline."
+                  ? isPlayful ? "Save your lessons so you can study even without internet! \u{1F31F}" : "Start downloading course materials to access them offline."
                   : activeTab === "queued"
-                  ? "No downloads are currently queued or syncing."
-                  : "No download history available yet."}
+                  ? isPlayful ? "Nothing waiting to download right now! \u{1F60A}" : "No downloads are currently queued or syncing."
+                  : isPlayful ? "No saved files yet -- start downloading! \u{1F4E5}" : "No download history available yet."}
               </p>
               {activeTab === "all" && downloads.length === 0 && (
                 <button
                   onClick={handleSeedDownloads}
                   disabled={isSeeding}
-                  className="flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={isPlayful
+                    ? "flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white rounded-xl text-sm font-medium shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    : "flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-medium shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  }
                 >
                   <span className="material-symbols-outlined">
                     {isSeeding ? "hourglass_empty" : "add_circle"}

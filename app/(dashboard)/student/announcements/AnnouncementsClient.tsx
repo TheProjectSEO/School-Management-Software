@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { Announcement } from "@/lib/dal";
 import { formatDistanceToNow, format } from "date-fns";
+import { useStudentTheme } from "@/components/student/providers/StudentThemeProvider";
 
 interface AttachmentData {
   name?: string;
@@ -97,6 +98,7 @@ export function AnnouncementsClient({
   unreadCount: initialUnreadCount,
   studentId,
 }: AnnouncementsClientProps) {
+  const { isPlayful } = useStudentTheme();
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [announcements, setAnnouncements] = useState(initialAnnouncements);
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
@@ -162,10 +164,16 @@ export function AnnouncementsClient({
   return (
     <div className="flex flex-col lg:flex-row gap-8 -mx-4 sm:-mx-6 lg:-mx-8 -my-8 min-h-[calc(100vh-4rem)]">
       {/* Sidebar */}
-      <aside className="hidden lg:flex w-64 flex-col shrink-0 gap-6 sticky top-0 self-start h-auto py-8 px-6 bg-white dark:bg-[#1a2634] border-r border-slate-200 dark:border-slate-700">
+      <aside className={`hidden lg:flex w-64 flex-col shrink-0 gap-6 sticky top-0 self-start h-auto py-8 px-6 border-r ${
+        isPlayful
+          ? "bg-gradient-to-br from-pink-50 to-purple-50 border-pink-200"
+          : "bg-white dark:bg-[#1a2634] border-slate-200 dark:border-slate-700"
+      }`}>
         <div className="flex flex-col gap-2">
-          <h2 className="text-primary dark:text-msu-gold text-lg font-bold mb-2 uppercase tracking-wide">
-            Filter By
+          <h2 className={`text-lg font-bold mb-2 uppercase tracking-wide ${
+            isPlayful ? "text-pink-600" : "text-primary dark:text-msu-gold"
+          }`}>
+            {isPlayful ? "\u{1F3AF} Filter By" : "Filter By"}
           </h2>
           <nav className="flex flex-col gap-1">
             {filters.map((filter) => {
@@ -182,20 +190,30 @@ export function AnnouncementsClient({
                   onClick={() => setActiveFilter(filter.key)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors text-left ${
                     activeFilter === filter.key
-                      ? "bg-primary text-white shadow-sm"
-                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                      ? isPlayful
+                        ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-sm"
+                        : "bg-primary text-white shadow-sm"
+                      : isPlayful
+                        ? "text-slate-700 hover:bg-pink-100/60"
+                        : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                   }`}
                 >
                   <span
                     className={`material-symbols-outlined ${
-                      activeFilter !== filter.key ? "text-primary dark:text-msu-gold" : ""
+                      activeFilter !== filter.key
+                        ? isPlayful ? "text-pink-500" : "text-primary dark:text-msu-gold"
+                        : ""
                     }`}
                   >
                     {filter.icon}
                   </span>
                   <span>{filter.name}</span>
                   {count !== null && count > 0 && (
-                    <span className="ml-auto bg-msu-gold text-primary text-xs font-bold px-2 py-0.5 rounded-full">
+                    <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${
+                      isPlayful
+                        ? "bg-pink-500 text-white"
+                        : "bg-msu-gold text-primary"
+                    }`}>
                       {count}
                     </span>
                   )}
@@ -206,14 +224,21 @@ export function AnnouncementsClient({
         </div>
 
         {/* Info Card */}
-        <div className="mt-4 rounded-xl bg-gradient-to-br from-primary/10 to-msu-gold/10 p-4 border border-primary/10">
-          <div className="flex items-center gap-2 mb-2 text-primary dark:text-msu-gold">
+        <div className={`mt-4 rounded-xl p-4 border ${
+          isPlayful
+            ? "bg-gradient-to-br from-pink-100/60 to-purple-100/60 border-pink-200"
+            : "bg-gradient-to-br from-primary/10 to-msu-gold/10 border-primary/10"
+        }`}>
+          <div className={`flex items-center gap-2 mb-2 ${
+            isPlayful ? "text-pink-600" : "text-primary dark:text-msu-gold"
+          }`}>
             <span className="material-symbols-outlined">info</span>
-            <span className="font-bold text-sm">About Announcements</span>
+            <span className="font-bold text-sm">{isPlayful ? "What is this?" : "About Announcements"}</span>
           </div>
           <p className="text-sm text-slate-600 dark:text-slate-400">
-            Announcements are messages from your teachers and school administration.
-            Click to read the full content.
+            {isPlayful
+              ? "This is where your teachers and school share important news with you. Tap on one to read more!"
+              : "Announcements are messages from your teachers and school administration. Click to read the full content."}
           </p>
         </div>
       </aside>
@@ -225,16 +250,22 @@ export function AnnouncementsClient({
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-3xl font-bold text-primary dark:text-white tracking-tight">
-                Announcements
+                {isPlayful ? "\u{1F4E2} News" : "Announcements"}
               </h1>
               {unreadCount > 0 && (
-                <span className="px-2 py-0.5 rounded-full text-xs font-bold bg-primary text-white">
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                  isPlayful
+                    ? "bg-pink-500 text-white"
+                    : "bg-primary text-white"
+                }`}>
                   {unreadCount} new
                 </span>
               )}
             </div>
             <p className="text-slate-600 dark:text-slate-400">
-              Important messages from your teachers and school
+              {isPlayful
+                ? "See what your teachers and school have to share!"
+                : "Important messages from your teachers and school"}
             </p>
           </div>
         </div>
@@ -247,8 +278,12 @@ export function AnnouncementsClient({
               onClick={() => setActiveFilter(filter.key)}
               className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                 activeFilter === filter.key
-                  ? "bg-primary text-white"
-                  : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
+                  ? isPlayful
+                    ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white"
+                    : "bg-primary text-white"
+                  : isPlayful
+                    ? "bg-white text-slate-700 border border-pink-200"
+                    : "bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700"
               }`}
             >
               <span className="material-symbols-outlined text-[18px]">{filter.icon}</span>
@@ -260,19 +295,27 @@ export function AnnouncementsClient({
         {/* Announcement Cards */}
         {sortedAnnouncements.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <div className="size-20 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
-              <span className="material-symbols-outlined text-4xl text-slate-400">
+            <div className={`size-20 rounded-full flex items-center justify-center mb-4 ${
+              isPlayful ? "bg-pink-100" : "bg-slate-100 dark:bg-slate-800"
+            }`}>
+              <span className={`material-symbols-outlined text-4xl ${
+                isPlayful ? "text-pink-400" : "text-slate-400"
+              }`}>
                 {activeFilter === "unread" ? "mark_email_read" : "campaign_off"}
               </span>
             </div>
             <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-              {activeFilter === "unread" ? "All caught up!" : "No announcements"}
+              {activeFilter === "unread"
+                ? isPlayful ? "\u{1F389} All caught up!" : "All caught up!"
+                : isPlayful ? "\u{1F4ED} Nothing here yet!" : "No announcements"}
             </h3>
             <p className="text-slate-500 dark:text-slate-400 max-w-md">
               {activeFilter === "unread"
-                ? "You have read all announcements."
+                ? isPlayful ? "You read everything! Great job!" : "You have read all announcements."
                 : activeFilter === "all"
-                ? "There are no announcements for you at the moment."
+                ? isPlayful
+                  ? "No news right now. Check back later!"
+                  : "There are no announcements for you at the moment."
                 : `No ${activeFilter} priority announcements found.`}
             </p>
           </div>
@@ -286,8 +329,14 @@ export function AnnouncementsClient({
               return (
                 <div
                   key={announcement.id}
-                  className={`group relative bg-white dark:bg-[#1a2634] rounded-xl shadow-sm border-l-4 ${style.border} border-y border-r border-slate-100 dark:border-slate-700 hover:shadow-md transition-all overflow-hidden ${
-                    !announcement.is_read ? "ring-2 ring-primary/20" : ""
+                  className={`group relative shadow-sm border-l-4 ${style.border} hover:shadow-md transition-all overflow-hidden ${
+                    isPlayful
+                      ? `bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-y-2 border-r-2 border-pink-200 ${
+                          !announcement.is_read ? "ring-2 ring-pink-300" : ""
+                        }`
+                      : `bg-white dark:bg-[#1a2634] rounded-xl border-y border-r border-slate-100 dark:border-slate-700 ${
+                          !announcement.is_read ? "ring-2 ring-primary/20" : ""
+                        }`
                   }`}
                 >
                   {/* Header - Always visible */}
@@ -319,7 +368,9 @@ export function AnnouncementsClient({
                                 {getTargetLabel(announcement.target_type)}
                               </span>
                               {!announcement.is_read && (
-                                <div className="size-2 rounded-full bg-primary"></div>
+                                <div className={`size-2 rounded-full ${
+                                  isPlayful ? "bg-pink-500" : "bg-primary"
+                                }`}></div>
                               )}
                             </div>
                             <h3 className={`text-lg ${!announcement.is_read ? "font-bold" : "font-semibold"} text-slate-900 dark:text-white group-hover:text-primary dark:group-hover:text-msu-gold transition-colors`}>

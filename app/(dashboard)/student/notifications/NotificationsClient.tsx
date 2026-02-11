@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import type { Notification } from "@/lib/dal";
 import { formatDistanceToNow } from "date-fns";
 import { useRealtimeNotifications } from "@/hooks/useRealtimeNotifications";
+import { useStudentTheme } from "@/components/student/providers/StudentThemeProvider";
 
 interface NotificationsClientProps {
   notifications: Notification[];
@@ -89,6 +90,7 @@ export function NotificationsClient({
   unreadCount: initialUnreadCount,
   studentId
 }: NotificationsClientProps) {
+  const { isPlayful } = useStudentTheme();
   const [activeFilter, setActiveFilter] = useState<FilterType>("all");
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const [showNewBadge, setShowNewBadge] = useState(false);
@@ -138,10 +140,16 @@ export function NotificationsClient({
   return (
     <div className="flex flex-col lg:flex-row gap-8 -mx-4 sm:-mx-6 lg:-mx-8 -my-8 min-h-[calc(100vh-4rem)]">
       {/* Sidebar */}
-      <aside className="hidden lg:flex w-64 flex-col shrink-0 gap-6 sticky top-0 self-start h-auto py-8 px-6 bg-white dark:bg-[#1a2634] border-r border-slate-200 dark:border-slate-700">
+      <aside className={`hidden lg:flex w-64 flex-col shrink-0 gap-6 sticky top-0 self-start h-auto py-8 px-6 border-r ${
+        isPlayful
+          ? "bg-gradient-to-br from-pink-50 to-purple-50 border-pink-200"
+          : "bg-white dark:bg-[#1a2634] border-slate-200 dark:border-slate-700"
+      }`}>
         <div className="flex flex-col gap-2">
-          <h2 className="text-primary dark:text-msu-gold text-lg font-bold mb-2 uppercase tracking-wide">
-            Filters
+          <h2 className={`text-lg font-bold mb-2 uppercase tracking-wide ${
+            isPlayful ? "text-pink-600" : "text-primary dark:text-msu-gold"
+          }`}>
+            {isPlayful ? "\u{1F50D} Filters" : "Filters"}
           </h2>
           <nav className="flex flex-col gap-1">
             {filters.map((filter) => {
@@ -158,20 +166,30 @@ export function NotificationsClient({
                   onClick={() => setActiveFilter(filter.key)}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-colors text-left ${
                     activeFilter === filter.key
-                      ? "bg-primary text-white shadow-sm"
-                      : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                      ? isPlayful
+                        ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-sm"
+                        : "bg-primary text-white shadow-sm"
+                      : isPlayful
+                        ? "text-slate-700 hover:bg-pink-100/60"
+                        : "text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
                   }`}
                 >
                   <span
                     className={`material-symbols-outlined ${
-                      activeFilter !== filter.key ? "text-primary dark:text-msu-gold" : ""
+                      activeFilter !== filter.key
+                        ? isPlayful ? "text-pink-500" : "text-primary dark:text-msu-gold"
+                        : ""
                     }`}
                   >
                     {filter.icon}
                   </span>
                   <span>{filter.name}</span>
                   {count !== null && count > 0 && (
-                    <span className="ml-auto bg-msu-gold text-primary text-xs font-bold px-2 py-0.5 rounded-full">
+                    <span className={`ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${
+                      isPlayful
+                        ? "bg-pink-500 text-white"
+                        : "bg-msu-gold text-primary"
+                    }`}>
                       {count}
                     </span>
                   )}
@@ -182,15 +200,27 @@ export function NotificationsClient({
         </div>
 
         {/* Help Card */}
-        <div className="mt-4 rounded-xl bg-gradient-to-br from-primary/10 to-msu-gold/10 p-4 border border-primary/10">
-          <div className="flex items-center gap-2 mb-2 text-primary dark:text-msu-gold">
+        <div className={`mt-4 rounded-xl p-4 border ${
+          isPlayful
+            ? "bg-gradient-to-br from-pink-100/60 to-purple-100/60 border-pink-200"
+            : "bg-gradient-to-br from-primary/10 to-msu-gold/10 border-primary/10"
+        }`}>
+          <div className={`flex items-center gap-2 mb-2 ${
+            isPlayful ? "text-pink-600" : "text-primary dark:text-msu-gold"
+          }`}>
             <span className="material-symbols-outlined">help</span>
-            <span className="font-bold text-sm">Need Help?</span>
+            <span className="font-bold text-sm">{isPlayful ? "Need help?" : "Need Help?"}</span>
           </div>
           <p className="text-sm text-slate-600 dark:text-slate-400 mb-3">
-            Contact the registrar or student support for enrollment issues.
+            {isPlayful
+              ? "Ask your teacher or the school office if you need anything!"
+              : "Contact the registrar or student support for enrollment issues."}
           </p>
-          <button className="text-xs font-bold text-primary hover:text-msu-gold dark:text-msu-gold dark:hover:text-white transition-colors uppercase tracking-wide">
+          <button className={`text-xs font-bold transition-colors uppercase tracking-wide ${
+            isPlayful
+              ? "text-pink-600 hover:text-purple-600"
+              : "text-primary hover:text-msu-gold dark:text-msu-gold dark:hover:text-white"
+          }`}>
             Contact Support
           </button>
         </div>
@@ -200,9 +230,15 @@ export function NotificationsClient({
       <main className="flex flex-col flex-1 max-w-[800px] py-8 px-4 sm:px-6 lg:px-8">
         {/* New Notification Banner */}
         {showNewBadge && (
-          <div className="mb-4 flex items-center gap-2 rounded-lg bg-primary/10 border border-primary/20 px-4 py-3 text-sm text-primary dark:text-msu-gold animate-pulse">
+          <div className={`mb-4 flex items-center gap-2 rounded-lg px-4 py-3 text-sm animate-pulse ${
+            isPlayful
+              ? "bg-pink-100 border border-pink-300 text-pink-600"
+              : "bg-primary/10 border border-primary/20 text-primary dark:text-msu-gold"
+          }`}>
             <span className="material-symbols-outlined text-[18px]">notifications_active</span>
-            <span className="font-medium">New notification received!</span>
+            <span className="font-medium">
+              {isPlayful ? "\u{1F389} Something new just arrived!" : "New notification received!"}
+            </span>
           </div>
         )}
 
@@ -211,7 +247,7 @@ export function NotificationsClient({
           <div>
             <div className="flex items-center gap-3 mb-2">
               <h1 className="text-3xl font-bold text-primary dark:text-white tracking-tight">
-                Notifications
+                {isPlayful ? "\u{1F514} My Alerts" : "Notifications"}
               </h1>
               {/* Connection Status */}
               <div
@@ -231,17 +267,23 @@ export function NotificationsClient({
               </div>
             </div>
             <p className="text-slate-600 dark:text-slate-400">
-              Stay updated with your latest alerts and announcements
+              {isPlayful
+                ? "See what's new for you today!"
+                : "Stay updated with your latest alerts and announcements"}
             </p>
           </div>
           {unreadCount > 0 && (
             <button
               onClick={handleMarkAllAsRead}
               disabled={isMarkingAllRead}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-primary dark:text-msu-gold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed ${
+                isPlayful
+                  ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600"
+                  : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-primary dark:text-msu-gold hover:bg-slate-50 dark:hover:bg-slate-700"
+              }`}
             >
               <span className="material-symbols-outlined text-[18px]">done_all</span>
-              {isMarkingAllRead ? "Marking..." : "Mark all as read"}
+              {isMarkingAllRead ? "Marking..." : isPlayful ? "Read all!" : "Mark all as read"}
             </button>
           )}
         </div>
@@ -249,19 +291,29 @@ export function NotificationsClient({
         {/* Notification Cards */}
         {filteredNotifications.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 px-4 text-center">
-            <div className="size-20 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
-              <span className="material-symbols-outlined text-4xl text-slate-400">
+            <div className={`size-20 rounded-full flex items-center justify-center mb-4 ${
+              isPlayful ? "bg-pink-100" : "bg-slate-100 dark:bg-slate-800"
+            }`}>
+              <span className={`material-symbols-outlined text-4xl ${
+                isPlayful ? "text-pink-400" : "text-slate-400"
+              }`}>
                 {activeFilter === "unread" ? "mark_email_read" : "notifications_off"}
               </span>
             </div>
             <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-              {activeFilter === "unread" ? "All caught up!" : "No notifications"}
+              {activeFilter === "unread"
+                ? isPlayful ? "\u{1F31F} All caught up!" : "All caught up!"
+                : isPlayful ? "\u{1F4ED} Nothing here yet!" : "No notifications"}
             </h3>
             <p className="text-slate-500 dark:text-slate-400 max-w-md">
               {activeFilter === "unread"
-                ? "You have no unread notifications at the moment."
+                ? isPlayful
+                  ? "You've seen everything! Great job!"
+                  : "You have no unread notifications at the moment."
                 : activeFilter === "all"
-                ? "You don't have any notifications yet. Check back later for updates."
+                ? isPlayful
+                  ? "No alerts right now. Come back later to see if there's something new!"
+                  : "You don't have any notifications yet. Check back later for updates."
                 : `No ${activeFilter} notifications found.`}
             </p>
           </div>
@@ -282,9 +334,15 @@ export function NotificationsClient({
                       window.location.href = notification.action_url;
                     }
                   }}
-                  className={`group relative flex flex-col sm:flex-row gap-4 bg-white dark:bg-[#1a2634] p-5 rounded-xl shadow-sm border-l-4 ${style.borderColor} border-y border-r border-slate-100 dark:border-slate-700 hover:shadow-md transition-all ${
+                  className={`group relative flex flex-col sm:flex-row gap-4 p-5 shadow-sm border-l-4 ${style.borderColor} hover:shadow-md transition-all ${
                     notification.action_url ? "cursor-pointer" : ""
-                  } ${notification.is_read ? "opacity-75 hover:opacity-100" : ""}`}
+                  } ${notification.is_read ? "opacity-75 hover:opacity-100" : ""} ${
+                    isPlayful
+                      ? `bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-y-2 border-r-2 border-pink-200 ${
+                          !notification.is_read ? "ring-2 ring-pink-300" : ""
+                        }`
+                      : `bg-white dark:bg-[#1a2634] rounded-xl border-y border-r border-slate-100 dark:border-slate-700`
+                  }`}
                 >
                   {/* Unread Indicator & Urgent Badge */}
                   <div className="absolute top-5 right-5 flex gap-2">
@@ -294,14 +352,20 @@ export function NotificationsClient({
                       </span>
                     )}
                     {!notification.is_read && (
-                      <div className="size-2.5 rounded-full bg-primary mt-1"></div>
+                      <div className={`size-2.5 rounded-full mt-1 ${
+                        isPlayful ? "bg-pink-500" : "bg-primary"
+                      }`}></div>
                     )}
                   </div>
 
                   {/* Icon */}
                   <div className="shrink-0">
                     <div
-                      className={`size-12 rounded-lg ${style.iconBg} ${style.iconColor} flex items-center justify-center`}
+                      className={`size-12 flex items-center justify-center ${
+                        isPlayful
+                          ? `rounded-2xl border-2 border-pink-200 ${style.iconBg} ${style.iconColor}`
+                          : `rounded-lg ${style.iconBg} ${style.iconColor}`
+                      }`}
                     >
                       <span className="material-symbols-outlined">{style.icon}</span>
                     </div>

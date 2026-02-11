@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { Note } from "@/lib/dal";
+import { useStudentTheme } from "@/components/student/providers/StudentThemeProvider";
 
 interface Course {
   id: string;
@@ -28,6 +29,7 @@ interface NoteFormData {
 
 export default function NotesClient({ notes: initialNotes, courses }: NotesClientProps) {
   const router = useRouter();
+  const { isPlayful } = useStudentTheme();
   const [notes, setNotes] = useState(initialNotes);
   const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [searchQuery, setSearchQuery] = useState("");
@@ -248,25 +250,29 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
       <div className="flex flex-wrap justify-between items-end gap-4 mb-8">
         <div>
           <h1 className="text-slate-900 dark:text-white text-3xl md:text-4xl font-bold leading-tight tracking-tight">
-            My Notes
+            {isPlayful ? "\u{1F4D2} My Notes" : "My Notes"}
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-base mt-2">
-            Organize your study materials, highlights, and bookmarks.
+          <p className={isPlayful ? "text-purple-500 text-base mt-2 font-medium" : "text-slate-500 dark:text-slate-400 text-base mt-2"}>
+            {isPlayful
+              ? "Write down your ideas and favorite things you learned! \u{270F}\u{FE0F}"
+              : "Organize your study materials, highlights, and bookmarks."}
           </p>
         </div>
         <div className="flex gap-2">
           <button
             onClick={openCreateModal}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg font-bold text-sm transition-colors shadow-sm"
+            className={isPlayful
+              ? "flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white rounded-xl font-bold text-sm transition-colors shadow-sm"
+              : "flex items-center gap-2 px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg font-bold text-sm transition-colors shadow-sm"}
           >
             <span className="material-symbols-outlined text-[20px]">add</span>
-            <span>New Note</span>
+            <span>{isPlayful ? "\u{2728} New Note" : "New Note"}</span>
           </button>
           <button
             onClick={() => setViewMode("grid")}
             className={`size-10 rounded-lg flex items-center justify-center transition-colors ${
               viewMode === "grid"
-                ? "bg-primary text-white"
+                ? isPlayful ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white" : "bg-primary text-white"
                 : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-primary"
             }`}
             aria-label="Grid view"
@@ -277,7 +283,7 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
             onClick={() => setViewMode("list")}
             className={`size-10 rounded-lg flex items-center justify-center transition-colors ${
               viewMode === "list"
-                ? "bg-primary text-white"
+                ? isPlayful ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white" : "bg-primary text-white"
                 : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-primary"
             }`}
             aria-label="List view"
@@ -288,7 +294,10 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
       </div>
 
       {/* Search and Filters */}
-      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-white dark:bg-slate-900 p-2 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 mb-8">
+      <div className={isPlayful
+        ? "flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-gradient-to-br from-pink-50 to-purple-50 p-2 rounded-2xl shadow-sm border-2 border-pink-200 mb-8"
+        : "flex flex-col md:flex-row gap-4 items-start md:items-center justify-between bg-white dark:bg-slate-900 p-2 rounded-xl shadow-sm border border-slate-100 dark:border-slate-800 mb-8"
+      }>
         <div className="relative w-full md:w-96 group">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <span className="material-symbols-outlined text-slate-400">search</span>
@@ -306,7 +315,7 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
             onClick={() => setFilterType("all")}
             className={`flex shrink-0 items-center justify-center gap-x-2 rounded-lg px-4 py-2 transition-colors shadow-sm ${
               filterType === "all"
-                ? "bg-primary text-white"
+                ? isPlayful ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white" : "bg-primary text-white"
                 : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
             }`}
           >
@@ -316,7 +325,7 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
             onClick={() => setFilterType("note")}
             className={`flex shrink-0 items-center justify-center gap-x-2 rounded-lg px-4 py-2 transition-colors ${
               filterType === "note"
-                ? "bg-primary text-white"
+                ? isPlayful ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white" : "bg-primary text-white"
                 : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
             }`}
           >
@@ -327,7 +336,7 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
             onClick={() => setFilterType("highlight")}
             className={`flex shrink-0 items-center justify-center gap-x-2 rounded-lg px-4 py-2 transition-colors ${
               filterType === "highlight"
-                ? "bg-primary text-white"
+                ? isPlayful ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white" : "bg-primary text-white"
                 : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
             }`}
           >
@@ -338,7 +347,7 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
             onClick={() => setFilterType("bookmark")}
             className={`flex shrink-0 items-center justify-center gap-x-2 rounded-lg px-4 py-2 transition-colors ${
               filterType === "bookmark"
-                ? "bg-primary text-white"
+                ? isPlayful ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white" : "bg-primary text-white"
                 : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
             }`}
           >
@@ -357,7 +366,10 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
           <select
             value={selectedCourse}
             onChange={(e) => setSelectedCourse(e.target.value)}
-            className="w-full md:w-64 px-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 text-sm font-medium"
+            className={isPlayful
+              ? "w-full md:w-64 px-4 py-2.5 border-2 border-pink-200 rounded-xl bg-gradient-to-br from-pink-50 to-purple-50 text-slate-900 focus:ring-2 focus:ring-pink-300 text-sm font-medium"
+              : "w-full md:w-64 px-4 py-2.5 border border-slate-200 dark:border-slate-700 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/20 text-sm font-medium"
+            }
           >
             <option value="all">All Subjects</option>
             {courses.map((course) => (
@@ -371,17 +383,22 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
 
       {/* Notes Display */}
       {filteredNotes.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div className={isPlayful
+          ? "text-center py-16 bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200"
+          : "text-center py-16 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700"
+        }>
           <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600 mb-4">
             {searchQuery ? "search_off" : "note"}
           </span>
           <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-            {searchQuery ? "No Notes Found" : "No Notes Yet"}
-          </h3>
-          <p className="text-slate-500 dark:text-slate-400">
             {searchQuery
-              ? "Try adjusting your search or filters"
-              : "Start taking notes while studying your subjects."}
+              ? isPlayful ? "\u{1F50D} No Notes Found" : "No Notes Found"
+              : isPlayful ? "\u{1F4DD} No Notes Yet!" : "No Notes Yet"}
+          </h3>
+          <p className={isPlayful ? "text-purple-500 font-medium" : "text-slate-500 dark:text-slate-400"}>
+            {searchQuery
+              ? isPlayful ? "Try different words and search again! \u{1F50E}" : "Try adjusting your search or filters"
+              : isPlayful ? "Start writing notes about your favorite lessons! \u{2728}" : "Start taking notes while studying your subjects."}
           </p>
         </div>
       ) : viewMode === "grid" ? (
@@ -390,7 +407,10 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
           {filteredNotes.map((note) => (
             <div
               key={note.id}
-              className="group bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm hover:shadow-lg hover:border-primary/30 transition-all duration-300 flex flex-col"
+              className={isPlayful
+                ? "group bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200 overflow-hidden shadow-sm hover:shadow-lg hover:border-purple-300 transition-all duration-300 flex flex-col"
+                : "group bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm hover:shadow-lg hover:border-primary/30 transition-all duration-300 flex flex-col"
+              }
             >
               {/* Note Header */}
               <div className="p-5 flex flex-col gap-3">
@@ -493,7 +513,10 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
           {filteredNotes.map((note) => (
             <div
               key={note.id}
-              className="group bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 hover:border-primary/30 hover:shadow-md transition-all duration-300"
+              className={isPlayful
+                ? "group bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200 p-5 hover:border-purple-300 hover:shadow-md transition-all duration-300"
+                : "group bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-5 hover:border-primary/30 hover:shadow-md transition-all duration-300"
+              }
             >
               <div className="flex items-start gap-4">
                 {/* Note Icon */}
@@ -580,34 +603,48 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
       {filteredNotes.length > 0 && (
         <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-800">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
-              <div className="text-2xl font-bold text-primary mb-1">
+            <div className={isPlayful
+              ? "bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200 p-4 text-center"
+              : "bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center"
+            }>
+              <div className={isPlayful ? "text-2xl font-bold text-pink-500 mb-1" : "text-2xl font-bold text-primary mb-1"}>
                 {notes.filter((n) => n.type === "note").length}
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">Notes</div>
+              <div className={isPlayful ? "text-xs text-purple-500 font-medium" : "text-xs text-slate-500 dark:text-slate-400 font-medium"}>
+                {isPlayful ? "\u{1F4DD} Notes" : "Notes"}
+              </div>
             </div>
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+            <div className={isPlayful
+              ? "bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl border-2 border-yellow-200 p-4 text-center"
+              : "bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center"
+            }>
               <div className="text-2xl font-bold text-yellow-600 mb-1">
                 {notes.filter((n) => n.type === "highlight").length}
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                Highlights
+              <div className={isPlayful ? "text-xs text-orange-500 font-medium" : "text-xs text-slate-500 dark:text-slate-400 font-medium"}>
+                {isPlayful ? "\u{1F31F} Highlights" : "Highlights"}
               </div>
             </div>
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+            <div className={isPlayful
+              ? "bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl border-2 border-purple-200 p-4 text-center"
+              : "bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center"
+            }>
               <div className="text-2xl font-bold text-purple-600 mb-1">
                 {notes.filter((n) => n.type === "bookmark").length}
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                Bookmarks
+              <div className={isPlayful ? "text-xs text-purple-500 font-medium" : "text-xs text-slate-500 dark:text-slate-400 font-medium"}>
+                {isPlayful ? "\u{1F516} Bookmarks" : "Bookmarks"}
               </div>
             </div>
-            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center">
+            <div className={isPlayful
+              ? "bg-gradient-to-br from-amber-50 to-yellow-50 rounded-2xl border-2 border-amber-200 p-4 text-center"
+              : "bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-4 text-center"
+            }>
               <div className="text-2xl font-bold text-msu-gold mb-1">
                 {notes.filter((n) => n.is_favorite).length}
               </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400 font-medium">
-                Favorites
+              <div className={isPlayful ? "text-xs text-amber-500 font-medium" : "text-xs text-slate-500 dark:text-slate-400 font-medium"}>
+                {isPlayful ? "\u{2B50} Favorites" : "Favorites"}
               </div>
             </div>
           </div>
@@ -624,11 +661,19 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
           />
 
           {/* Modal */}
-          <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className={isPlayful
+            ? "relative bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border-2 border-pink-200"
+            : "relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto"
+          }>
             {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+            <div className={isPlayful
+              ? "flex items-center justify-between p-6 border-b-2 border-pink-200"
+              : "flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700"
+            }>
               <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                {editingNote ? "Edit Note" : "Create New Note"}
+                {editingNote
+                  ? isPlayful ? "\u{270F}\u{FE0F} Edit Note" : "Edit Note"
+                  : isPlayful ? "\u{2728} Create New Note" : "Create New Note"}
               </h2>
               <button
                 onClick={() => !isSubmitting && setIsModalOpen(false)}
@@ -751,7 +796,10 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
                 <button
                   type="submit"
                   disabled={isSubmitting || !formData.title.trim()}
-                  className="flex-1 px-4 py-3 bg-primary hover:bg-primary/90 text-white rounded-lg font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className={isPlayful
+                    ? "flex-1 px-4 py-3 bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    : "flex-1 px-4 py-3 bg-primary hover:bg-primary/90 text-white rounded-lg font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  }
                 >
                   {isSubmitting ? (
                     <>

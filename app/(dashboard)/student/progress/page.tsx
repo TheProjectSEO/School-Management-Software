@@ -8,6 +8,7 @@ import {
   getUpcomingAssessments,
   getAssessmentStats,
 } from "@/lib/dal";
+import { getClassroomTheme } from "@/lib/utils/classroom/theme";
 
 export const revalidate = 60; // 1 minute - progress data
 
@@ -72,6 +73,10 @@ export default async function ProgressPage() {
   }
 
   const firstName = student.profile.full_name.split(" ")[0];
+
+  // Theme: playful for Grade 1-6, professional for Grade 7-12
+  const theme = getClassroomTheme(student.grade_level || '12');
+  const isPlayful = theme.type === 'playful';
 
   // Fetch all data in parallel
   const [progressStats, skillMastery, recentSubjects, upcomingAssessments, assessmentStats] =
@@ -145,20 +150,22 @@ export default async function ProgressPage() {
       {/* Page Heading */}
       <div className="mb-8 flex flex-col gap-2">
         <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white lg:text-4xl">
-          Progress + Mastery
+          {isPlayful ? '\u{1F4CA} My Progress' : 'Progress + Mastery'}
         </h1>
         <p className="text-base text-slate-500 dark:text-slate-400">
-          Hello, {firstName}. You are {semesterCompletion}% of the way to completing the First Semester.
+          {isPlayful
+            ? `Great job, ${firstName}! You\u2019re doing amazing! \u{1F31F}`
+            : `Hello, ${firstName}. You are ${semesterCompletion}% of the way to completing the First Semester.`}
         </p>
       </div>
 
       {/* Top Stats Grid */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3 mb-8">
         {/* Overall Progress */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-[#1a2634] dark:border-slate-700">
+        <div className={`${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50 p-6' : 'rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-[#1a2634] dark:border-slate-700'}`}>
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-bold text-slate-900 dark:text-white">Semester Completion</h3>
-            <span className="rounded-full bg-msu-green/10 px-2 py-1 text-xs font-bold text-msu-green dark:bg-green-900/30 dark:text-green-400">
+            <span className={`${isPlayful ? 'bg-green-100 text-green-600 rounded-full px-2 py-1 text-xs font-bold' : 'rounded-full bg-msu-green/10 px-2 py-1 text-xs font-bold text-msu-green dark:bg-green-900/30 dark:text-green-400'}`}>
               {semesterCompletion >= 70 ? "On Track" : "In Progress"}
             </span>
           </div>
@@ -167,7 +174,7 @@ export default async function ProgressPage() {
           </div>
           <div className="h-3 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
             <div
-              className="h-full rounded-full bg-primary transition-all duration-500"
+              className={`h-full rounded-full ${isPlayful ? 'bg-gradient-to-r from-pink-400 to-purple-500' : 'bg-primary'} transition-all duration-500`}
               style={{ width: `${semesterCompletion}%` }}
             ></div>
           </div>
@@ -177,7 +184,7 @@ export default async function ProgressPage() {
         </div>
 
         {/* Current GPA/Standing */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-[#1a2634] dark:border-slate-700">
+        <div className={`${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50 p-6' : 'rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-[#1a2634] dark:border-slate-700'}`}>
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-bold text-slate-900 dark:text-white">Current Standing</h3>
             <span className="material-symbols-outlined text-msu-gold">military_tech</span>
@@ -206,7 +213,7 @@ export default async function ProgressPage() {
         </div>
 
         {/* Next Priority */}
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-[#1a2634] dark:border-slate-700">
+        <div className={`${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50 p-6' : 'rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-[#1a2634] dark:border-slate-700'}`}>
           <div className="mb-4 flex items-center justify-between">
             <h3 className="font-bold text-slate-900 dark:text-white">Next Priority</h3>
             <span className="material-symbols-outlined text-primary">priority_high</span>
@@ -247,9 +254,9 @@ export default async function ProgressPage() {
         {/* Center Panel: Mastery & Modules */}
         <div className="flex flex-col gap-8 lg:col-span-2">
           {/* Mastery Chart Section */}
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-[#1a2634] dark:border-slate-700">
+          <div className={`${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50 p-6' : 'rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-[#1a2634] dark:border-slate-700'}`}>
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-900 dark:text-white">Outcome Mastery</h2>
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white">{isPlayful ? '\u{1F3AF} Outcome Mastery' : 'Outcome Mastery'}</h2>
               <Link
                 href="/student/subjects"
                 className="text-sm font-bold text-primary hover:text-[#5a0c0e] dark:text-msu-gold dark:hover:text-yellow-400"
@@ -260,7 +267,7 @@ export default async function ProgressPage() {
             {skills.length > 0 ? (
               <div className="grid gap-4 sm:grid-cols-2">
                 {skills.map((skill, idx) => (
-                  <div key={idx} className="rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50">
+                  <div key={idx} className={`${isPlayful ? 'rounded-xl bg-gradient-to-br from-pink-50 to-purple-50 p-4 border border-pink-100' : 'rounded-lg bg-slate-50 p-4 dark:bg-slate-800/50'}`}>
                     <div className="mb-2 flex justify-between items-start">
                       <div className="flex items-center gap-2">
                         <div className="bg-primary/10 p-2 rounded text-primary dark:text-white dark:bg-primary/30">
@@ -300,9 +307,11 @@ export default async function ProgressPage() {
                 <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600 mb-4">
                   school
                 </span>
-                <p className="text-slate-500 dark:text-slate-400">No mastery data available yet</p>
+                <p className="text-slate-500 dark:text-slate-400">
+                  {isPlayful ? '\u{1F331} No mastery data yet!' : 'No mastery data available yet'}
+                </p>
                 <p className="text-sm text-slate-400 dark:text-slate-500 mt-2">
-                  Complete some lessons to see your progress
+                  {isPlayful ? 'Complete some lessons and watch yourself grow! \u{1F680}' : 'Complete some lessons to see your progress'}
                 </p>
               </div>
             )}
@@ -310,13 +319,13 @@ export default async function ProgressPage() {
 
           {/* Module Completion List */}
           <div className="flex flex-col gap-4">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white">Active Modules</h2>
+            <h2 className="text-xl font-bold text-slate-900 dark:text-white">{isPlayful ? '\u{1F4DA} Active Modules' : 'Active Modules'}</h2>
             {activeModules.length > 0 ? (
               <div className="space-y-3">
                 {activeModules.map((module) => (
                   <div
                     key={module.id}
-                    className="group flex flex-col gap-4 rounded-xl border border-slate-200 bg-white p-4 transition-shadow hover:shadow-md dark:bg-[#1a2634] dark:border-slate-700 sm:flex-row sm:items-center"
+                    className={`group flex flex-col gap-4 ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl border border-slate-200 bg-white dark:bg-[#1a2634] dark:border-slate-700'} p-4 transition-shadow hover:shadow-md sm:flex-row sm:items-center`}
                   >
                     <div
                       className={`h-16 w-16 shrink-0 rounded-lg ${module.image} flex items-center justify-center`}
@@ -334,7 +343,7 @@ export default async function ProgressPage() {
                       </div>
                       <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
                         <div
-                          className="h-full rounded-full bg-primary"
+                          className={`h-full rounded-full ${isPlayful ? 'bg-gradient-to-r from-pink-400 to-purple-500' : 'bg-primary'}`}
                           style={{ width: `${module.progress}%` }}
                         ></div>
                       </div>
@@ -342,7 +351,7 @@ export default async function ProgressPage() {
                     </div>
                     <Link
                       href={`/student/subjects/${module.id}`}
-                      className="shrink-0 rounded-lg bg-slate-100 px-4 py-2 text-sm font-bold text-slate-900 hover:bg-slate-200 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600 transition-colors"
+                      className={`shrink-0 rounded-lg px-4 py-2 text-sm font-bold transition-colors ${isPlayful ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600' : 'bg-slate-100 text-slate-900 hover:bg-slate-200 dark:bg-slate-700 dark:text-white dark:hover:bg-slate-600'}`}
                     >
                       Resume
                     </Link>
@@ -350,17 +359,19 @@ export default async function ProgressPage() {
                 ))}
               </div>
             ) : (
-              <div className="rounded-xl border border-slate-200 bg-white p-8 text-center dark:bg-[#1a2634] dark:border-slate-700">
+              <div className={`${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl border border-slate-200 bg-white dark:bg-[#1a2634] dark:border-slate-700'} p-8 text-center`}>
                 <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600 mb-4">
                   library_books
                 </span>
-                <p className="text-slate-500 dark:text-slate-400">No active modules yet</p>
+                <p className="text-slate-500 dark:text-slate-400">
+                  {isPlayful ? '\u{1F4DA} No active modules yet!' : 'No active modules yet'}
+                </p>
                 <p className="text-sm text-slate-400 dark:text-slate-500 mt-2">
-                  Start a subject to see your recent activity
+                  {isPlayful ? 'Start a subject and begin your adventure! \u{1F680}' : 'Start a subject to see your recent activity'}
                 </p>
                 <Link
                   href="/student/subjects"
-                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-[#5a0c0e] transition-colors"
+                  className={`mt-4 inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-bold transition-colors ${isPlayful ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600' : 'bg-primary text-white hover:bg-[#5a0c0e]'}`}
                 >
                   Browse Subjects
                   <span className="material-symbols-outlined text-sm">arrow_forward</span>
@@ -373,13 +384,13 @@ export default async function ProgressPage() {
         {/* Right Panel: AI Assistant & Deadlines */}
         <div className="flex flex-col gap-6">
           {/* AI Suggested Plan - Static for now */}
-          <div className="rounded-xl bg-gradient-to-b from-slate-900 to-primary/90 p-6 text-white shadow-lg relative overflow-hidden">
+          <div className={`rounded-xl ${isPlayful ? 'bg-gradient-to-b from-pink-400 to-purple-500' : 'bg-gradient-to-b from-slate-900 to-primary/90'} p-6 text-white shadow-lg relative overflow-hidden`}>
             <div className="absolute -top-10 -right-10 w-40 h-40 bg-white/5 rounded-full blur-3xl"></div>
             <div className="relative z-10 flex items-center gap-3 mb-6">
               <div className="rounded-full bg-white/20 p-2 backdrop-blur-sm">
                 <span className="material-symbols-outlined text-msu-gold">auto_awesome</span>
               </div>
-              <h3 className="text-lg font-bold">AI Study Assistant</h3>
+              <h3 className="text-lg font-bold">{isPlayful ? '\u{1F916} AI Study Buddy' : 'AI Study Assistant'}</h3>
             </div>
             <div className="relative z-10 flex flex-col gap-4">
               <p className="text-sm text-white/80 leading-relaxed">
@@ -413,13 +424,13 @@ export default async function ProgressPage() {
                 </div>
               </div>
             </div>
-            <button className="mt-6 w-full rounded-lg bg-white py-2 text-sm font-bold text-primary hover:bg-slate-100 transition-colors">
+            <button className={`mt-6 w-full rounded-lg py-2 text-sm font-bold transition-colors ${isPlayful ? 'bg-white text-pink-600 hover:bg-pink-50' : 'bg-white text-primary hover:bg-slate-100'}`}>
               Generate New Plan
             </button>
           </div>
 
           {/* Upcoming Deadlines */}
-          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-[#1a2634] dark:border-slate-700">
+          <div className={`${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50 p-6' : 'rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-[#1a2634] dark:border-slate-700'}`}>
             <h3 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">Upcoming Deadlines</h3>
             {upcomingDeadlines.length > 0 ? (
               <div className="flex flex-col gap-4">
@@ -441,7 +452,9 @@ export default async function ProgressPage() {
                 <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600 mb-2">
                   event_available
                 </span>
-                <p className="text-sm text-slate-500 dark:text-slate-400">No upcoming deadlines</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
+                  {isPlayful ? '\u{1F389} No upcoming deadlines! Enjoy your free time!' : 'No upcoming deadlines'}
+                </p>
               </div>
             )}
             <Link

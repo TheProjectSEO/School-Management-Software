@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import MarkdownRenderer from "@/components/ui/MarkdownRenderer";
 import { ActionCardsContainer, ActionCardItem, ActionCardType } from "@/components/ai/ActionCard";
+import { useStudentTheme } from "@/components/student/providers/StudentThemeProvider";
 
 interface ActionCards {
   type: ActionCardType;
@@ -40,6 +41,7 @@ const generalSuggestions = [
 ];
 
 export default function AskAIStandalone() {
+  const { isPlayful } = useStudentTheme();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -152,24 +154,28 @@ export default function AskAIStandalone() {
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 bg-gradient-to-r from-[#7B1113] to-[#5a0c0e] text-white rounded-t-xl">
+      <div className={`flex items-center justify-between p-4 text-white ${isPlayful ? "bg-gradient-to-r from-pink-500 to-purple-500 rounded-t-2xl" : "bg-gradient-to-r from-[#7B1113] to-[#5a0c0e] rounded-t-xl"}`}>
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-white/20 rounded-lg">
+          <div className={`p-2 rounded-lg ${isPlayful ? "bg-white/30" : "bg-white/20"}`}>
             <span className="material-symbols-outlined text-2xl">smart_toy</span>
           </div>
           <div>
             <h1 className="text-xl font-bold">
-              {studentName ? `${studentName}'s AI Assistant` : "AI Learning Assistant"}
+              {isPlayful
+                ? (studentName ? `\u{1F916} ${studentName}'s AI Buddy` : "\u{1F916} Ask AI Buddy")
+                : (studentName ? `${studentName}'s AI Assistant` : "AI Learning Assistant")}
             </h1>
             <p className="text-sm text-white/80">
-              Ask me anything about your courses, progress, or study plans
+              {isPlayful
+                ? "I can help you with your homework!"
+                : "Ask me anything about your courses, progress, or study plans"}
             </p>
           </div>
         </div>
         {messages.length > 0 && (
           <button
             onClick={clearChat}
-            className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm"
+            className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors text-sm ${isPlayful ? "bg-white/20 hover:bg-white/30" : "bg-white/10 hover:bg-white/20"}`}
           >
             <span className="material-symbols-outlined text-lg">refresh</span>
             New Chat
@@ -178,19 +184,21 @@ export default function AskAIStandalone() {
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-white dark:bg-[#1a2634] border-x border-slate-200 dark:border-slate-700">
+      <div className={`flex-1 overflow-y-auto p-4 space-y-4 border-x ${isPlayful ? "bg-gradient-to-br from-pink-50/50 to-purple-50/50 border-pink-200" : "bg-white dark:bg-[#1a2634] border-slate-200 dark:border-slate-700"}`}>
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-[#7B1113]/20 to-[#5a0c0e]/20 flex items-center justify-center mb-6">
-              <span className="material-symbols-outlined text-5xl text-primary">
+            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${isPlayful ? "bg-gradient-to-br from-pink-200 to-purple-200" : "bg-gradient-to-br from-[#7B1113]/20 to-[#5a0c0e]/20"}`}>
+              <span className={`material-symbols-outlined text-5xl ${isPlayful ? "text-purple-500" : "text-primary"}`}>
                 psychology
               </span>
             </div>
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-              Your Personal Learning Assistant
+            <h2 className={`text-xl font-bold mb-2 ${isPlayful ? "text-purple-700" : "text-slate-900 dark:text-white"}`}>
+              {isPlayful ? "\u{1F31F} Your Personal Learning Buddy" : "Your Personal Learning Assistant"}
             </h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-6 max-w-md">
-              I have access to all your courses, grades, progress, and upcoming assessments. Ask me anything about your academic journey!
+            <p className={`mb-6 max-w-md ${isPlayful ? "text-purple-500" : "text-slate-500 dark:text-slate-400"}`}>
+              {isPlayful
+                ? "Hi there! I know all about your classes and grades. Ask me anything and I\u2019ll do my best to help! \u{1F60A}"
+                : "I have access to all your courses, grades, progress, and upcoming assessments. Ask me anything about your academic journey!"}
             </p>
 
             {/* Quick Actions Grid */}
@@ -199,7 +207,7 @@ export default function AskAIStandalone() {
                 <button
                   key={i}
                   onClick={() => askQuestion(action.query)}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r ${action.color} text-white text-sm font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg hover:scale-[1.02]`}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r text-white text-sm font-medium hover:opacity-90 transition-all shadow-md hover:shadow-lg hover:scale-[1.02] ${isPlayful ? "from-pink-500 to-purple-500" : action.color}`}
                 >
                   <span className="material-symbols-outlined">{action.icon}</span>
                   {action.label}
@@ -220,7 +228,7 @@ export default function AskAIStandalone() {
                 <button
                   key={i}
                   onClick={() => askQuestion(q)}
-                  className="px-4 py-2 text-sm rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-[#7B1113]/10 hover:text-primary dark:hover:bg-[#7B1113]/20 dark:hover:text-[#e07a7c] transition-all border border-slate-200 dark:border-slate-700 hover:border-[#7B1113]/30 dark:hover:border-[#7B1113]/50"
+                  className={`px-4 py-2 text-sm rounded-xl transition-all border ${isPlayful ? "bg-pink-50 text-purple-700 border-pink-200 hover:bg-pink-100 hover:border-purple-300 hover:text-purple-800" : "bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-[#7B1113]/10 hover:text-primary dark:hover:bg-[#7B1113]/20 dark:hover:text-[#e07a7c] border-slate-200 dark:border-slate-700 hover:border-[#7B1113]/30 dark:hover:border-[#7B1113]/50"}`}
                 >
                   {q}
                 </button>
@@ -234,15 +242,19 @@ export default function AskAIStandalone() {
                 className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 {message.role === "assistant" && (
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-[#7B1113] to-[#5a0c0e] flex items-center justify-center">
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${isPlayful ? "bg-gradient-to-br from-pink-500 to-purple-500" : "bg-gradient-to-br from-[#7B1113] to-[#5a0c0e]"}`}>
                     <span className="material-symbols-outlined text-white">smart_toy</span>
                   </div>
                 )}
                 <div
                   className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                     message.role === "user"
-                      ? "bg-primary text-white rounded-br-md"
-                      : "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-bl-md"
+                      ? isPlayful
+                        ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-br-md"
+                        : "bg-primary text-white rounded-br-md"
+                      : isPlayful
+                        ? "bg-purple-50 border border-purple-100 text-purple-900 rounded-bl-md"
+                        : "bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-bl-md"
                   }`}
                 >
                   {message.role === "user" ? (
@@ -252,7 +264,7 @@ export default function AskAIStandalone() {
                   )}
                 </div>
                 {message.role === "user" && (
-                  <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                  <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${isPlayful ? "bg-gradient-to-br from-pink-500 to-purple-500" : "bg-primary"}`}>
                     <span className="material-symbols-outlined text-white">person</span>
                   </div>
                 )}
@@ -272,15 +284,15 @@ export default function AskAIStandalone() {
               {/* Follow-up Questions */}
               {message.role === "assistant" && message.followUpQuestions && message.followUpQuestions.length > 0 && (
                 <div className="ml-13 mt-3">
-                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2">
-                    Continue exploring:
+                  <p className={`text-xs font-medium mb-2 ${isPlayful ? "text-purple-500" : "text-slate-500 dark:text-slate-400"}`}>
+                    {isPlayful ? "\u{1F4AD} Keep asking:" : "Continue exploring:"}
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {message.followUpQuestions.map((q, i) => (
                       <button
                         key={i}
                         onClick={() => askQuestion(q)}
-                        className="px-3 py-1.5 text-xs rounded-full bg-[#7B1113]/10 dark:bg-[#7B1113]/20 text-primary dark:text-[#e07a7c] hover:bg-[#7B1113]/20 dark:hover:bg-[#7B1113]/40 transition-colors border border-[#7B1113]/20 dark:border-[#7B1113]/40"
+                        className={`px-3 py-1.5 text-xs rounded-full transition-colors border ${isPlayful ? "bg-pink-50 text-purple-700 border-pink-200 hover:bg-pink-100 hover:border-purple-300" : "bg-[#7B1113]/10 dark:bg-[#7B1113]/20 text-primary dark:text-[#e07a7c] hover:bg-[#7B1113]/20 dark:hover:bg-[#7B1113]/40 border-[#7B1113]/20 dark:border-[#7B1113]/40"}`}
                       >
                         {q}
                       </button>
@@ -295,27 +307,29 @@ export default function AskAIStandalone() {
         {/* Loading indicator */}
         {isLoading && (
           <div className="flex gap-3 justify-start">
-            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-[#7B1113] to-[#5a0c0e] flex items-center justify-center">
+            <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${isPlayful ? "bg-gradient-to-br from-pink-500 to-purple-500" : "bg-gradient-to-br from-[#7B1113] to-[#5a0c0e]"}`}>
               <span className="material-symbols-outlined text-white">smart_toy</span>
             </div>
-            <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl rounded-bl-md px-4 py-3">
+            <div className={`rounded-2xl rounded-bl-md px-4 py-3 ${isPlayful ? "bg-purple-50 border border-purple-100" : "bg-slate-100 dark:bg-slate-800"}`}>
               <div className="flex items-center gap-2">
                 <div className="flex gap-1">
                   <span
-                    className="w-2 h-2 rounded-full bg-primary animate-bounce"
+                    className={`w-2 h-2 rounded-full animate-bounce ${isPlayful ? "bg-pink-500" : "bg-primary"}`}
                     style={{ animationDelay: "0ms" }}
                   />
                   <span
-                    className="w-2 h-2 rounded-full bg-primary animate-bounce"
+                    className={`w-2 h-2 rounded-full animate-bounce ${isPlayful ? "bg-purple-500" : "bg-primary"}`}
                     style={{ animationDelay: "150ms" }}
                   />
                   <span
-                    className="w-2 h-2 rounded-full bg-primary animate-bounce"
+                    className={`w-2 h-2 rounded-full animate-bounce ${isPlayful ? "bg-pink-500" : "bg-primary"}`}
                     style={{ animationDelay: "300ms" }}
                   />
                 </div>
-                <span className="text-xs text-slate-500 dark:text-slate-400 ml-2">
-                  {studentName ? `Analyzing ${studentName}'s learning data...` : "Analyzing your learning data..."}
+                <span className={`text-xs ml-2 ${isPlayful ? "text-purple-500" : "text-slate-500 dark:text-slate-400"}`}>
+                  {isPlayful
+                    ? (studentName ? `Thinking about ${studentName}'s question... \u{1F914}` : "Thinking about your question... \u{1F914}")
+                    : (studentName ? `Analyzing ${studentName}'s learning data...` : "Analyzing your learning data...")}
                 </span>
               </div>
             </div>
@@ -326,7 +340,7 @@ export default function AskAIStandalone() {
       </div>
 
       {/* Input Area */}
-      <form onSubmit={handleSubmit} className="p-4 border border-t-0 border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30 rounded-b-xl">
+      <form onSubmit={handleSubmit} className={`p-4 border border-t-0 ${isPlayful ? "border-pink-200 bg-pink-50/50 rounded-b-2xl" : "border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/30 rounded-b-xl"}`}>
         <div className="flex gap-3">
           <div className="flex-1 relative">
             <textarea
@@ -334,11 +348,11 @@ export default function AskAIStandalone() {
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
-              placeholder="Ask me anything about your courses, progress, or study plans..."
+              placeholder={isPlayful ? "Type your question here! \u{270D}\u{FE0F}" : "Ask me anything about your courses, progress, or study plans..."}
               rows={1}
-              className="w-full resize-none rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 pr-12 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-[#7B1113]/20"
+              className={`w-full resize-none rounded-xl px-4 py-3 pr-12 text-sm focus:outline-none focus:ring-2 ${isPlayful ? "border-2 border-pink-200 bg-white text-purple-900 placeholder:text-pink-400 focus:border-purple-400 focus:ring-purple-300/30" : "border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-primary focus:ring-[#7B1113]/20"}`}
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 text-slate-400">
+            <div className={`absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1 ${isPlayful ? "text-pink-400" : "text-slate-400"}`}>
               <span className="material-symbols-outlined text-sm">lightbulb</span>
               <span className="material-symbols-outlined text-sm">psychology</span>
             </div>
@@ -346,7 +360,7 @@ export default function AskAIStandalone() {
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="px-5 py-3 rounded-xl bg-gradient-to-r from-[#7B1113] to-[#5a0c0e] text-white font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg shadow-[#7B1113]/25 hover:shadow-xl hover:shadow-[#7B1113]/30"
+            className={`px-5 py-3 rounded-xl text-white font-medium hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-lg hover:shadow-xl ${isPlayful ? "bg-gradient-to-r from-pink-500 to-purple-500 shadow-pink-500/25 hover:shadow-purple-500/30" : "bg-gradient-to-r from-[#7B1113] to-[#5a0c0e] shadow-[#7B1113]/25 hover:shadow-[#7B1113]/30"}`}
           >
             <span className="material-symbols-outlined">send</span>
           </button>

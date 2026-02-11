@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentProfile } from "@/lib/dal/auth";
+import { getClassroomTheme } from "@/lib/utils/classroom/theme";
 
 type LiveSession = {
   id: string;
@@ -52,7 +53,7 @@ export default async function LiveSessionsPage() {
 
   const { data: student } = await supabase
     .from("students")
-    .select("id")
+    .select("id, grade_level")
     .eq("profile_id", profile.id)
     .single();
 
@@ -68,6 +69,10 @@ export default async function LiveSessionsPage() {
       </div>
     );
   }
+
+  // Theme: playful for Grade 1-6, professional for Grade 7-12
+  const theme = getClassroomTheme(student.grade_level || '12');
+  const isPlayful = theme.type === 'playful';
 
   const { data: enrollments } = await supabase
     .from("enrollments")
@@ -151,19 +156,21 @@ export default async function LiveSessionsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 lg:p-10">
+    <div className="p-6 lg:p-10">
       <div className="mx-auto max-w-4xl space-y-6">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Live Sessions</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">
+            {isPlayful ? '\u{1F3A5} Live Classes' : 'Live Sessions'}
+          </h1>
           <p className="mt-1 text-sm text-slate-600">
-            Join upcoming and live classes from your enrolled courses.
+            {isPlayful ? 'Watch your classes and join live!' : 'Join upcoming and live classes from your enrolled courses.'}
           </p>
         </div>
 
         {sessions.length === 0 ? (
-          <div className="rounded-xl bg-white p-6 shadow-sm">
+          <div className={`${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50/50 to-purple-50/50 p-6' : 'rounded-xl bg-white p-6 shadow-sm'}`}>
             <p className="text-sm text-slate-600">
-              No live sessions are scheduled yet.
+              {isPlayful ? '\u{1F4FA} No live classes scheduled yet! Check back soon!' : 'No live sessions are scheduled yet.'}
             </p>
             <Link
               href="/student/subjects"
@@ -177,7 +184,7 @@ export default async function LiveSessionsPage() {
             {sessions.map((session) => (
               <div
                 key={session.id}
-                className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
+                className={`${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50/50 to-purple-50/50 p-5' : 'rounded-xl border border-slate-200 bg-white p-5 shadow-sm'}`}
               >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -200,7 +207,15 @@ export default async function LiveSessionsPage() {
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-semibold ${statusStyles[session.status]}`}
                   >
-                    {session.status.toUpperCase()}
+                    {isPlayful
+                      ? session.status === 'live'
+                        ? '\u{1F534} LIVE'
+                        : session.status === 'scheduled'
+                        ? '\u{1F4C5} SCHEDULED'
+                        : session.status === 'ended'
+                        ? '\u2705 ENDED'
+                        : session.status.toUpperCase()
+                      : session.status.toUpperCase()}
                   </span>
                 </div>
 
@@ -229,7 +244,7 @@ export default async function LiveSessionsPage() {
                       href={session.daily_room_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700"
+                      className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold ${isPlayful ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white hover:from-green-500 hover:to-emerald-600' : 'bg-green-600 text-white hover:bg-green-700'}`}
                     >
                       <span className="material-symbols-outlined text-base">videocam</span>
                       Join Live
@@ -241,7 +256,7 @@ export default async function LiveSessionsPage() {
                         href={session.recording_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white hover:bg-purple-700"
+                        className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold ${isPlayful ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600' : 'bg-purple-600 text-white hover:bg-purple-700'}`}
                       >
                         <span className="material-symbols-outlined text-base">play_circle</span>
                         Watch Recording

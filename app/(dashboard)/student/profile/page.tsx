@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentStudent } from "@/lib/dal";
 import { getCurrentUser } from "@/lib/auth/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getClassroomTheme } from "@/lib/utils/classroom/theme";
 import ProfileForm from "./ProfileForm";
 import AvatarUpload from "./AvatarUpload";
 
@@ -31,6 +32,10 @@ export default async function ProfilePage() {
   if (!student) {
     redirect("/login");
   }
+
+  // Theme: playful for Grade 1-6, professional for Grade 7-12
+  const theme = getClassroomTheme(student.grade_level || '12');
+  const isPlayful = theme.type === 'playful';
 
   // Resolve section name from section_id
   let sectionName = "Not assigned";
@@ -63,11 +68,11 @@ export default async function ProfilePage() {
   return (
     <div className="flex flex-col lg:flex-row gap-6 -mx-4 sm:-mx-6 lg:-mx-8 -my-8 min-h-[calc(100vh-4rem)]">
       {/* Settings Sidebar */}
-      <aside className="hidden lg:flex flex-col w-72 border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2634] p-4 overflow-y-auto">
+      <aside className={`hidden lg:flex flex-col w-72 border-r border-slate-200 dark:border-slate-700 ${isPlayful ? 'bg-gradient-to-b from-pink-50 to-purple-50' : 'bg-white dark:bg-[#1a2634]'} p-4 overflow-y-auto`}>
         <div className="flex flex-col h-full justify-between">
           <div className="flex flex-col gap-2">
             <div className="pl-3 pb-4 pt-6">
-              <h1 className="text-primary dark:text-msu-gold text-xs font-bold uppercase tracking-wider">
+              <h1 className={`${isPlayful ? 'text-pink-600' : 'text-primary dark:text-msu-gold'} text-xs font-bold uppercase tracking-wider`}>
                 Settings Menu
               </h1>
             </div>
@@ -77,7 +82,9 @@ export default async function ProfilePage() {
                 href={item.href}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                   item.active
-                    ? "bg-primary/10 text-primary dark:bg-primary/30 dark:text-white border-l-4 border-primary"
+                    ? isPlayful
+                      ? "bg-pink-100 text-pink-700 border-l-4 border-pink-500"
+                      : "bg-primary/10 text-primary dark:bg-primary/30 dark:text-white border-l-4 border-primary"
                     : "hover:bg-slate-100 dark:hover:bg-slate-700 border-l-4 border-transparent hover:border-msu-gold text-slate-600 dark:text-slate-300"
                 }`}
               >
@@ -105,13 +112,13 @@ export default async function ProfilePage() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-[#0f1a24]">
+      <main className={`flex-1 overflow-y-auto ${isPlayful ? 'bg-gradient-to-br from-pink-50/30 to-purple-50/30' : 'bg-slate-50 dark:bg-[#0f1a24]'}`}>
         <div className="max-w-4xl mx-auto pb-20 p-4 sm:p-6 lg:p-8">
           {/* Profile Header Card */}
-          <div className="bg-white dark:bg-[#1a2634] rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 mb-8 overflow-hidden">
+          <div className={`${isPlayful ? 'rounded-2xl border-2 border-pink-200' : 'bg-white dark:bg-[#1a2634] rounded-xl shadow-sm border border-slate-200 dark:border-slate-700'} mb-8 overflow-hidden`}>
             {/* Banner */}
-            <div className="h-32 bg-gradient-to-r from-primary to-[#5a0c0e] relative">
-              <div className="absolute bottom-0 left-0 w-full h-1 bg-msu-gold"></div>
+            <div className={`h-32 ${isPlayful ? 'bg-gradient-to-r from-pink-400 to-purple-500' : 'bg-gradient-to-r from-primary to-[#5a0c0e]'} relative`}>
+              <div className={`absolute bottom-0 left-0 w-full h-1 ${isPlayful ? 'bg-pink-300' : 'bg-msu-gold'}`}></div>
             </div>
 
             {/* Profile Info */}
@@ -124,10 +131,10 @@ export default async function ProfilePage() {
               {/* Academic Info below avatar */}
               <div className="flex items-center gap-4 mt-4">
                 <div className="flex items-center gap-2">
-                  <span className="material-symbols-outlined text-msu-gold text-lg">
+                  <span className={`material-symbols-outlined ${isPlayful ? 'text-pink-500' : 'text-msu-gold'} text-lg`}>
                     school
                   </span>
-                  <p className="text-msu-gold text-base font-semibold">
+                  <p className={`${isPlayful ? 'text-pink-500' : 'text-msu-gold'} text-base font-semibold`}>
                     {profileData.gradeLevel}
                   </p>
                 </div>

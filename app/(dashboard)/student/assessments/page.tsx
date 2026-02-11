@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentStudent, getUpcomingAssessments, getAssessmentStats } from "@/lib/dal";
+import { getClassroomTheme } from "@/lib/utils/classroom/theme";
 
 export const revalidate = 60; // 1 minute - deadlines
 
@@ -79,6 +80,9 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
     redirect("/login");
   }
 
+  const classroomTheme = getClassroomTheme(student.grade_level || '12');
+  const isPlayful = classroomTheme.type === 'playful';
+
   // Fetch all assessments and stats
   const [assessments, stats] = await Promise.all([
     getUpcomingAssessments(student.id, 50),
@@ -138,55 +142,57 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
         {/* Heading */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="flex flex-col gap-2">
-            <h1 className="text-slate-900 dark:text-white text-3xl md:text-4xl font-black leading-tight tracking-tight">
-              Assessments
+            <h1 className={`text-3xl md:text-4xl font-black leading-tight tracking-tight ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+              {isPlayful ? '\u{1F4DD} My Tests' : 'Assessments'}
             </h1>
-            <p className="text-slate-500 dark:text-slate-400 text-base font-normal">
-              Track your quizzes, assignments, and exams across all enrolled courses.
+            <p className={`text-base font-normal ${isPlayful ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}`}>
+              {isPlayful ? 'Let\u2019s check your quizzes and homework!' : 'Track your quizzes, assignments, and exams across all enrolled courses.'}
             </p>
           </div>
           {/* Connectivity indicator */}
-          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-msu-green/10 border border-msu-green/20">
-            <span className="material-symbols-outlined text-msu-green text-[18px]">wifi</span>
-            <span className="text-xs font-medium text-msu-green">Connection Stable</span>
-          </div>
+          {!isPlayful && (
+            <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-msu-green/10 border border-msu-green/20">
+              <span className="material-symbols-outlined text-msu-green text-[18px]">wifi</span>
+              <span className="text-xs font-medium text-msu-green">Connection Stable</span>
+            </div>
+          )}
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="flex flex-col gap-1 rounded-xl p-5 bg-white dark:bg-[#1a2634] shadow-sm border-l-4 border-primary">
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase tracking-wider">
-              Due This Week
+          <div className={`flex flex-col gap-1 p-5 ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl bg-white dark:bg-[#1a2634] shadow-sm border-l-4 border-primary'}`}>
+            <p className={`text-sm font-medium uppercase tracking-wider ${isPlayful ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}`}>
+              {isPlayful ? '\u{26A1} Due This Week' : 'Due This Week'}
             </p>
             <div className="flex items-center gap-2">
-              <p className="text-slate-900 dark:text-white text-3xl font-bold leading-tight">
+              <p className={`text-3xl font-bold leading-tight ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
                 {dueThisWeek}
               </p>
               {urgentCount > 0 && (
-                <span className="text-xs bg-red-50 dark:bg-red-900/30 text-primary dark:text-red-400 px-2 py-0.5 rounded-full font-medium">
-                  {urgentCount} Urgent
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isPlayful ? 'bg-pink-100 text-pink-700' : 'bg-red-50 dark:bg-red-900/30 text-primary dark:text-red-400'}`}>
+                  {isPlayful ? `${urgentCount} Now!` : `${urgentCount} Urgent`}
                 </span>
               )}
             </div>
           </div>
-          <div className="flex flex-col gap-1 rounded-xl p-5 bg-white dark:bg-[#1a2634] shadow-sm border border-slate-100 dark:border-slate-800">
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase tracking-wider">
-              Pending Review
+          <div className={`flex flex-col gap-1 p-5 ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl bg-white dark:bg-[#1a2634] shadow-sm border border-slate-100 dark:border-slate-800'}`}>
+            <p className={`text-sm font-medium uppercase tracking-wider ${isPlayful ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}`}>
+              {isPlayful ? '\u{23F3} Pending Review' : 'Pending Review'}
             </p>
-            <p className="text-slate-900 dark:text-white text-3xl font-bold leading-tight">
+            <p className={`text-3xl font-bold leading-tight ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
               {pendingReview}
             </p>
           </div>
-          <div className="flex flex-col gap-1 rounded-xl p-5 bg-white dark:bg-[#1a2634] shadow-sm border border-slate-100 dark:border-slate-800">
-            <p className="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase tracking-wider">
-              Completed
+          <div className={`flex flex-col gap-1 p-5 ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl bg-white dark:bg-[#1a2634] shadow-sm border border-slate-100 dark:border-slate-800'}`}>
+            <p className={`text-sm font-medium uppercase tracking-wider ${isPlayful ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}`}>
+              {isPlayful ? '\u{1F3C6} Completed' : 'Completed'}
             </p>
             <div className="flex items-center gap-2">
-              <p className="text-slate-900 dark:text-white text-3xl font-bold leading-tight">
+              <p className={`text-3xl font-bold leading-tight ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
                 {stats.completed}
               </p>
               {stats.averageScore && (
-                <span className="text-xs bg-msu-green/10 dark:bg-msu-green/20 text-msu-green px-2 py-0.5 rounded-full font-medium">
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${isPlayful ? 'bg-pink-100 text-pink-700' : 'bg-msu-green/10 dark:bg-msu-green/20 text-msu-green'}`}>
                   Avg: {stats.averageScore}%
                 </span>
               )}
@@ -195,15 +201,17 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
         </div>
 
         {/* Mobile Connectivity indicator */}
-        <div className="md:hidden flex items-center gap-3 p-3 rounded-lg bg-msu-green/10 border border-msu-green/20">
-          <span className="material-symbols-outlined text-msu-green">wifi</span>
-          <div className="flex flex-col">
-            <span className="text-sm font-bold text-msu-green">Connection Stable</span>
-            <span className="text-xs text-msu-green/80">
-              Autosave is active. Resume tokens available.
-            </span>
+        {!isPlayful && (
+          <div className="md:hidden flex items-center gap-3 p-3 rounded-lg bg-msu-green/10 border border-msu-green/20">
+            <span className="material-symbols-outlined text-msu-green">wifi</span>
+            <div className="flex flex-col">
+              <span className="text-sm font-bold text-msu-green">Connection Stable</span>
+              <span className="text-xs text-msu-green/80">
+                Autosave is active. Resume tokens available.
+              </span>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Search and Filter Bar */}
@@ -218,7 +226,7 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
                 href={tab.href}
                 className={`whitespace-nowrap px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
                   isActive
-                    ? 'bg-primary text-white shadow-sm hover:bg-[#5a0c0e]'
+                    ? (isPlayful ? 'bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-sm' : 'bg-primary text-white shadow-sm hover:bg-[#5a0c0e]')
                     : 'bg-white dark:bg-[#1a2634] text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800'
                 }`}
               >
@@ -234,9 +242,15 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
         {/* Immediate Action Section */}
         {immediateAssessments.length > 0 ? (
           <div className="flex flex-col gap-4">
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">priority_high</span>
-              Immediate Action Required
+            <h3 className={`text-xl font-bold flex items-center gap-2 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+              {isPlayful ? (
+                <span>{'\u26A1'} Do These Now!</span>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-primary">priority_high</span>
+                  Immediate Action Required
+                </>
+              )}
             </h3>
 
             {immediateAssessments.map((assessment) => {
@@ -247,8 +261,10 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
               return (
                 <div
                   key={assessment.id}
-                  className={`group relative flex flex-col md:flex-row gap-5 p-5 rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-md transition-all ${
-                    hasSubmission && !isGraded ? "border-l-4 border-l-msu-gold" : "hover:border-primary/30"
+                  className={`group relative flex flex-col md:flex-row gap-5 p-5 shadow-sm hover:shadow-md transition-all ${
+                    isPlayful
+                      ? `rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50/50 to-purple-50/50 ${hasSubmission && !isGraded ? 'border-l-4 border-l-msu-gold' : ''}`
+                      : `rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700 ${hasSubmission && !isGraded ? 'border-l-4 border-l-msu-gold' : 'hover:border-primary/30'}`
                   }`}
                 >
                   <div className="flex-1 flex flex-col gap-2">
@@ -305,12 +321,12 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
                           href={`/student/assessments/${assessment.id}`}
                           className={`w-full font-bold py-2.5 px-4 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 ${
                             timeInfo?.urgent
-                              ? "bg-primary hover:bg-[#5a0c0e] text-white"
+                              ? (isPlayful ? "bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600 text-white" : "bg-primary hover:bg-[#5a0c0e] text-white")
                               : "bg-white dark:bg-transparent border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800"
                           }`}
                         >
-                          Start {assessment.type.charAt(0).toUpperCase() + assessment.type.slice(1)}
-                          {timeInfo?.urgent && (
+                          {isPlayful ? `Go! \u{1F680}` : `Start ${assessment.type.charAt(0).toUpperCase() + assessment.type.slice(1)}`}
+                          {timeInfo?.urgent && !isPlayful && (
                             <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                           )}
                         </Link>
@@ -331,16 +347,26 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-              <span className="material-symbols-outlined text-primary">priority_high</span>
-              Immediate Action Required
+            <h3 className={`text-xl font-bold flex items-center gap-2 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+              {isPlayful ? (
+                <span>{'\u26A1'} Do These Now!</span>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-primary">priority_high</span>
+                  Immediate Action Required
+                </>
+              )}
             </h3>
-            <div className="p-8 rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700 text-center">
-              <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-700 mb-2">
-                check_circle
-              </span>
-              <p className="text-slate-500 dark:text-slate-400 font-medium">
-                No urgent assessments at the moment
+            <div className={`p-8 text-center ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700'}`}>
+              {isPlayful ? (
+                <span className="text-5xl mb-2 block">{'\u2705'}</span>
+              ) : (
+                <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-700 mb-2">
+                  check_circle
+                </span>
+              )}
+              <p className={`font-medium ${isPlayful ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}`}>
+                {isPlayful ? 'All done for now! Great job! \u{1F389}' : 'No urgent assessments at the moment'}
               </p>
             </div>
           </div>
@@ -349,8 +375,8 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
         {/* Upcoming Section */}
         {upcomingAssessments.length > 0 ? (
           <div className="flex flex-col gap-4">
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2 mt-4">
-              Upcoming
+            <h3 className={`text-xl font-bold flex items-center gap-2 mt-4 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+              {isPlayful ? '\u{1F4C5} Coming Up!' : 'Upcoming'}
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {upcomingAssessments.map((assessment) => {
@@ -360,7 +386,7 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
                 return (
                   <div
                     key={assessment.id}
-                    className="flex flex-col justify-between p-5 rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700 shadow-sm"
+                    className={`flex flex-col justify-between p-5 shadow-sm ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50/50 to-purple-50/50' : 'rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700'}`}
                   >
                     <div className="flex flex-col gap-3">
                       <div className="flex justify-between items-start">
@@ -404,15 +430,19 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2 mt-4">
-              Upcoming
+            <h3 className={`text-xl font-bold flex items-center gap-2 mt-4 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+              {isPlayful ? '\u{1F4C5} Coming Up!' : 'Upcoming'}
             </h3>
-            <div className="p-8 rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700 text-center">
-              <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-700 mb-2">
-                event
-              </span>
-              <p className="text-slate-500 dark:text-slate-400 font-medium">
-                No upcoming assessments
+            <div className={`p-8 text-center ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700'}`}>
+              {isPlayful ? (
+                <span className="text-5xl mb-2 block">{'\u{1F4C5}'}</span>
+              ) : (
+                <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-700 mb-2">
+                  event
+                </span>
+              )}
+              <p className={`font-medium ${isPlayful ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}`}>
+                {isPlayful ? 'Nothing coming up! Enjoy your free time! \u{1F60A}' : 'No upcoming assessments'}
               </p>
             </div>
           </div>
@@ -421,10 +451,10 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
         {/* Recent Feedback Section */}
         {feedbackAssessments.length > 0 ? (
           <div className="flex flex-col gap-4">
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2 mt-4">
-              Recent Feedback
+            <h3 className={`text-xl font-bold flex items-center gap-2 mt-4 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+              {isPlayful ? '\u2B50 Your Results!' : 'Recent Feedback'}
             </h3>
-            <div className="bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+            <div className={`shadow-sm overflow-hidden ${isPlayful ? 'bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200' : 'bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700'}`}>
               <div className="grid grid-cols-1 divide-y divide-slate-100 dark:divide-slate-800">
                 {feedbackAssessments.map((assessment) => {
                   const submission = assessment.submission!;
@@ -484,41 +514,49 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
           </div>
         ) : (
           <div className="flex flex-col gap-4">
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2 mt-4">
-              Recent Feedback
+            <h3 className={`text-xl font-bold flex items-center gap-2 mt-4 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+              {isPlayful ? '\u2B50 Your Results!' : 'Recent Feedback'}
             </h3>
-            <div className="p-8 rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700 text-center">
-              <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-700 mb-2">
-                rate_review
-              </span>
-              <p className="text-slate-500 dark:text-slate-400 font-medium">
-                No graded assessments yet
+            <div className={`p-8 text-center ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700'}`}>
+              {isPlayful ? (
+                <span className="text-5xl mb-2 block">{'\u2B50'}</span>
+              ) : (
+                <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-700 mb-2">
+                  rate_review
+                </span>
+              )}
+              <p className={`font-medium ${isPlayful ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}`}>
+                {isPlayful ? 'No results yet! Keep working hard! \u{1F4AA}' : 'No graded assessments yet'}
               </p>
             </div>
           </div>
         )}
 
         {/* Resume Token Banner */}
-        <div className="mt-4 p-4 rounded-lg bg-msu-gold/10 dark:bg-msu-gold/5 border border-msu-gold/30 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+        <div className={`mt-4 p-4 flex flex-col md:flex-row gap-4 items-start md:items-center justify-between ${isPlayful ? 'rounded-2xl bg-gradient-to-r from-pink-100 to-purple-100 border-2 border-pink-200' : 'rounded-lg bg-msu-gold/10 dark:bg-msu-gold/5 border border-msu-gold/30'}`}>
           <div className="flex gap-4">
-            <div className="text-msu-gold shrink-0">
-              <span className="material-symbols-outlined text-3xl">token</span>
+            <div className={`shrink-0 ${isPlayful ? 'text-pink-500' : 'text-msu-gold'}`}>
+              {isPlayful ? (
+                <span className="text-3xl">{'\u{1F3AE}'}</span>
+              ) : (
+                <span className="material-symbols-outlined text-3xl">token</span>
+              )}
             </div>
             <div className="flex flex-col gap-1">
-              <p className="text-slate-900 dark:text-white text-base font-bold leading-tight">
-                Resume tokens available
+              <p className={`text-base font-bold leading-tight ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+                {isPlayful ? 'Extra lives available!' : 'Resume tokens available'}
               </p>
-              <p className="text-yellow-800 dark:text-yellow-200/70 text-sm font-normal leading-normal">
-                Your account has 3 resume tokens left for unstable connections during exams.
+              <p className={`text-sm font-normal leading-normal ${isPlayful ? 'text-purple-700' : 'text-yellow-800 dark:text-yellow-200/70'}`}>
+                {isPlayful ? 'You have 3 extra chances if your internet gets wobbly during a test!' : 'Your account has 3 resume tokens left for unstable connections during exams.'}
               </p>
             </div>
           </div>
           <Link
             href="/student/help"
-            className="text-sm font-bold leading-normal tracking-wide flex gap-2 text-yellow-900 dark:text-yellow-100 whitespace-nowrap hover:underline"
+            className={`text-sm font-bold leading-normal tracking-wide flex gap-2 whitespace-nowrap hover:underline ${isPlayful ? 'text-pink-700' : 'text-yellow-900 dark:text-yellow-100'}`}
           >
-            Learn about proctoring
-            <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
+            {isPlayful ? 'Learn more \u{1F4A1}' : 'Learn about proctoring'}
+            {!isPlayful && <span className="material-symbols-outlined text-[20px]">arrow_forward</span>}
           </Link>
         </div>
       </div>

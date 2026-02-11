@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentStudent, getStudentSubjects } from "@/lib/dal";
 import { redirect } from "next/navigation";
 import { SubjectSearchFilter } from "./SubjectSearchFilter";
+import { getClassroomTheme } from "@/lib/utils/classroom/theme";
 
 export const revalidate = 180; // 3 minutes - enrollment list
 
@@ -52,6 +53,9 @@ export default async function SubjectsPage({ searchParams }: PageProps) {
     redirect("/login");
   }
 
+  const theme = getClassroomTheme(student.grade_level || '12');
+  const isPlayful = theme.type === 'playful';
+
   const enrollments = await getStudentSubjects(student.id);
 
   // Map enrollments to subjects with calculated data
@@ -96,17 +100,19 @@ export default async function SubjectsPage({ searchParams }: PageProps) {
       {/* Header */}
       <div className="flex flex-wrap justify-between items-end gap-4 mb-8">
         <div>
-          <h1 className="text-slate-900 dark:text-white text-3xl md:text-4xl font-bold leading-tight tracking-tight">
-            My Subjects
+          <h1 className={`text-3xl md:text-4xl font-bold leading-tight tracking-tight ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+            {isPlayful ? '\u{1F4DA} My Subjects' : 'My Subjects'}
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-base mt-2">
-            Track your progress, join live classes, and manage pending work.
+          <p className={`text-base mt-2 ${isPlayful ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}`}>
+            {isPlayful ? 'Let\u2019s see what we\u2019re learning today!' : 'Track your progress, join live classes, and manage pending work.'}
           </p>
         </div>
-        <button className="size-10 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary transition-colors shadow-sm relative">
-          <span className="material-symbols-outlined text-[22px]">notifications</span>
-          <span className="absolute top-2 right-2 size-2 bg-msu-gold rounded-full border border-white dark:border-slate-800"></span>
-        </button>
+        {!isPlayful && (
+          <button className="size-10 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary transition-colors shadow-sm relative">
+            <span className="material-symbols-outlined text-[22px]">notifications</span>
+            <span className="absolute top-2 right-2 size-2 bg-msu-gold rounded-full border border-white dark:border-slate-800"></span>
+          </button>
+        )}
       </div>
 
       {/* Search and Filters */}
@@ -114,15 +120,19 @@ export default async function SubjectsPage({ searchParams }: PageProps) {
 
       {/* Subject Cards */}
       {subjects.length === 0 ? (
-        <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-          <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600 mb-4">
-            school
-          </span>
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-            No Subjects Yet
+        <div className={`text-center py-16 ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700'}`}>
+          {isPlayful ? (
+            <span className="text-6xl mb-4 block">{'\u{1F4DA}'}</span>
+          ) : (
+            <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600 mb-4">
+              school
+            </span>
+          )}
+          <h3 className={`text-xl font-bold mb-2 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+            {isPlayful ? 'No Subjects Yet!' : 'No Subjects Yet'}
           </h3>
-          <p className="text-slate-500 dark:text-slate-400">
-            You are not enrolled in any subjects. Contact your administrator.
+          <p className={isPlayful ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}>
+            {isPlayful ? 'You don\u2019t have any subjects yet. Ask your teacher!' : 'You are not enrolled in any subjects. Contact your administrator.'}
           </p>
         </div>
       ) : (
@@ -131,7 +141,7 @@ export default async function SubjectsPage({ searchParams }: PageProps) {
             <Link
               key={subject.id}
               href={`/student/subjects/${subject.id}`}
-              className={`group bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 border-l-4 ${subject.theme.border} overflow-hidden shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200 flex flex-col p-5`}
+              className={`group border-l-4 ${subject.theme.border} overflow-hidden shadow-sm transition-all duration-200 flex flex-col p-5 ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50/50 to-purple-50/50 hover:shadow-lg hover:scale-[1.02]' : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 hover:shadow-md hover:border-slate-300 dark:hover:border-slate-600'}`}
             >
               {/* Top row: Icon + Name + Status badge */}
               <div className="flex items-start gap-3.5 mb-4">
@@ -150,16 +160,16 @@ export default async function SubjectsPage({ searchParams }: PageProps) {
                     </h3>
                     {/* Status pill */}
                     {subject.progress >= 100 ? (
-                      <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
-                        Completed
+                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${isPlayful ? 'bg-green-100 text-green-700' : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'}`}>
+                        {isPlayful ? '\u2705 Done!' : 'Completed'}
                       </span>
                     ) : subject.progress > 0 ? (
-                      <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                        In Progress
+                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${isPlayful ? 'bg-pink-100 text-pink-700' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                        {isPlayful ? '\u{1F504} Going!' : 'In Progress'}
                       </span>
                     ) : (
-                      <span className="shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400">
-                        Not Started
+                      <span className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide ${isPlayful ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-500 dark:bg-slate-700 dark:text-slate-400'}`}>
+                        {isPlayful ? '\u{1F195} New!' : 'Not Started'}
                       </span>
                     )}
                   </div>
@@ -198,10 +208,10 @@ export default async function SubjectsPage({ searchParams }: PageProps) {
 
               {/* Action row */}
               <div className="mt-auto pt-2 flex items-center justify-between">
-                <span className="text-sm font-medium text-slate-700 dark:text-slate-300 group-hover:text-primary transition-colors">
-                  {subject.progress > 0 ? "Continue Module" : "Start Learning"}
+                <span className={`text-sm font-medium transition-colors ${isPlayful ? 'text-purple-700 group-hover:text-pink-600' : 'text-slate-700 dark:text-slate-300 group-hover:text-primary'}`}>
+                  {isPlayful ? (subject.progress > 0 ? 'Keep Going! \u{1F680}' : 'Let\u2019s Start! \u{1F31F}') : (subject.progress > 0 ? 'Continue Module' : 'Start Learning')}
                 </span>
-                <span className="material-symbols-outlined text-[18px] text-slate-400 group-hover:text-primary group-hover:translate-x-0.5 transition-all">
+                <span className={`material-symbols-outlined text-[18px] group-hover:translate-x-0.5 transition-all ${isPlayful ? 'text-pink-400 group-hover:text-pink-600' : 'text-slate-400 group-hover:text-primary'}`}>
                   arrow_forward
                 </span>
               </div>

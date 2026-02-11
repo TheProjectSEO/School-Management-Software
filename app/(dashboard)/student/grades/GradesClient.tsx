@@ -9,6 +9,7 @@ import {
   GPAHistoryChart,
   GradeHistoryModal,
 } from "@/components/grades";
+import { useStudentTheme } from "@/components/student/providers/StudentThemeProvider";
 import type { CourseGrade, SemesterGPA, GPATrendPoint } from "@/lib/dal/types/grades";
 
 type TabType = "current" | "gpa" | "report-cards";
@@ -34,6 +35,7 @@ export default function GradesClient({
   gradingPeriods,
   studentId,
 }: GradesClientProps) {
+  const { isPlayful } = useStudentTheme();
   const [activeTab, setActiveTab] = useState<TabType>("current");
   const [selectedPeriod, setSelectedPeriod] = useState<string>("");
   const [grades, setGrades] = useState<CourseGrade[]>(initialGrades);
@@ -86,24 +88,30 @@ export default function GradesClient({
       {/* Page Header */}
       <div className="flex flex-wrap justify-between items-end gap-4 mb-8">
         <div>
-          <h1 className="text-slate-900 dark:text-white text-3xl md:text-4xl font-bold leading-tight tracking-tight">
-            My Grades
+          <h1 className={`text-3xl md:text-4xl font-bold leading-tight tracking-tight ${isPlayful ? "text-purple-900" : "text-slate-900 dark:text-white"}`}>
+            {isPlayful ? "\u2B50 My Stars" : "My Grades"}
           </h1>
-          <p className="text-slate-500 dark:text-slate-400 text-base mt-2">
-            View your academic performance and GPA history.
+          <p className={`text-base mt-2 ${isPlayful ? "text-purple-600" : "text-slate-500 dark:text-slate-400"}`}>
+            {isPlayful
+              ? "\u{1F31F} See how awesome you're doing in your classes!"
+              : "View your academic performance and GPA history."}
           </p>
         </div>
 
         {/* Period Selector */}
         {gradingPeriods.length > 0 && (
           <div className="flex items-center gap-3">
-            <label className="text-sm font-medium text-slate-600 dark:text-slate-400">
-              Period:
+            <label className={`text-sm font-medium ${isPlayful ? "text-purple-700" : "text-slate-600 dark:text-slate-400"}`}>
+              {isPlayful ? "\u{1F4C5} Period:" : "Period:"}
             </label>
             <select
               value={selectedPeriod}
               onChange={(e) => handlePeriodChange(e.target.value)}
-              className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium text-sm focus:outline-none focus:ring-2 focus:ring-primary/20"
+              className={`px-4 py-2 font-medium text-sm focus:outline-none focus:ring-2 ${
+                isPlayful
+                  ? "rounded-xl border-2 border-pink-200 bg-white text-purple-900 focus:ring-pink-300/40"
+                  : "rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:ring-primary/20"
+              }`}
             >
               <option value="">All Periods</option>
               {gradingPeriods.map((period) => (
@@ -120,36 +128,66 @@ export default function GradesClient({
       <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
         <button
           onClick={() => setActiveTab("current")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-2 px-4 py-2.5 font-bold text-sm transition-colors whitespace-nowrap ${
+            isPlayful ? "rounded-xl" : "rounded-lg"
+          } ${
             activeTab === "current"
-              ? "bg-primary text-white"
-              : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+              ? isPlayful
+                ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-md"
+                : "bg-primary text-white"
+              : isPlayful
+                ? "bg-white border-2 border-pink-200 text-purple-700 hover:bg-pink-50"
+                : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
           }`}
         >
-          <span className="material-symbols-outlined text-[20px]">grade</span>
-          <span>Current Grades</span>
+          {isPlayful ? (
+            <span className="text-[20px]">{"\u2B50"}</span>
+          ) : (
+            <span className="material-symbols-outlined text-[20px]">grade</span>
+          )}
+          <span>{isPlayful ? "My Stars" : "Current Grades"}</span>
         </button>
         <button
           onClick={() => setActiveTab("gpa")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-2 px-4 py-2.5 font-bold text-sm transition-colors whitespace-nowrap ${
+            isPlayful ? "rounded-xl" : "rounded-lg"
+          } ${
             activeTab === "gpa"
-              ? "bg-primary text-white"
-              : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+              ? isPlayful
+                ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-md"
+                : "bg-primary text-white"
+              : isPlayful
+                ? "bg-white border-2 border-pink-200 text-purple-700 hover:bg-pink-50"
+                : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
           }`}
         >
-          <span className="material-symbols-outlined text-[20px]">analytics</span>
-          <span>GPA History</span>
+          {isPlayful ? (
+            <span className="text-[20px]">{"\u{1F4CA}"}</span>
+          ) : (
+            <span className="material-symbols-outlined text-[20px]">analytics</span>
+          )}
+          <span>{isPlayful ? "Score History" : "GPA History"}</span>
         </button>
         <Link
           href="/student/grades/report-cards"
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-bold text-sm transition-colors whitespace-nowrap ${
+          className={`flex items-center gap-2 px-4 py-2.5 font-bold text-sm transition-colors whitespace-nowrap ${
+            isPlayful ? "rounded-xl" : "rounded-lg"
+          } ${
             activeTab === "report-cards"
-              ? "bg-primary text-white"
-              : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
+              ? isPlayful
+                ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white shadow-md"
+                : "bg-primary text-white"
+              : isPlayful
+                ? "bg-white border-2 border-pink-200 text-purple-700 hover:bg-pink-50"
+                : "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700"
           }`}
         >
-          <span className="material-symbols-outlined text-[20px]">description</span>
-          <span>Report Cards</span>
+          {isPlayful ? (
+            <span className="text-[20px]">{"\u{1F4DD}"}</span>
+          ) : (
+            <span className="material-symbols-outlined text-[20px]">description</span>
+          )}
+          <span>{isPlayful ? "Report Cards" : "Report Cards"}</span>
         </Link>
       </div>
 
@@ -167,11 +205,11 @@ export default function GradesClient({
             {/* Course Grades List */}
             <div>
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-slate-900 dark:text-white">
-                  Course Grades
+                <h2 className={`text-xl font-bold ${isPlayful ? "text-purple-900" : "text-slate-900 dark:text-white"}`}>
+                  {isPlayful ? "\u{1F4DA} My Subjects" : "Course Grades"}
                 </h2>
-                <span className="text-sm text-slate-500 dark:text-slate-400">
-                  {grades.length} course{grades.length !== 1 ? "s" : ""}
+                <span className={`text-sm ${isPlayful ? "text-purple-500 font-semibold" : "text-slate-500 dark:text-slate-400"}`}>
+                  {grades.length} {isPlayful ? "subject" : "course"}{grades.length !== 1 ? "s" : ""}
                 </span>
               </div>
 
@@ -192,15 +230,27 @@ export default function GradesClient({
                   ))}
                 </div>
               ) : (
-                <div className="rounded-xl border border-slate-200 bg-white p-8 shadow-sm dark:bg-[#1a2634] dark:border-slate-700 text-center">
-                  <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600 mb-4">
-                    school
-                  </span>
-                  <p className="text-slate-500 dark:text-slate-400 font-medium">
-                    No grades available for this period
+                <div className={`p-8 shadow-sm text-center ${
+                  isPlayful
+                    ? "rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50"
+                    : "rounded-xl border border-slate-200 bg-white dark:bg-[#1a2634] dark:border-slate-700"
+                }`}>
+                  {isPlayful ? (
+                    <span className="text-6xl block mb-4">{"\u{1F31F}"}</span>
+                  ) : (
+                    <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600 mb-4">
+                      school
+                    </span>
+                  )}
+                  <p className={`font-medium ${isPlayful ? "text-purple-700" : "text-slate-500 dark:text-slate-400"}`}>
+                    {isPlayful
+                      ? "No stars yet for this period!"
+                      : "No grades available for this period"}
                   </p>
-                  <p className="text-sm text-slate-400 dark:text-slate-500 mt-2">
-                    Grades will appear here once they are released
+                  <p className={`text-sm mt-2 ${isPlayful ? "text-purple-500" : "text-slate-400 dark:text-slate-500"}`}>
+                    {isPlayful
+                      ? "\u{1F680} Your stars will show up once your teacher adds them!"
+                      : "Grades will appear here once they are released"}
                   </p>
                 </div>
               )}
@@ -215,13 +265,19 @@ export default function GradesClient({
               <GPADisplay gpaData={initialGPA} showDetails={true} />
 
               {/* GPA Quick Stats */}
-              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:bg-[#1a2634] dark:border-slate-700">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-6">
-                  GPA Summary
+              <div className={`p-6 shadow-sm ${
+                isPlayful
+                  ? "rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50"
+                  : "rounded-xl border border-slate-200 bg-white dark:bg-[#1a2634] dark:border-slate-700"
+              }`}>
+                <h3 className={`text-lg font-bold mb-6 ${isPlayful ? "text-purple-900" : "text-slate-900 dark:text-white"}`}>
+                  {isPlayful ? "\u{1F3C6} Score Summary" : "GPA Summary"}
                 </h3>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-700">
-                    <span className="text-slate-600 dark:text-slate-400">Highest Term GPA</span>
+                  <div className={`flex items-center justify-between py-3 border-b ${isPlayful ? "border-pink-200" : "border-slate-100 dark:border-slate-700"}`}>
+                    <span className={isPlayful ? "text-purple-700" : "text-slate-600 dark:text-slate-400"}>
+                      {isPlayful ? "\u2B50 Best Score" : "Highest Term GPA"}
+                    </span>
                     <span className="font-bold text-msu-green dark:text-green-400">
                       {initialTrend.length > 0
                         ? Math.max(
@@ -230,9 +286,11 @@ export default function GradesClient({
                         : "N/A"}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-700">
-                    <span className="text-slate-600 dark:text-slate-400">Lowest Term GPA</span>
-                    <span className="font-bold text-slate-900 dark:text-white">
+                  <div className={`flex items-center justify-between py-3 border-b ${isPlayful ? "border-pink-200" : "border-slate-100 dark:border-slate-700"}`}>
+                    <span className={isPlayful ? "text-purple-700" : "text-slate-600 dark:text-slate-400"}>
+                      {isPlayful ? "\u{1F4AA} Keep Going Score" : "Lowest Term GPA"}
+                    </span>
+                    <span className={`font-bold ${isPlayful ? "text-purple-900" : "text-slate-900 dark:text-white"}`}>
                       {initialTrend.length > 0
                         ? Math.min(
                             ...initialTrend
@@ -242,15 +300,19 @@ export default function GradesClient({
                         : "N/A"}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between py-3 border-b border-slate-100 dark:border-slate-700">
-                    <span className="text-slate-600 dark:text-slate-400">Terms Completed</span>
-                    <span className="font-bold text-slate-900 dark:text-white">
+                  <div className={`flex items-center justify-between py-3 border-b ${isPlayful ? "border-pink-200" : "border-slate-100 dark:border-slate-700"}`}>
+                    <span className={isPlayful ? "text-purple-700" : "text-slate-600 dark:text-slate-400"}>
+                      {isPlayful ? "\u{1F4C5} Terms Done" : "Terms Completed"}
+                    </span>
+                    <span className={`font-bold ${isPlayful ? "text-purple-900" : "text-slate-900 dark:text-white"}`}>
                       {initialTrend.length}
                     </span>
                   </div>
                   <div className="flex items-center justify-between py-3">
-                    <span className="text-slate-600 dark:text-slate-400">Total Credits Earned</span>
-                    <span className="font-bold text-slate-900 dark:text-white">
+                    <span className={isPlayful ? "text-purple-700" : "text-slate-600 dark:text-slate-400"}>
+                      {isPlayful ? "\u{1F3AF} Credits Earned" : "Total Credits Earned"}
+                    </span>
+                    <span className={`font-bold ${isPlayful ? "text-purple-900" : "text-slate-900 dark:text-white"}`}>
                       {initialGPA?.cumulative_credits_earned ?? 0}
                     </span>
                   </div>

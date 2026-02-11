@@ -12,6 +12,7 @@ import { ReadReceiptTicks, getMessageStatus } from "@/components/ui/ReadReceiptT
 import { OnlineStatus } from "@/components/ui/OnlineIndicator";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import { playMessageSound } from "@/lib/utils/notificationSound";
+import { useStudentTheme } from "@/components/student/providers/StudentThemeProvider";
 
 interface GroupChat {
   id: string;
@@ -54,6 +55,7 @@ export function MessagesClient({
   schoolId,
   profileId,
 }: MessagesClientProps) {
+  const { isPlayful } = useStudentTheme();
   const [conversations, setConversations] = useState(initialConversations);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<RealtimeMessage[]>([]);
@@ -642,18 +644,26 @@ export function MessagesClient({
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Messages</h1>
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+            {isPlayful ? "\u{1F4AC} Messages" : "Messages"}
+          </h1>
           <p className="text-slate-600 dark:text-slate-400 text-sm">
-            Chat with teachers, classmates, and section groups
+            {isPlayful
+              ? "Talk to your teachers and friends!"
+              : "Chat with teachers, classmates, and section groups"}
           </p>
         </div>
         {activeTab === "direct" && (
           <button
             onClick={() => setShowNewConversation(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              isPlayful
+                ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600"
+                : "bg-primary text-white hover:bg-primary/90"
+            }`}
           >
             <span className="material-symbols-outlined text-xl">add</span>
-            New Message
+            {isPlayful ? "New Chat" : "New Message"}
           </button>
         )}
       </div>
@@ -661,13 +671,21 @@ export function MessagesClient({
       {/* Main Content */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0 overflow-hidden">
         {/* Conversations List */}
-        <div className="lg:col-span-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col max-h-full overflow-hidden">
+        <div className={`lg:col-span-1 flex flex-col max-h-full overflow-hidden ${
+          isPlayful
+            ? "bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200"
+            : "bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700"
+        }`}>
           <div className="p-4 border-b border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold text-slate-900 dark:text-white">
                 Conversations
                 {initialUnreadCount > 0 && (
-                  <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-primary text-white rounded-full">
+                  <span className={`ml-2 px-2 py-0.5 text-xs font-bold rounded-full ${
+                    isPlayful
+                      ? "bg-pink-500 text-white"
+                      : "bg-primary text-white"
+                  }`}>
                     {initialUnreadCount}
                   </span>
                 )}
@@ -714,18 +732,30 @@ export function MessagesClient({
               conversations.length === 0 ? (
                 <div className="p-8 text-center text-slate-500">
                   <span className="material-symbols-outlined text-5xl mb-3">chat</span>
-                  <p>No conversations yet</p>
-                  <p className="text-sm mt-1">Start by messaging a teacher or classmate</p>
+                  <p>{isPlayful ? "\u{1F4AD} No chats yet!" : "No conversations yet"}</p>
+                  <p className="text-sm mt-1">
+                    {isPlayful
+                      ? "Send a message to your teacher or a classmate!"
+                      : "Start by messaging a teacher or classmate"}
+                  </p>
                 </div>
               ) : (
                 conversations.map((conversation) => (
                   <button
                     key={conversation.partner_profile_id}
                     onClick={() => handleSelectConversation(conversation)}
-                    className={`w-full p-4 text-left border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
-                      selectedConversation?.partner_profile_id === conversation.partner_profile_id
-                        ? "bg-primary/5 border-l-4 border-l-primary"
-                        : ""
+                    className={`w-full p-4 text-left border-b transition-colors ${
+                      isPlayful
+                        ? `border-pink-100 hover:bg-pink-100/50 ${
+                            selectedConversation?.partner_profile_id === conversation.partner_profile_id
+                              ? "bg-pink-100/70 border-l-4 border-l-pink-500"
+                              : ""
+                          }`
+                        : `border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 ${
+                            selectedConversation?.partner_profile_id === conversation.partner_profile_id
+                              ? "bg-primary/5 border-l-4 border-l-primary"
+                              : ""
+                          }`
                     }`}
                   >
                     <div className="flex items-start gap-3">
@@ -762,7 +792,11 @@ export function MessagesClient({
                             </span>
                           </div>
                           {conversation.unread_count > 0 && (
-                            <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold bg-msu-gold text-black rounded-full">
+                            <span className={`ml-2 px-1.5 py-0.5 text-[10px] font-bold rounded-full ${
+                              isPlayful
+                                ? "bg-pink-500 text-white"
+                                : "bg-msu-gold text-black"
+                            }`}>
                               {conversation.unread_count}
                             </span>
                           )}
@@ -786,18 +820,30 @@ export function MessagesClient({
               groupChats.length === 0 ? (
                 <div className="p-8 text-center text-slate-500">
                   <span className="material-symbols-outlined text-5xl mb-3">groups</span>
-                  <p>No section group chats yet</p>
-                  <p className="text-sm mt-1">Group chats are created when you&apos;re enrolled in a section</p>
+                  <p>{isPlayful ? "\u{1F465} No group chats yet!" : "No section group chats yet"}</p>
+                  <p className="text-sm mt-1">
+                    {isPlayful
+                      ? "You'll get group chats when you join a section!"
+                      : "Group chats are created when you\u0027re enrolled in a section"}
+                  </p>
                 </div>
               ) : (
                 groupChats.map((group) => (
                   <button
                     key={group.id}
                     onClick={() => handleSelectGroupChat(group)}
-                    className={`w-full p-4 text-left border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
-                      selectedGroupChat?.id === group.id
-                        ? "bg-primary/5 border-l-4 border-l-primary"
-                        : ""
+                    className={`w-full p-4 text-left border-b transition-colors ${
+                      isPlayful
+                        ? `border-pink-100 hover:bg-pink-100/50 ${
+                            selectedGroupChat?.id === group.id
+                              ? "bg-pink-100/70 border-l-4 border-l-pink-500"
+                              : ""
+                          }`
+                        : `border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 ${
+                            selectedGroupChat?.id === group.id
+                              ? "bg-primary/5 border-l-4 border-l-primary"
+                              : ""
+                          }`
                     }`}
                   >
                     <div className="flex items-start gap-3">
@@ -832,7 +878,11 @@ export function MessagesClient({
         </div>
 
         {/* Chat View */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col max-h-full overflow-hidden">
+        <div className={`lg:col-span-2 flex flex-col max-h-full overflow-hidden ${
+          isPlayful
+            ? "bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200"
+            : "bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700"
+        }`}>
           {selectedConversation ? (
             <>
               {/* Chat Header */}
@@ -890,9 +940,11 @@ export function MessagesClient({
                 ) : messages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-slate-500">
                     <span className="material-symbols-outlined text-5xl mb-3">waving_hand</span>
-                    <p>Start the conversation!</p>
+                    <p>{isPlayful ? "\u{1F44B} Say hello!" : "Start the conversation!"}</p>
                     <p className="text-sm mt-1">
-                      Send your first message to {selectedConversation.partner_name}
+                      {isPlayful
+                        ? `Send a friendly message to ${selectedConversation.partner_name}!`
+                        : `Send your first message to ${selectedConversation.partner_name}`}
                     </p>
                   </div>
                 ) : (
@@ -908,8 +960,12 @@ export function MessagesClient({
                           <div
                             className={`px-4 py-3 rounded-2xl ${
                               isOwn
-                                ? "bg-primary text-white rounded-br-md"
-                                : "bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-bl-md"
+                                ? isPlayful
+                                  ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-br-md"
+                                  : "bg-primary text-white rounded-br-md"
+                                : isPlayful
+                                  ? "bg-white/80 border border-pink-200 text-slate-900 rounded-bl-md"
+                                  : "bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-bl-md"
                             }`}
                           >
                             <p className="whitespace-pre-wrap">{message.body}</p>
@@ -958,15 +1014,23 @@ export function MessagesClient({
                         handleSend();
                       }
                     }}
-                    placeholder="Type a message... (Shift+Enter for new line)"
+                    placeholder={isPlayful ? "Type something fun! (Shift+Enter for new line)" : "Type a message... (Shift+Enter for new line)"}
                     rows={2}
-                    className="flex-1 px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                    className={`flex-1 px-4 py-3 rounded-lg border text-slate-900 dark:text-white focus:outline-none focus:ring-2 resize-none ${
+                      isPlayful
+                        ? "border-pink-200 bg-white focus:ring-pink-400"
+                        : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 focus:ring-primary"
+                    }`}
                     disabled={isSending}
                   />
                   <button
                     onClick={handleSend}
                     disabled={isSending || !messageInput.trim()}
-                    className="px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className={`px-4 py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                      isPlayful
+                        ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600"
+                        : "bg-primary text-white hover:bg-primary/90"
+                    }`}
                   >
                     {isSending ? (
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
@@ -1007,8 +1071,12 @@ export function MessagesClient({
                 ) : groupMessages.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-slate-500">
                     <span className="material-symbols-outlined text-5xl mb-3">forum</span>
-                    <p>No messages yet</p>
-                    <p className="text-sm mt-1">Start the conversation in this group!</p>
+                    <p>{isPlayful ? "\u{1F389} Be the first to say hi!" : "No messages yet"}</p>
+                    <p className="text-sm mt-1">
+                      {isPlayful
+                        ? "Type a message and talk to your group!"
+                        : "Start the conversation in this group!"}
+                    </p>
                   </div>
                 ) : (
                   groupMessages.map((message) => {
@@ -1038,8 +1106,12 @@ export function MessagesClient({
                           <div
                             className={`px-4 py-3 rounded-2xl ${
                               isOwnMessage
-                                ? "bg-primary text-white rounded-br-md"
-                                : "bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-bl-md"
+                                ? isPlayful
+                                  ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white rounded-br-md"
+                                  : "bg-primary text-white rounded-br-md"
+                                : isPlayful
+                                  ? "bg-white/80 border border-pink-200 text-slate-900 rounded-bl-md"
+                                  : "bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-bl-md"
                             }`}
                           >
                             {!isOwnMessage && (
@@ -1084,7 +1156,11 @@ export function MessagesClient({
                   <button
                     onClick={handleSendGroupMessage}
                     disabled={isSending || !messageInput.trim()}
-                    className="px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className={`px-4 py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors ${
+                      isPlayful
+                        ? "bg-gradient-to-r from-pink-500 to-purple-500 text-white hover:from-pink-600 hover:to-purple-600"
+                        : "bg-primary text-white hover:bg-primary/90"
+                    }`}
                   >
                     {isSending ? (
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
@@ -1098,8 +1174,14 @@ export function MessagesClient({
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-slate-500">
               <span className="material-symbols-outlined text-6xl mb-4">forum</span>
-              <p className="text-lg font-medium">Select a conversation</p>
-              <p className="text-sm mt-1">Or start a new one with a teacher or classmate</p>
+              <p className="text-lg font-medium">
+                {isPlayful ? "\u{1F44B} Pick someone to chat with!" : "Select a conversation"}
+              </p>
+              <p className="text-sm mt-1">
+                {isPlayful
+                  ? "Tap a name on the left to start talking!"
+                  : "Or start a new one with a teacher or classmate"}
+              </p>
             </div>
           )}
         </div>
@@ -1108,10 +1190,18 @@ export function MessagesClient({
       {/* New Conversation Modal */}
       {showNewConversation && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-slate-800 rounded-xl max-w-md w-full max-h-[80vh] overflow-hidden">
-            <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+          <div className={`max-w-md w-full max-h-[80vh] overflow-hidden ${
+            isPlayful
+              ? "bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200"
+              : "bg-white dark:bg-slate-800 rounded-xl"
+          }`}>
+            <div className={`p-4 flex items-center justify-between ${
+              isPlayful
+                ? "border-b border-pink-200"
+                : "border-b border-slate-200 dark:border-slate-700"
+            }`}>
               <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
-                Start New Conversation
+                {isPlayful ? "\u{2728} Start a New Chat" : "Start New Conversation"}
               </h2>
               <button
                 onClick={() => {
@@ -1129,8 +1219,12 @@ export function MessagesClient({
                 type="text"
                 value={teacherSearch}
                 onChange={(e) => setTeacherSearch(e.target.value)}
-                placeholder="Search by name or course..."
-                className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary mb-4"
+                placeholder={isPlayful ? "Search for a teacher or friend..." : "Search by name or course..."}
+                className={`w-full px-4 py-2 rounded-lg border text-slate-900 dark:text-white focus:outline-none focus:ring-2 mb-4 ${
+                  isPlayful
+                    ? "border-pink-200 bg-white focus:ring-pink-400"
+                    : "border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 focus:ring-primary"
+                }`}
               />
 
               {/* Teachers Section */}

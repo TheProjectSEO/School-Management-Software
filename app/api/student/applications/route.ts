@@ -36,11 +36,29 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceClient();
 
+    // Resolve QR code: the URL passes the code text (e.g. "MSU-2026-GEN"), not the UUID
+    let resolvedQrId: string | null = null;
+    let resolvedSchoolId: string | null = body.schoolId ?? null;
+
+    if (body.qrCodeId) {
+      const { data: qrByCode } = await supabase
+        .from("enrollment_qr_codes")
+        .select("id, school_id")
+        .or(`id.eq.${body.qrCodeId},code.eq.${body.qrCodeId}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (qrByCode) {
+        resolvedQrId = qrByCode.id;
+        if (!resolvedSchoolId) resolvedSchoolId = qrByCode.school_id;
+      }
+    }
+
     const { data, error } = await supabase
       .from("student_applications")
       .insert({
-        school_id: body.schoolId ?? null,
-        qr_code_id: body.qrCodeId ?? null,
+        school_id: resolvedSchoolId,
+        qr_code_id: resolvedQrId,
         first_name: body.firstName,
         last_name: body.lastName,
         middle_name: body.middleName ?? null,

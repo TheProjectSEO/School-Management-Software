@@ -181,7 +181,17 @@ export async function getQuestionsWithAnswers(
         const options: AnswerOption[] = [];
         if (q.choices_json && Array.isArray(q.choices_json)) {
           q.choices_json.forEach((choice: any, idx: number) => {
-            const isCorrect = q.answer_key_json?.correctIndex === idx ||
+            // Check multiple formats for correct answer detection:
+            // 1. choice.is_correct (AI planner format: {id, text, is_correct})
+            // 2. answer_key_json.correct_ids includes choice.id (AI planner format)
+            // 3. answer_key_json.correctIndex === idx (legacy manual format)
+            // 4. answer_key_json.correct === idx (legacy manual format)
+            // 5. answer_key_json array includes idx (legacy array format)
+            const choiceId = choice.id ?? null;
+            const isCorrect =
+              choice.is_correct === true ||
+              (Array.isArray(q.answer_key_json?.correct_ids) && choiceId != null && q.answer_key_json.correct_ids.includes(choiceId)) ||
+              q.answer_key_json?.correctIndex === idx ||
               q.answer_key_json?.correct === idx ||
               (Array.isArray(q.answer_key_json) && q.answer_key_json.includes(idx));
             options.push({
@@ -193,13 +203,19 @@ export async function getQuestionsWithAnswers(
             });
           });
         }
+
+        // Extract correct_answer for short_answer/essay types
+        const correctAnswer = q.answer_key_json?.answer ||
+          (q.answer_key_json?.acceptable_answers?.[0]) ||
+          null;
+
         return {
           id: q.id,
           assessment_id: q.assessment_id,
           question_text: q.question_text,
           question_type: q.question_type,
           points: q.points,
-          correct_answer: q.answer_key_json?.answer || null,
+          correct_answer: correctAnswer,
           explanation: undefined,
           order_index: q.order_index,
           created_at: q.created_at,

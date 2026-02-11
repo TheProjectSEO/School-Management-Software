@@ -52,17 +52,20 @@ export async function POST(request: NextRequest) {
       .filter(Boolean)
       .join("\n");
 
+    // Scale token budget: ~350 tokens per lesson + base overhead
+    const tokenBudget = Math.max(2000, (lessonCount || 4) * 350 + 400);
+
     const completion = await callOpenAIChatCompletions({
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
       ],
       temperature: 0.3,
-      max_tokens: 1400,
+      max_tokens: tokenBudget,
       context: "teacher",
     });
 
-    const content = completion.choices?.[0]?.message?.content?.trim();
+    let content = completion.choices?.[0]?.message?.content?.trim();
     if (!content) {
       return NextResponse.json(
         { error: "AI did not return a response" },
@@ -70,16 +73,40 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Extract JSON from markdown code blocks if present
+    const jsonMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (jsonMatch) {
+      content = jsonMatch[1].trim();
+    }
+
+    // Find JSON object boundaries
+    const jsonStart = content.indexOf('{');
+    const jsonEnd = content.lastIndexOf('}');
+    if (jsonStart !== -1 && jsonEnd > jsonStart) {
+      content = content.slice(jsonStart, jsonEnd + 1);
+    }
+
     let parsed: any = null;
     try {
       parsed = JSON.parse(content);
     } catch (error) {
-      console.error("AI module JSON parse error:", error, content);
+      // If JSON is truncated, try to recover partial lessons
+      console.error("AI module JSON parse error, attempting recovery...");
+      try {
+        const lastComplete = content.lastIndexOf('},');
+        if (lastComplete > 0) {
+          const partialJson = content.slice(0, lastComplete + 1) + ']}';
+          parsed = JSON.parse(partialJson);
+          console.log(`Recovered ${parsed.lessons?.length || 0} lessons from truncated response`);
+        }
+      } catch (recoveryError) {
+        console.error("Recovery failed:", recoveryError);
+      }
     }
 
     if (!parsed || !parsed.title || !Array.isArray(parsed.lessons)) {
       return NextResponse.json(
-        { error: "AI response format was invalid" },
+        { error: "AI response was incomplete or invalid. Try reducing the number of lessons." },
         { status: 500 }
       );
     }

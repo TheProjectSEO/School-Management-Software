@@ -1,65 +1,55 @@
-// @ts-nocheck - Uses n8n_content_creation schema with complex queries
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { requireTeacher } from "@/lib/auth/requireTeacher";
+import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 
 /**
  * GET /api/teacher/modules
- * List all modules for teacher's subjects
+ * List all modules for teacher's courses
  */
 export async function GET(request: NextRequest) {
-  const authResult = await requireTeacher();
+  const authResult = await requireTeacherAPI();
   if (!authResult.success) {
     return authResult.response;
   }
 
-  const { teacherId } = authResult.context;
+  const { teacherId } = authResult.teacher;
   const { searchParams } = new URL(request.url);
-  const subjectId = searchParams.get("subjectId");
+  const courseId = searchParams.get("courseId");
   const status = searchParams.get("status");
 
   try {
     const supabase = createServiceClient();
 
-    // Build query
-    let query = supabase
-      .from("modules")
-      .select(
-        `
-        *,
-        subject:courses(
-          id,
-          name,
-          code
-        ),
-        publish_info:modules(
-          id,
-          published_at,
-          published_by
-        )
-      `
-      )
-      .order("order", { ascending: true });
+    // Get teacher's course assignments
+    const { data: assignments } = await supabase
+      .from("teacher_assignments")
+      .select("course_id")
+      .eq("teacher_profile_id", teacherId);
 
-    // Filter by subject if provided
-    if (subjectId) {
-      query = query.eq("subject_id", subjectId);
-    } else {
-      // Get all subjects teacher teaches
-      const { data: teacherSubjects } = await supabase
-        .from("teacher_assignments")
-        .select("subject_id")
-        .eq("teacher_profile_id", teacherId);
-
-      if (teacherSubjects && teacherSubjects.length > 0) {
-        const subjectIds = teacherSubjects.map((s) => s.subject_id);
-        query = query.in("subject_id", subjectIds);
-      }
+    if (!assignments || assignments.length === 0) {
+      return NextResponse.json({ modules: [] });
     }
 
-    // Filter by status if provided
-    if (status) {
-      query = query.eq("status", status);
+    const courseIds = courseId
+      ? [courseId]
+      : assignments.map((a) => a.course_id);
+
+    // Verify teacher has access to the requested course
+    if (courseId && !assignments.some((a) => a.course_id === courseId)) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
+    // Fetch modules (flat columns, no FK joins)
+    let query = supabase
+      .from("modules")
+      .select("id, course_id, title, description, order, duration_minutes, is_published, learning_objectives, created_at, updated_at")
+      .in("course_id", courseIds)
+      .order("order", { ascending: true });
+
+    if (status === "published") {
+      query = query.eq("is_published", true);
+    } else if (status === "draft") {
+      query = query.eq("is_published", false);
     }
 
     const { data: modules, error } = await query;
@@ -72,7 +62,28 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ modules });
+    // Fetch course info separately
+    const uniqueCourseIds = [...new Set((modules || []).map((m) => m.course_id))];
+    let courseMap: Record<string, { id: string; name: string; subject_code: string }> = {};
+    if (uniqueCourseIds.length > 0) {
+      const { data: courses } = await supabase
+        .from("courses")
+        .select("id, name, subject_code")
+        .in("id", uniqueCourseIds);
+
+      if (courses) {
+        courses.forEach((c) => {
+          courseMap[c.id] = { id: c.id, name: c.name, subject_code: c.subject_code };
+        });
+      }
+    }
+
+    const modulesWithCourse = (modules || []).map((m) => ({
+      ...m,
+      course: courseMap[m.course_id] || null,
+    }));
+
+    return NextResponse.json({ modules: modulesWithCourse });
   } catch (error) {
     console.error("Modules GET error:", error);
     return NextResponse.json(
@@ -87,72 +98,69 @@ export async function GET(request: NextRequest) {
  * Create a new module
  */
 export async function POST(request: NextRequest) {
-  const authResult = await requireTeacher();
+  const authResult = await requireTeacherAPI();
   if (!authResult.success) {
     return authResult.response;
   }
 
-  const { teacherId } = authResult.context;
+  const { teacherId } = authResult.teacher;
 
   try {
     const supabase = createServiceClient();
     const body = await request.json();
 
     const {
-      subjectId,
+      courseId,
       title,
       description,
-      objectives,
+      learningObjectives,
       order,
-      estimatedDuration,
+      durationMinutes,
     } = body;
 
-    // Validate required fields
-    if (!subjectId || !title?.trim()) {
+    if (!courseId || !title?.trim()) {
       return NextResponse.json(
-        { error: "Subject ID and title are required" },
+        { error: "Course ID and title are required" },
         { status: 400 }
       );
     }
 
-    // Verify teacher teaches this subject
-    const { data: sectionSubject } = await supabase
+    // Verify teacher has access to this course
+    const { count } = await supabase
       .from("teacher_assignments")
-      .select("id")
-      .eq("subject_id", subjectId)
-      .eq("teacher_profile_id", teacherId)
-      .limit(1)
-      .single();
+      .select("*", { count: "exact", head: true })
+      .eq("course_id", courseId)
+      .eq("teacher_profile_id", teacherId);
 
-    if (!sectionSubject) {
+    if (!count) {
       return NextResponse.json(
-        { error: "You do not have permission to create modules for this subject" },
+        { error: "You do not have permission to create modules for this course" },
         { status: 403 }
       );
     }
 
-    // Create module
+    // Get next order value
+    const { data: existing } = await supabase
+      .from("modules")
+      .select("order")
+      .eq("course_id", courseId)
+      .order("order", { ascending: false })
+      .limit(1);
+
+    const nextOrder = order || (existing?.[0]?.order || 0) + 1;
+
     const { data: module, error } = await supabase
       .from("modules")
       .insert({
-        subject_id: subjectId,
+        course_id: courseId,
         title: title.trim(),
         description: description?.trim() || null,
-        objectives: objectives || [],
-        order: order || 0,
-        estimated_duration: estimatedDuration || null,
-        status: "draft",
+        learning_objectives: Array.isArray(learningObjectives) ? learningObjectives : [],
+        order: nextOrder,
+        duration_minutes: durationMinutes || null,
+        is_published: false,
       })
-      .select(
-        `
-        *,
-        subject:courses(
-          id,
-          name,
-          code
-        )
-      `
-      )
+      .select()
       .single();
 
     if (error) {

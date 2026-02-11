@@ -1,7 +1,6 @@
-// @ts-nocheck - Uses n8n_content_creation schema with complex queries
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { requireTeacher } from "@/lib/auth/requireTeacher";
+import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 
 /**
  * GET /api/teacher/modules/[id]
@@ -11,82 +10,66 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireTeacher();
+  const authResult = await requireTeacherAPI();
   if (!authResult.success) {
     return authResult.response;
   }
 
-  const { teacherId } = authResult.context;
+  const { teacherId } = authResult.teacher;
   const { id } = await params;
 
   try {
     const supabase = createServiceClient();
 
+    // Fetch module with flat columns
     const { data: module, error } = await supabase
       .from("modules")
-      .select(
-        `
-        *,
-        subject:courses(
-          id,
-          name,
-          code
-        ),
-        publish_info:modules(
-          id,
-          published_at,
-          published_by
-        ),
-        assets:teacher_content_assets(
-          id,
-          asset_type,
-          storage_path,
-          meta_json,
-          created_at
-        ),
-        transcript:teacher_transcripts(
-          id,
-          text,
-          timestamps_json,
-          version,
-          published_at
-        ),
-        notes:teacher_teacher_notes(
-          id,
-          rich_text,
-          version,
-          published_at
-        )
-      `
-      )
+      .select("id, course_id, title, description, order, duration_minutes, is_published, learning_objectives, created_at, updated_at")
       .eq("id", id)
       .single();
 
-    if (error) {
-      console.error("Error fetching module:", error);
+    if (error || !module) {
       return NextResponse.json(
         { error: "Module not found" },
         { status: 404 }
       );
     }
 
-    // Verify teacher has access to this module's subject
-    const { data: sectionSubject } = await supabase
+    // Verify teacher has access to this module's course
+    const { count } = await supabase
       .from("teacher_assignments")
-      .select("id")
-      .eq("subject_id", module.subject_id)
-      .eq("teacher_profile_id", teacherId)
-      .limit(1)
-      .single();
+      .select("*", { count: "exact", head: true })
+      .eq("course_id", module.course_id)
+      .eq("teacher_profile_id", teacherId);
 
-    if (!sectionSubject) {
+    if (!count) {
       return NextResponse.json(
         { error: "Access denied" },
         { status: 403 }
       );
     }
 
-    return NextResponse.json({ module });
+    // Fetch course info separately
+    const { data: course } = await supabase
+      .from("courses")
+      .select("id, name, subject_code")
+      .eq("id", module.course_id)
+      .single();
+
+    // Fetch lessons for this module
+    const { data: lessons } = await supabase
+      .from("lessons")
+      .select("id, title, content_type, order, is_published, duration_minutes, created_at")
+      .eq("module_id", id)
+      .order("order", { ascending: true });
+
+    return NextResponse.json({
+      module: {
+        ...module,
+        course: course || null,
+        lessons: lessons || [],
+      },
+    });
   } catch (error) {
     console.error("Module GET error:", error);
     return NextResponse.json(
@@ -104,22 +87,22 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireTeacher();
+  const authResult = await requireTeacherAPI();
   if (!authResult.success) {
     return authResult.response;
   }
 
-  const { teacherId } = authResult.context;
+  const { teacherId } = authResult.teacher;
   const { id } = await params;
 
   try {
     const supabase = createServiceClient();
     const body = await request.json();
 
-    // First verify access
+    // First verify the module exists and get course_id
     const { data: existingModule } = await supabase
       .from("modules")
-      .select("subject_id")
+      .select("course_id")
       .eq("id", id)
       .single();
 
@@ -131,15 +114,13 @@ export async function PATCH(
     }
 
     // Verify teacher has access
-    const { data: sectionSubject } = await supabase
+    const { count } = await supabase
       .from("teacher_assignments")
-      .select("id")
-      .eq("subject_id", existingModule.subject_id)
-      .eq("teacher_profile_id", teacherId)
-      .limit(1)
-      .single();
+      .select("*", { count: "exact", head: true })
+      .eq("course_id", existingModule.course_id)
+      .eq("teacher_profile_id", teacherId);
 
-    if (!sectionSubject) {
+    if (!count) {
       return NextResponse.json(
         { error: "Access denied" },
         { status: 403 }
@@ -149,43 +130,26 @@ export async function PATCH(
     const {
       title,
       description,
-      objectives,
+      learningObjectives,
       order,
-      estimatedDuration,
-      status,
+      durationMinutes,
+      is_published,
     } = body;
 
     // Build update object
-    const updates: any = {};
+    const updates: Record<string, unknown> = {};
     if (title !== undefined) updates.title = title.trim();
-    if (description !== undefined)
-      updates.description = description?.trim() || null;
-    if (objectives !== undefined) updates.objectives = objectives;
+    if (description !== undefined) updates.description = description?.trim() || null;
+    if (learningObjectives !== undefined) updates.learning_objectives = learningObjectives;
     if (order !== undefined) updates.order = order;
-    if (estimatedDuration !== undefined)
-      updates.estimated_duration = estimatedDuration;
-    if (status !== undefined) updates.status = status;
+    if (durationMinutes !== undefined) updates.duration_minutes = durationMinutes;
+    if (is_published !== undefined) updates.is_published = is_published;
 
-    // Update module
     const { data: module, error } = await supabase
       .from("modules")
       .update(updates)
       .eq("id", id)
-      .select(
-        `
-        *,
-        subject:courses(
-          id,
-          name,
-          code
-        ),
-        publish_info:modules(
-          id,
-          published_at,
-          published_by
-        )
-      `
-      )
+      .select()
       .single();
 
     if (error) {
@@ -214,21 +178,21 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireTeacher();
+  const authResult = await requireTeacherAPI();
   if (!authResult.success) {
     return authResult.response;
   }
 
-  const { teacherId } = authResult.context;
+  const { teacherId } = authResult.teacher;
   const { id } = await params;
 
   try {
     const supabase = createServiceClient();
 
-    // Verify access
+    // Verify the module exists and get its course
     const { data: existingModule } = await supabase
       .from("modules")
-      .select("subject_id, status")
+      .select("course_id, is_published")
       .eq("id", id)
       .single();
 
@@ -240,15 +204,13 @@ export async function DELETE(
     }
 
     // Verify teacher has access
-    const { data: sectionSubject } = await supabase
+    const { count } = await supabase
       .from("teacher_assignments")
-      .select("id")
-      .eq("subject_id", existingModule.subject_id)
-      .eq("teacher_profile_id", teacherId)
-      .limit(1)
-      .single();
+      .select("*", { count: "exact", head: true })
+      .eq("course_id", existingModule.course_id)
+      .eq("teacher_profile_id", teacherId);
 
-    if (!sectionSubject) {
+    if (!count) {
       return NextResponse.json(
         { error: "Access denied" },
         { status: 403 }
@@ -256,14 +218,13 @@ export async function DELETE(
     }
 
     // Don't allow deletion of published modules
-    if (existingModule.status === "published") {
+    if (existingModule.is_published) {
       return NextResponse.json(
-        { error: "Cannot delete published modules" },
+        { error: "Cannot delete published modules. Unpublish first." },
         { status: 400 }
       );
     }
 
-    // Delete module
     const { error } = await supabase
       .from("modules")
       .delete()

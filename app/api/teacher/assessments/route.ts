@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createServiceClient } from '@/lib/supabase/service'
 import { requireTeacher } from '@/lib/auth/requireTeacher'
 
 export async function GET(request: NextRequest) {
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { teacherId } = authResult.teacher
-    const supabase = createAdminClient()
+    const supabase = createServiceClient()
     const { searchParams } = new URL(request.url)
     const courseId = searchParams.get('course_id')
 
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { teacherId, schoolId } = authResult.teacher
-    const supabase = createAdminClient()
+    const supabase = createServiceClient()
     const body = await request.json()
 
     const {

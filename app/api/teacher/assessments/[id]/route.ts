@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { createServiceClient } from '@/lib/supabase/service'
 import { getCurrentUser } from '@/lib/auth/session'
 
 interface RouteParams {
@@ -10,7 +10,7 @@ interface RouteParams {
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const supabase = createAdminClient()
+    const supabase = createServiceClient()
     const { id } = await params
 
     // Check authentication using JWT
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const supabase = createAdminClient()
+    const supabase = createServiceClient()
     const { id } = await params
     const body = await request.json()
 
@@ -186,7 +186,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const supabase = createAdminClient()
+    const supabase = createServiceClient()
     const { id } = await params
 
     // Check authentication using JWT

@@ -106,16 +106,10 @@ export async function getTeacherProfile() {
 export async function getTeacherSections(teacherId: string) {
   const supabase = createServiceClient()
 
-  const { data, error } = await supabase
+  // Flat columns only — no FK joins
+  const { data: assignments, error } = await supabase
     .from('teacher_assignments')
-    .select(`
-      section:sections!inner(
-        id,
-        name,
-        grade_level,
-        school_id
-      )
-    `)
+    .select('section_id')
     .eq('teacher_profile_id', teacherId)
 
   if (error) {
@@ -123,25 +117,17 @@ export async function getTeacherSections(teacherId: string) {
     return []
   }
 
-  // Extract sections and deduplicate by section ID
-  const sectionsMap = new Map<string, { id: string; name: string; grade_level: string; school_id: string }>()
-  for (const item of data) {
-    const section = item.section as any
-    // Handle both object and array responses from Supabase
-    const sectionData = Array.isArray(section) ? section[0] : section
-    const sectionId = sectionData?.id
-    if (sectionId && !sectionsMap.has(sectionId)) {
-      sectionsMap.set(sectionId, {
-        id: sectionData.id,
-        name: sectionData.name,
-        grade_level: sectionData.grade_level,
-        school_id: sectionData.school_id
-      })
-    }
-  }
+  // Deduplicate section IDs
+  const uniqueSectionIds = [...new Set((assignments || []).map(a => a.section_id).filter(Boolean))]
+  if (uniqueSectionIds.length === 0) return []
 
-  // Get unique sections
-  const uniqueSections = Array.from(sectionsMap.values())
+  // Fetch sections separately
+  const { data: sections } = await supabase
+    .from('sections')
+    .select('id, name, grade_level, school_id')
+    .in('id', uniqueSectionIds)
+
+  const uniqueSections = sections || []
 
   // Get student counts and subject counts for each section
   const enrichedSections = await Promise.all(
@@ -417,35 +403,41 @@ export async function getSectionDetails(sectionId: string, teacherId: string): P
     return null
   }
 
-  // Get students in this section
-  const { data: students, error: studentsError } = await supabase
+  // Get students in this section (flat columns, no FK joins)
+  const { data: rawStudents, error: studentsError } = await supabase
     .from('students')
-    .select(`
-      id,
-      lrn,
-      grade_level,
-      profile:school_profiles!inner(
-        full_name,
-        avatar_url
-      )
-    `)
+    .select('id, lrn, grade_level, profile_id')
     .eq('section_id', sectionId)
-    .order('profile(full_name)', { ascending: true })
 
   if (studentsError) {
     console.error('Error fetching students:', studentsError)
   }
 
-  // Get courses for this section that the teacher teaches
+  // Fetch student profiles separately
+  const profileIds = (rawStudents || []).map(s => s.profile_id).filter(Boolean)
+  let profileMap: Record<string, { full_name: string; avatar_url: string | null }> = {}
+  if (profileIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('school_profiles')
+      .select('id, full_name, avatar_url')
+      .in('id', profileIds)
+    if (profiles) {
+      profiles.forEach(p => { profileMap[p.id] = { full_name: p.full_name, avatar_url: p.avatar_url } })
+    }
+  }
+
+  // Sort students by name
+  const studentsList = (rawStudents || []).map((s: any) => ({
+    id: s.id,
+    profile: profileMap[s.profile_id] || { full_name: 'Unknown', avatar_url: null },
+    lrn: s.lrn,
+    grade_level: s.grade_level
+  })).sort((a: any, b: any) => a.profile.full_name.localeCompare(b.profile.full_name))
+
+  // Get courses for this section that the teacher teaches (flat columns, no FK joins)
   const { data: assignments, error: coursesError } = await supabase
     .from('teacher_assignments')
-    .select(`
-      course:courses!inner(
-        id,
-        name,
-        subject_code
-      )
-    `)
+    .select('id, course_id')
     .eq('teacher_profile_id', teacherId)
     .eq('section_id', sectionId)
 
@@ -453,33 +445,40 @@ export async function getSectionDetails(sectionId: string, teacherId: string): P
     console.error('Error fetching courses:', coursesError)
   }
 
+  // Fetch courses separately
+  const courseIds = (assignments || []).map(a => a.course_id).filter(Boolean)
+  let courseMap: Record<string, { id: string; name: string; subject_code: string }> = {}
+  if (courseIds.length > 0) {
+    const { data: coursesData } = await supabase
+      .from('courses')
+      .select('id, name, subject_code')
+      .in('id', courseIds)
+    if (coursesData) {
+      coursesData.forEach(c => { courseMap[c.id] = { id: c.id, name: c.name, subject_code: c.subject_code } })
+    }
+  }
+
   // Get module counts for each course
   const courses = await Promise.all(
-    (assignments || []).map(async (item: any) => {
-      const moduleCount = await getModuleCountForCourse(item.course.id)
+    courseIds.map(async (courseId: string) => {
+      const course = courseMap[courseId]
+      if (!course) return null
+      const moduleCount = await getModuleCountForCourse(course.id)
       return {
-        id: item.course.id,
-        name: item.course.name,
-        subject_code: item.course.subject_code,
+        id: course.id,
+        name: course.name,
+        subject_code: course.subject_code,
         module_count: moduleCount
       }
     })
-  )
+  ).then(results => results.filter((r): r is NonNullable<typeof r> => r !== null))
 
   return {
     id: section.id,
     name: section.name,
     grade_level: section.grade_level,
     school_id: section.school_id,
-    students: (students || []).map((s: any) => ({
-      id: s.id,
-      profile: {
-        full_name: s.profile?.full_name || 'Unknown',
-        avatar_url: s.profile?.avatar_url || null
-      },
-      lrn: s.lrn,
-      grade_level: s.grade_level
-    })),
+    students: studentsList,
     courses
   }
 }
@@ -638,23 +637,10 @@ export async function getTeacherLiveSessions(
 
   const courseIds = assignments.map(a => a.course_id)
 
-  // Get sessions for these courses
-  const { data, error } = await supabase
+  // Get sessions flat (no FK joins)
+  const { data: sessions, error } = await supabase
     .from('teacher_live_sessions')
-    .select(`
-      *,
-      course:courses!inner(
-        name,
-        subject_code
-      ),
-      section:sections!inner(
-        name,
-        grade_level
-      ),
-      module:modules(
-        title
-      )
-    `)
+    .select('*')
     .in('course_id', courseIds)
     .gte('scheduled_start', startDate)
     .lte('scheduled_start', endDate)
@@ -665,7 +651,53 @@ export async function getTeacherLiveSessions(
     return []
   }
 
-  return data as unknown as LiveSession[]
+  if (!sessions || sessions.length === 0) return []
+
+  // Fetch courses separately
+  const sessionCourseIds = [...new Set(sessions.map(s => s.course_id).filter(Boolean))]
+  let courseMap: Record<string, { name: string; subject_code: string }> = {}
+  if (sessionCourseIds.length > 0) {
+    const { data: courses } = await supabase
+      .from('courses')
+      .select('id, name, subject_code')
+      .in('id', sessionCourseIds)
+    if (courses) {
+      courses.forEach(c => { courseMap[c.id] = { name: c.name, subject_code: c.subject_code } })
+    }
+  }
+
+  // Fetch sections separately
+  const sectionIds = [...new Set(sessions.map(s => s.section_id).filter(Boolean))]
+  let sectionMap: Record<string, { name: string; grade_level: string }> = {}
+  if (sectionIds.length > 0) {
+    const { data: sections } = await supabase
+      .from('sections')
+      .select('id, name, grade_level')
+      .in('id', sectionIds)
+    if (sections) {
+      sections.forEach(s => { sectionMap[s.id] = { name: s.name, grade_level: s.grade_level } })
+    }
+  }
+
+  // Fetch modules separately
+  const moduleIds = [...new Set(sessions.map(s => s.module_id).filter(Boolean))]
+  let moduleMap: Record<string, { title: string }> = {}
+  if (moduleIds.length > 0) {
+    const { data: modules } = await supabase
+      .from('modules')
+      .select('id, title')
+      .in('id', moduleIds)
+    if (modules) {
+      modules.forEach(m => { moduleMap[m.id] = { title: m.title } })
+    }
+  }
+
+  return sessions.map(s => ({
+    ...s,
+    course: courseMap[s.course_id] || { name: 'Unknown', subject_code: '' },
+    section: sectionMap[s.section_id] || { name: 'Unknown', grade_level: '' },
+    module: s.module_id ? moduleMap[s.module_id] || undefined : undefined,
+  })) as LiveSession[]
 }
 
 /**
@@ -690,22 +722,10 @@ export async function getUpcomingAssessmentDueDates(
 
   const courseIds = assignments.map(a => a.course_id)
 
-  // Get assessments with due dates in range
-  const { data, error } = await supabase
+  // Get assessments flat (no FK joins)
+  const { data: assessments, error } = await supabase
     .from('assessments')
-    .select(`
-      id,
-      title,
-      description,
-      type,
-      due_date,
-      total_points,
-      course_id,
-      course:courses!inner(
-        name,
-        subject_code
-      )
-    `)
+    .select('id, title, description, type, due_date, total_points, course_id')
     .in('course_id', courseIds)
     .not('due_date', 'is', null)
     .gte('due_date', startDate)
@@ -717,7 +737,25 @@ export async function getUpcomingAssessmentDueDates(
     return []
   }
 
-  return data as unknown as AssessmentDueDate[]
+  if (!assessments || assessments.length === 0) return []
+
+  // Fetch courses separately
+  const assessmentCourseIds = [...new Set(assessments.map(a => a.course_id).filter(Boolean))]
+  let courseMap: Record<string, { name: string; subject_code: string }> = {}
+  if (assessmentCourseIds.length > 0) {
+    const { data: courses } = await supabase
+      .from('courses')
+      .select('id, name, subject_code')
+      .in('id', assessmentCourseIds)
+    if (courses) {
+      courses.forEach(c => { courseMap[c.id] = { name: c.name, subject_code: c.subject_code } })
+    }
+  }
+
+  return assessments.map(a => ({
+    ...a,
+    course: courseMap[a.course_id] || { name: 'Unknown', subject_code: '' },
+  })) as AssessmentDueDate[]
 }
 
 /**

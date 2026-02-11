@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
         `
         id,
         course_id,
+        section_id,
         title,
         description,
         scheduled_start,
@@ -66,8 +67,7 @@ export async function GET(request: NextRequest) {
         recording_url,
         recording_size_bytes,
         recording_duration_seconds,
-        max_participants,
-        course:courses(id, name, subject_code, section_id)
+        max_participants
       `
       )
       .in("course_id", courseIds)
@@ -126,9 +126,25 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get section info for courses that have section_id
+    // Fetch course info separately (avoid FK joins per CLAUDE.md)
+    const uniqueCourseIds = [...new Set((sessions || []).map((s: any) => s.course_id).filter(Boolean))];
+    let courseMap: Record<string, { id: string; name: string; subject_code: string }> = {};
+    if (uniqueCourseIds.length > 0) {
+      const { data: courses } = await supabase
+        .from("courses")
+        .select("id, name, subject_code")
+        .in("id", uniqueCourseIds);
+
+      if (courses) {
+        courses.forEach((c: any) => {
+          courseMap[c.id] = { id: c.id, name: c.name, subject_code: c.subject_code };
+        });
+      }
+    }
+
+    // Get section info from live_sessions.section_id directly
     const sectionIds = [...new Set((sessions || [])
-      .map((s: any) => s.course?.section_id)
+      .map((s: any) => s.section_id)
       .filter(Boolean))];
 
     let sectionMap: Record<string, { id: string; name: string }> = {};
@@ -150,8 +166,8 @@ export async function GET(request: NextRequest) {
       ...session,
       join_url: session.daily_room_url, // UI expects join_url
       has_transcript: transcriptMap[session.id] || false,
-      // Get section from our separate lookup
-      section: session.course?.section_id ? sectionMap[session.course.section_id] || null : null,
+      course: courseMap[session.course_id] || null,
+      section: session.section_id ? sectionMap[session.section_id] || null : null,
     }));
 
     return NextResponse.json({ sessions: transformedSessions });
@@ -232,12 +248,13 @@ export async function POST(request: NextRequest) {
 
     // Create session in public.live_sessions (primary table)
     // Column is teacher_profile_id (NOT NULL constraint)
-    console.log("[Live Sessions POST] Creating session for course:", assignment.course_id, "teacher:", teacherId);
+    console.log("[Live Sessions POST] Creating session for course:", assignment.course_id, "section:", assignment.section_id, "teacher:", teacherId);
     const serviceClient = createServiceClient();
     const { data: session, error } = await serviceClient
       .from("live_sessions")
       .insert({
         course_id: assignment.course_id,
+        section_id: assignment.section_id || null,
         module_id: moduleId || null,
         teacher_profile_id: teacherId, // Required NOT NULL column
         title: title?.trim() || "Live Session",

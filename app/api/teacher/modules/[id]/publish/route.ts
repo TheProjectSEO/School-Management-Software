@@ -1,7 +1,6 @@
-// @ts-nocheck - Uses n8n_content_creation schema with complex queries
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { requireTeacher } from "@/lib/auth/requireTeacher";
+import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 
 /**
  * POST /api/teacher/modules/[id]/publish
@@ -11,21 +10,21 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireTeacher();
+  const authResult = await requireTeacherAPI();
   if (!authResult.success) {
     return authResult.response;
   }
 
-  const { teacherId, userId } = authResult.context;
+  const { teacherId } = authResult.teacher;
   const { id } = await params;
 
   try {
     const supabase = createServiceClient();
 
-    // Verify access
+    // Verify module exists
     const { data: module } = await supabase
       .from("modules")
-      .select("subject_id, status, title")
+      .select("course_id, is_published, title")
       .eq("id", id)
       .single();
 
@@ -37,74 +36,42 @@ export async function POST(
     }
 
     // Verify teacher has access
-    const { data: sectionSubject } = await supabase
+    const { count } = await supabase
       .from("teacher_assignments")
-      .select("id")
-      .eq("subject_id", module.subject_id)
-      .eq("teacher_profile_id", teacherId)
-      .limit(1)
-      .single();
+      .select("*", { count: "exact", head: true })
+      .eq("course_id", module.course_id)
+      .eq("teacher_profile_id", teacherId);
 
-    if (!sectionSubject) {
+    if (!count) {
       return NextResponse.json(
         { error: "Access denied" },
         { status: 403 }
       );
     }
 
-    // Check if already published
-    const { data: existingPublish } = await supabase
-      .from("module_publish")
-      .select("id")
-      .eq("module_id", id)
-      .single();
-
-    if (existingPublish) {
+    if (module.is_published) {
       return NextResponse.json(
         { error: "Module is already published" },
         { status: 400 }
       );
     }
 
-    // Update module status
+    // Update module to published
     const { error: moduleError } = await supabase
       .from("modules")
-      .update({ status: "published" })
+      .update({ is_published: true })
       .eq("id", id);
 
     if (moduleError) {
-      console.error("Error updating module status:", moduleError);
+      console.error("Error publishing module:", moduleError);
       return NextResponse.json(
         { error: "Failed to publish module" },
         { status: 500 }
       );
     }
 
-    // Create publish record
-    const { data: publishRecord, error: publishError } = await supabase
-      .from("module_publish")
-      .insert({
-        module_id: id,
-        published_by: userId,
-        published_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (publishError) {
-      console.error("Error creating publish record:", publishError);
-      return NextResponse.json(
-        { error: "Failed to create publish record" },
-        { status: 500 }
-      );
-    }
-
-    // TODO: Create notifications for enrolled students
-    // This would query section_enrollments and create notification records
-
     return NextResponse.json({
       success: true,
-      publishRecord,
       message: "Module published successfully",
     });
   } catch (error) {

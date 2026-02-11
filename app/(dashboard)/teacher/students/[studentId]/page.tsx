@@ -33,32 +33,39 @@ interface StudentDetails {
 async function getStudentDetails(studentId: string, teacherId: string): Promise<StudentDetails | null> {
   const supabase = createServiceClient()
 
-  // Get student with section info
+  // Get student flat columns (no FK joins — they silently return 0 rows)
   const { data: student, error } = await supabase
     .from('students')
-    .select(`
-      id,
-      lrn,
-      grade_level,
-      section_id,
-      profile:school_profiles!inner(
-        id,
-        full_name,
-        avatar_url,
-        email
-      ),
-      section:sections!inner(
-        id,
-        name,
-        grade_level
-      )
-    `)
+    .select('id, lrn, grade_level, section_id, profile_id')
     .eq('id', studentId)
     .single()
 
   if (error || !student) {
     console.error('Error fetching student:', error)
     return null
+  }
+
+  // Fetch profile separately
+  const { data: profile } = await supabase
+    .from('school_profiles')
+    .select('id, full_name, avatar_url, email')
+    .eq('id', student.profile_id)
+    .single()
+
+  if (!profile) {
+    console.error('Profile not found for student:', studentId)
+    return null
+  }
+
+  // Fetch section separately
+  let section: { id: string; name: string; grade_level: string } | null = null
+  if (student.section_id) {
+    const { data: sec } = await supabase
+      .from('sections')
+      .select('id, name, grade_level')
+      .eq('id', student.section_id)
+      .single()
+    section = sec
   }
 
   // Verify teacher has access to this student's section
@@ -72,36 +79,68 @@ async function getStudentDetails(studentId: string, teacherId: string): Promise<
     return null
   }
 
-  return student as unknown as StudentDetails
+  return {
+    id: student.id,
+    lrn: student.lrn,
+    grade_level: student.grade_level,
+    section_id: student.section_id,
+    profile: {
+      id: profile.id,
+      full_name: profile.full_name,
+      avatar_url: profile.avatar_url,
+      email: profile.email,
+    },
+    section: section || { id: student.section_id, name: 'Unknown Section', grade_level: student.grade_level },
+  }
 }
 
 async function getStudentGrades(studentId: string) {
   const supabase = createServiceClient()
 
-  const { data } = await supabase
+  // Fetch grades flat (no FK joins)
+  const { data: grades } = await supabase
     .from('grades')
-    .select(`
-      id,
-      score,
-      total_points,
-      percentage,
-      letter_grade,
-      graded_at,
-      assessment:assessments(
-        id,
-        title,
-        type,
-        course:courses(
-          name,
-          subject_code
-        )
-      )
-    `)
+    .select('id, score, total_points, percentage, letter_grade, graded_at, assessment_id')
     .eq('student_id', studentId)
     .order('graded_at', { ascending: false })
     .limit(10)
 
-  return data || []
+  if (!grades || grades.length === 0) return []
+
+  // Fetch assessments separately
+  const assessmentIds = [...new Set(grades.map(g => g.assessment_id).filter(Boolean))]
+  let assessmentMap: Record<string, { id: string; title: string; type: string; course_id: string }> = {}
+  if (assessmentIds.length > 0) {
+    const { data: assessments } = await supabase
+      .from('assessments')
+      .select('id, title, type, course_id')
+      .in('id', assessmentIds)
+    if (assessments) {
+      assessments.forEach(a => { assessmentMap[a.id] = a })
+    }
+  }
+
+  // Fetch courses separately
+  const courseIds = [...new Set(Object.values(assessmentMap).map(a => a.course_id).filter(Boolean))]
+  let courseMap: Record<string, { name: string; subject_code: string }> = {}
+  if (courseIds.length > 0) {
+    const { data: courses } = await supabase
+      .from('courses')
+      .select('id, name, subject_code')
+      .in('id', courseIds)
+    if (courses) {
+      courses.forEach(c => { courseMap[c.id] = { name: c.name, subject_code: c.subject_code } })
+    }
+  }
+
+  return grades.map(g => {
+    const assessment = g.assessment_id ? assessmentMap[g.assessment_id] : null
+    const course = assessment?.course_id ? courseMap[assessment.course_id] : null
+    return {
+      ...g,
+      assessment: assessment ? { id: assessment.id, title: assessment.title, type: assessment.type, course: course } : null,
+    }
+  })
 }
 
 async function getStudentAttendance(studentId: string) {
@@ -109,13 +148,7 @@ async function getStudentAttendance(studentId: string) {
 
   const { data } = await supabase
     .from('attendance_records')
-    .select(`
-      id,
-      status,
-      date,
-      remarks,
-      section:sections(name)
-    `)
+    .select('id, status, date, remarks')
     .eq('student_id', studentId)
     .order('date', { ascending: false })
     .limit(20)

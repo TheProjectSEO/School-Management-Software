@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createServiceClient } from "@/lib/supabase/service";
 import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 
 type DraftQuestion = {
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
   const { teacherId, schoolId } = authResult.teacher;
 
   try {
-    const supabase = createAdminClient();
+    const supabase = createServiceClient();
     const body = await request.json();
 
     const {

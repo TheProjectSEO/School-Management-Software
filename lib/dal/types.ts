@@ -374,15 +374,19 @@ export interface Conversation {
   partner_profile_id: string;
   partner_name: string;
   partner_avatar_url?: string;
-  partner_role: "teacher" | "student";
+  partner_role: "teacher" | "student" | "admin";
   last_message_body: string;
   last_message_at: string;
-  last_message_sender_type: "teacher" | "student";
+  last_message_sender_type: "teacher" | "student" | "admin";
   unread_count: number;
   total_messages: number;
   // Additional context for student app
   teacher_id?: string;
   course_name?: string;
+  // Additional context for teacher app
+  student_id?: string;
+  section_name?: string;
+  grade_level?: string;
 }
 
 export interface MessageQuota {

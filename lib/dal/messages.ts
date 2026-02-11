@@ -35,10 +35,10 @@ export interface Conversation {
   partner_profile_id: string
   partner_name: string
   partner_avatar_url?: string
-  partner_role: 'teacher' | 'student'
+  partner_role: 'teacher' | 'student' | 'admin'
   last_message_body: string
   last_message_at: string
-  last_message_sender_type: 'teacher' | 'student'
+  last_message_sender_type: 'teacher' | 'student' | 'admin'
   unread_count: number
   total_messages: number
   student_id?: string
@@ -107,8 +107,8 @@ export async function getTeacherConversations(
     return []
   }
 
-  // Enrich with student info
-  const studentConversations: Conversation[] = []
+  // Enrich with student/admin info
+  const allConversations: Conversation[] = []
 
   for (const conv of conversations || []) {
     if (conv.partner_role === 'student') {
@@ -123,7 +123,7 @@ export async function getTeacherConversations(
         .eq('profile_id', conv.partner_profile_id)
         .single()
 
-      studentConversations.push({
+      allConversations.push({
         partner_profile_id: conv.partner_profile_id,
         partner_name: conv.partner_name || 'Student',
         partner_avatar_url: conv.partner_avatar_url,
@@ -137,10 +137,22 @@ export async function getTeacherConversations(
         section_name: (student?.section as any)?.name,
         grade_level: student?.grade_level || (student?.section as any)?.grade_level,
       })
+    } else if (conv.partner_role === 'admin') {
+      allConversations.push({
+        partner_profile_id: conv.partner_profile_id,
+        partner_name: conv.partner_name || 'Admin',
+        partner_avatar_url: conv.partner_avatar_url,
+        partner_role: 'admin',
+        last_message_body: conv.last_message_body,
+        last_message_at: conv.last_message_at,
+        last_message_sender_type: conv.last_message_sender_type,
+        unread_count: Number(conv.unread_count) || 0,
+        total_messages: Number(conv.total_messages) || 0,
+      })
     }
   }
 
-  return studentConversations
+  return allConversations
 }
 
 // ============================================================================

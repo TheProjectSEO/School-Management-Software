@@ -28,7 +28,7 @@ export async function GET() {
       id: conv.partner_profile_id, // Use partner_profile_id as unique ID
       participantId: conv.partner_profile_id,
       participantName: conv.partner_name,
-      participantRole: conv.partner_role === 'student' ? 'Student' : conv.partner_role,
+      participantRole: conv.partner_role === 'student' ? 'Student' : conv.partner_role === 'admin' ? 'Admin' : conv.partner_role,
       lastMessage: conv.last_message_body || '',
       lastMessageTime: conv.last_message_at,
       unreadCount: conv.unread_count,

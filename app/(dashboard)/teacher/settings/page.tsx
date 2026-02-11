@@ -4,10 +4,9 @@ import { useState, useEffect, useRef } from "react";
 
 interface TeacherProfile {
   id: string;
-  employee_number: string;
+  employee_id: string | null;
+  department: string | null;
   specialization: string | null;
-  bio: string | null;
-  office_hours: string | null;
   school: {
     id: string;
     name: string;
@@ -31,9 +30,8 @@ export default function SettingsPage() {
   // Form state
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
+  const [department, setDepartment] = useState("");
   const [specialization, setSpecialization] = useState("");
-  const [bio, setBio] = useState("");
-  const [officeHours, setOfficeHours] = useState("");
 
   // Avatar state
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,9 +56,8 @@ export default function SettingsPage() {
         // Initialize form values
         setFullName(p?.profile?.full_name || "");
         setPhone(p?.profile?.phone || "");
+        setDepartment(p?.department || "");
         setSpecialization(p?.specialization || "");
-        setBio(p?.bio || "");
-        setOfficeHours(p?.office_hours || "");
         setAvatarUrl(p?.profile?.avatar_url || null);
       } catch (err) {
         console.error("Error fetching profile:", err);
@@ -156,9 +153,8 @@ export default function SettingsPage() {
         body: JSON.stringify({
           fullName: fullName.trim(),
           phone: phone.trim() || null,
+          department: department.trim() || null,
           specialization: specialization.trim() || null,
-          bio: bio.trim() || null,
-          officeHours: officeHours.trim() || null,
         }),
       });
 
@@ -315,11 +311,11 @@ export default function SettingsPage() {
 
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Employee Number
+                Employee ID
               </label>
               <input
                 type="text"
-                value={profile?.employee_number || ""}
+                value={profile?.employee_id || ""}
                 disabled
                 className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400"
               />
@@ -352,6 +348,19 @@ export default function SettingsPage() {
           <div className="space-y-4">
             <div>
               <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
+                Department
+              </label>
+              <input
+                type="text"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                placeholder="e.g., College of Engineering, Arts & Sciences"
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
                 Specialization
               </label>
               <input
@@ -359,32 +368,6 @@ export default function SettingsPage() {
                 value={specialization}
                 onChange={(e) => setSpecialization(e.target.value)}
                 placeholder="e.g., Mathematics, Science, English"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Office Hours
-              </label>
-              <input
-                type="text"
-                value={officeHours}
-                onChange={(e) => setOfficeHours(e.target.value)}
-                placeholder="e.g., Mon-Fri 8:00 AM - 5:00 PM"
-                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white"
-              />
-            </div>
-
-            <div>
-              <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-                Bio
-              </label>
-              <textarea
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                rows={4}
-                placeholder="Tell students about yourself..."
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-700 dark:text-white"
               />
             </div>

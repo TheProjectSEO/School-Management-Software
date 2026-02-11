@@ -36,6 +36,55 @@ export type Submission = {
   has_feedback: boolean
 }
 
+export type StudentSubmissionGroup = {
+  student_id: string
+  student_name: string
+  student_lrn: string
+  student_avatar_url: string | null
+  submissions: Submission[]
+  pending_count: number
+  graded_count: number
+  released_count: number
+  total_count: number
+  latest_submitted_at: string
+}
+
+export function groupSubmissionsByStudent(submissions: Submission[]): StudentSubmissionGroup[] {
+  const map = new Map<string, Submission[]>()
+  for (const s of submissions) {
+    const list = map.get(s.student_id) || []
+    list.push(s)
+    map.set(s.student_id, list)
+  }
+
+  const groups: StudentSubmissionGroup[] = []
+  for (const [studentId, subs] of map) {
+    const first = subs[0]
+    groups.push({
+      student_id: studentId,
+      student_name: first.student_name,
+      student_lrn: first.student_lrn,
+      student_avatar_url: first.student_avatar_url,
+      submissions: subs,
+      pending_count: subs.filter(s => s.status === 'submitted').length,
+      graded_count: subs.filter(s => s.status === 'graded').length,
+      released_count: subs.filter(s => s.status === 'released' || s.status === 'returned').length,
+      total_count: subs.length,
+      latest_submitted_at: subs.reduce((latest, s) =>
+        s.submitted_at > latest ? s.submitted_at : latest, subs[0].submitted_at
+      ),
+    })
+  }
+
+  // Sort by most pending first, then by latest submission
+  groups.sort((a, b) => {
+    if (b.pending_count !== a.pending_count) return b.pending_count - a.pending_count
+    return b.latest_submitted_at.localeCompare(a.latest_submitted_at)
+  })
+
+  return groups
+}
+
 export type SubmissionDetail = {
   id: string
   assessment: {

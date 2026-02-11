@@ -227,12 +227,6 @@ export function QuestionCard({
             <span className="text-xs text-slate-500 font-medium">
               {question.points} pt{question.points !== 1 ? 's' : ''}
             </span>
-            {question.bankQuestionId && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600">
-                <span className="material-symbols-outlined text-xs">folder</span>
-                from bank
-              </span>
-            )}
           </div>
 
           {/* Prompt */}

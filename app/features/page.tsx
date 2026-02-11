@@ -35,7 +35,7 @@ const features = [
     icon: "quiz",
     title: "Assessments",
     description:
-      "Create quizzes, exams, and assignments with auto-grading and question banks.",
+      "Create quizzes, exams, and assignments with auto-grading support.",
   },
   {
     icon: "auto_awesome",

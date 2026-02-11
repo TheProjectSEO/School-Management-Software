@@ -7,24 +7,17 @@ import {
   AssessmentSettings,
   AssessmentType,
   AssessmentStatus,
-  BankRule,
-  BankRuleInput,
   CreateQuestionInput,
-  QuestionBank,
-  BankQuestion,
-  QuestionFilters,
   generateId,
 } from '@/lib/types/assessment-builder';
 import { QuestionList } from './QuestionList';
 import { QuestionEditor } from './QuestionEditor';
-import { BankRulesPanel } from './BankRulesPanel';
-import { QuestionBankSelector } from './bank/QuestionBankSelector';
 
 // ============================================================================
 // TYPES
 // ============================================================================
 
-type TabId = 'settings' | 'questions' | 'bank-rules' | 'preview';
+type TabId = 'settings' | 'questions' | 'preview';
 
 interface Tab {
   id: TabId;
@@ -35,7 +28,6 @@ interface Tab {
 const TABS: Tab[] = [
   { id: 'settings', label: 'Settings', icon: 'settings' },
   { id: 'questions', label: 'Questions', icon: 'quiz' },
-  { id: 'bank-rules', label: 'Bank Rules', icon: 'shuffle' },
   { id: 'preview', label: 'Preview', icon: 'visibility' },
 ];
 
@@ -51,8 +43,6 @@ interface AssessmentBuilderPageProps {
   assessmentId: string;
   initialAssessment?: Assessment;
   initialQuestions?: AssessmentQuestion[];
-  initialBankRules?: BankRule[];
-  availableBanks?: QuestionBank[];
   onSave?: (assessment: Partial<Assessment>) => Promise<void>;
   onPublish?: () => Promise<void>;
 }
@@ -65,8 +55,6 @@ export function AssessmentBuilderPage({
   assessmentId,
   initialAssessment,
   initialQuestions = [],
-  initialBankRules = [],
-  availableBanks = [],
   onSave,
   onPublish,
 }: AssessmentBuilderPageProps) {
@@ -99,14 +87,12 @@ export function AssessmentBuilderPage({
 
   // Questions state
   const [questions, setQuestions] = useState<AssessmentQuestion[]>(initialQuestions);
-  const [bankRules, setBankRules] = useState<BankRule[]>(initialBankRules);
 
   // UI state
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showQuestionEditor, setShowQuestionEditor] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<AssessmentQuestion | null>(null);
-  const [showBankSelector, setShowBankSelector] = useState(false);
 
   // Calculate totals
   const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
@@ -115,7 +101,7 @@ export function AssessmentBuilderPage({
   // Mark as dirty on any change
   useEffect(() => {
     setIsDirty(true);
-  }, [assessment, questions, bankRules]);
+  }, [assessment, questions]);
 
   // ============================================================================
   // HANDLERS
@@ -233,7 +219,6 @@ export function AssessmentBuilderPage({
     const duplicate: AssessmentQuestion = {
       ...question,
       id: generateId(),
-      bankQuestionId: undefined, // Not from bank anymore
       orderIndex: questions.length,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -243,94 +228,6 @@ export function AssessmentBuilderPage({
 
   const handleReorderQuestions = useCallback((reorderedQuestions: AssessmentQuestion[]) => {
     setQuestions(reorderedQuestions);
-  }, []);
-
-  // Bank selector handlers
-  const handleAddFromBank = useCallback(() => {
-    setShowBankSelector(true);
-  }, []);
-
-  const handleLoadBankQuestions = useCallback(async (bankId: string, filters?: QuestionFilters): Promise<BankQuestion[]> => {
-    // Find the bank to get its questions
-    const bank = availableBanks.find((b) => b.id === bankId);
-    if (!bank || !bank.questions) {
-      return [];
-    }
-
-    let filteredQuestions = [...bank.questions];
-
-    // Apply type filter
-    if (filters?.types && filters.types.length > 0) {
-      filteredQuestions = filteredQuestions.filter((q) =>
-        filters.types!.includes(q.content.type)
-      );
-    }
-
-    // Apply difficulty filter
-    if (filters?.difficulties && filters.difficulties.length > 0) {
-      filteredQuestions = filteredQuestions.filter((q) =>
-        filters.difficulties!.includes(q.difficulty)
-      );
-    }
-
-    // Apply search filter
-    if (filters?.searchQuery && filters.searchQuery.trim()) {
-      const query = filters.searchQuery.toLowerCase();
-      filteredQuestions = filteredQuestions.filter(
-        (q) =>
-          q.prompt.toLowerCase().includes(query) ||
-          q.tags.some((tag) => tag.toLowerCase().includes(query))
-      );
-    }
-
-    return filteredQuestions;
-  }, [availableBanks]);
-
-  const handleImportFromBank = useCallback((bankQuestions: BankQuestion[]) => {
-    const newQuestions: AssessmentQuestion[] = bankQuestions.map((bq, idx) => ({
-      id: generateId(),
-      assessmentId,
-      bankQuestionId: bq.id,
-      prompt: bq.prompt,
-      content: bq.content,
-      explanation: bq.explanation,
-      points: bq.points,
-      difficulty: bq.difficulty,
-      tags: bq.tags,
-      orderIndex: questions.length + idx,
-      createdBy: bq.createdBy,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }));
-    setQuestions((prev) => [...prev, ...newQuestions]);
-    setShowBankSelector(false);
-  }, [assessmentId, questions.length]);
-
-  // Bank rules handlers
-  const handleAddBankRule = useCallback((rule: BankRuleInput) => {
-    const newRule: BankRule = {
-      bankId: rule.bankId,
-      pickCount: rule.pickCount,
-      tagFilters: rule.tagFilters || [],
-      difficultyFilter: rule.difficultyFilter || [],
-      shuffleQuestions: rule.shuffleQuestions ?? true,
-      shuffleChoices: rule.shuffleChoices ?? true,
-      seedMode: rule.seedMode ?? 'per_student',
-      id: generateId(),
-      assessmentId,
-      createdAt: new Date().toISOString(),
-    };
-    setBankRules((prev) => [...prev, newRule]);
-  }, [assessmentId]);
-
-  const handleUpdateBankRule = useCallback((ruleId: string, updates: Partial<BankRule>) => {
-    setBankRules((prev) =>
-      prev.map((r) => (r.id === ruleId ? { ...r, ...updates } : r))
-    );
-  }, []);
-
-  const handleDeleteBankRule = useCallback((ruleId: string) => {
-    setBankRules((prev) => prev.filter((r) => r.id !== ruleId));
   }, []);
 
   // ============================================================================
@@ -589,17 +486,6 @@ export function AssessmentBuilderPage({
       onDeleteQuestion={handleDeleteQuestion}
       onDuplicateQuestion={handleDuplicateQuestion}
       onAddQuestion={handleAddQuestion}
-      onAddFromBank={handleAddFromBank}
-    />
-  );
-
-  const renderBankRulesTab = () => (
-    <BankRulesPanel
-      rules={bankRules}
-      banks={availableBanks}
-      onAddRule={handleAddBankRule}
-      onUpdateRule={handleUpdateBankRule}
-      onDeleteRule={handleDeleteBankRule}
     />
   );
 
@@ -688,20 +574,6 @@ export function AssessmentBuilderPage({
         )}
       </div>
 
-      {/* Bank Rules Summary */}
-      {bankRules.length > 0 && (
-        <div className="bg-amber-50 rounded-xl border border-amber-100 p-6">
-          <div className="flex items-start gap-3">
-            <span className="material-symbols-outlined text-amber-600">shuffle</span>
-            <div>
-              <h3 className="text-sm font-semibold text-amber-900 mb-2">Random Questions</h3>
-              <p className="text-sm text-amber-700">
-                {bankRules.reduce((sum, r) => sum + r.pickCount, 0)} additional questions will be randomly selected from question banks.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 
@@ -887,11 +759,6 @@ export function AssessmentBuilderPage({
                     {questionCount}
                   </span>
                 )}
-                {tab.id === 'bank-rules' && bankRules.length > 0 && (
-                  <span className="ml-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
-                    {bankRules.length}
-                  </span>
-                )}
               </button>
             ))}
           </div>
@@ -902,7 +769,6 @@ export function AssessmentBuilderPage({
       <div className="max-w-6xl mx-auto px-6 py-6">
         {activeTab === 'settings' && renderSettingsTab()}
         {activeTab === 'questions' && renderQuestionsTab()}
-        {activeTab === 'bank-rules' && renderBankRulesTab()}
         {activeTab === 'preview' && renderPreviewTab()}
       </div>
 
@@ -928,14 +794,6 @@ export function AssessmentBuilderPage({
         }}
       />
 
-      {/* Bank Selector Modal */}
-      <QuestionBankSelector
-        isOpen={showBankSelector}
-        banks={availableBanks}
-        onSelectQuestions={handleImportFromBank}
-        onClose={() => setShowBankSelector(false)}
-        onLoadBankQuestions={handleLoadBankQuestions}
-      />
     </div>
   );
 }

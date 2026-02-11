@@ -172,12 +172,6 @@ export const API_ROUTE_PERMISSIONS: Record<string, Record<string, Permission>> =
     GET: 'students:view',
     POST: 'students:view',
   },
-  '/api/teacher/question-banks': {
-    GET: 'assessments:create',
-    POST: 'assessments:create',
-    PUT: 'assessments:create',
-    DELETE: 'assessments:create',
-  },
   '/api/teacher/feedback-templates': {
     GET: 'assessments:grade',
     POST: 'assessments:grade',

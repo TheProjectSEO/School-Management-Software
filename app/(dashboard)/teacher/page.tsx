@@ -13,13 +13,8 @@ import {
 } from '@/lib/dal/dashboard'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import StatsWidget from '@/components/teacher/dashboard/StatsWidget'
-import TodaysSessionsWidget from '@/components/teacher/dashboard/TodaysSessionsWidget'
-import GradingInboxWidget from '@/components/teacher/dashboard/GradingInboxWidget'
-import PendingReleasesWidget from '@/components/teacher/dashboard/PendingReleasesWidget'
-import DraftContentWidget from '@/components/teacher/dashboard/DraftContentWidget'
 import AttendanceAlertsWidget from '@/components/teacher/dashboard/AttendanceAlertsWidget'
-import UpcomingDeadlinesWidget from '@/components/teacher/dashboard/UpcomingDeadlinesWidget'
-import RecentActivityWidget from '@/components/teacher/dashboard/RecentActivityWidget'
+import DashboardWidgetsGrid from '@/components/teacher/dashboard/DashboardWidgetsGrid'
 
 export const metadata = {
   title: 'Dashboard | MSU Teacher Portal',
@@ -37,6 +32,16 @@ function StatsLoading() {
   )
 }
 
+function WidgetsLoading() {
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      {[1, 2, 3, 4, 5, 6].map(i => (
+        <div key={i} className="h-20 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse" />
+      ))}
+    </div>
+  )
+}
+
 function WidgetLoading() {
   return (
     <div className="h-64 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse" />
@@ -49,57 +54,37 @@ async function DashboardStats({ teacherId }: { teacherId: string }) {
   return <StatsWidget stats={stats} />
 }
 
-// Server component for today's sessions
-async function TodaysSessions({ teacherId }: { teacherId: string }) {
-  const sessions = await getTodaysLiveSessions(teacherId)
-  return <TodaysSessionsWidget sessions={sessions} />
-}
+// Server component that fetches all widget data in parallel
+async function DashboardWidgetsWrapper({ teacherId }: { teacherId: string }) {
+  const [sessions, recentSubmissions, stats, gradedItems, drafts, deadlines, activities] =
+    await Promise.all([
+      getTodaysLiveSessions(teacherId),
+      getRecentPendingSubmissions(teacherId, 3),
+      getTeacherStats(teacherId),
+      getGradedNotReleasedItems(teacherId),
+      getDraftModules(teacherId, 5),
+      getUpcomingDeadlines(teacherId, 7),
+      getRecentActivity(teacherId, 5),
+    ])
 
-// Server component for grading inbox
-async function GradingInbox({ teacherId }: { teacherId: string }) {
-  const [recentSubmissions, stats] = await Promise.all([
-    getRecentPendingSubmissions(teacherId, 3),
-    getTeacherStats(teacherId)
-  ])
   return (
-    <GradingInboxWidget
+    <DashboardWidgetsGrid
+      sessions={sessions}
       recentSubmissions={recentSubmissions}
       totalPending={stats.pending_submissions}
+      gradedItems={gradedItems}
+      drafts={drafts}
+      totalDraftCount={stats.draft_modules}
+      deadlines={deadlines}
+      activities={activities}
     />
   )
-}
-
-// Server component for pending releases
-async function PendingReleases({ teacherId }: { teacherId: string }) {
-  const items = await getGradedNotReleasedItems(teacherId)
-  return <PendingReleasesWidget items={items} />
-}
-
-// Server component for draft content
-async function DraftContent({ teacherId }: { teacherId: string }) {
-  const [drafts, stats] = await Promise.all([
-    getDraftModules(teacherId, 5),
-    getTeacherStats(teacherId)
-  ])
-  return <DraftContentWidget drafts={drafts} totalCount={stats.draft_modules} />
 }
 
 // Server component for attendance alerts
 async function AttendanceAlerts({ teacherId }: { teacherId: string }) {
   const absentStudents = await getTodaysAbsentStudents(teacherId)
   return <AttendanceAlertsWidget absentStudents={absentStudents} />
-}
-
-// Server component for upcoming deadlines
-async function UpcomingDeadlines({ teacherId }: { teacherId: string }) {
-  const deadlines = await getUpcomingDeadlines(teacherId, 7)
-  return <UpcomingDeadlinesWidget deadlines={deadlines} />
-}
-
-// Server component for recent activity
-async function RecentActivity({ teacherId }: { teacherId: string }) {
-  const activities = await getRecentActivity(teacherId, 5)
-  return <RecentActivityWidget activities={activities} />
 }
 
 export default async function TeacherDashboardPage() {
@@ -135,36 +120,10 @@ export default async function TeacherDashboardPage() {
         </Suspense>
       </div>
 
-      {/* Main Dashboard Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Today's Sessions */}
-        <Suspense fallback={<WidgetLoading />}>
-          <TodaysSessions teacherId={teacherProfile.id} />
-        </Suspense>
-
-        {/* Grading Inbox */}
-        <Suspense fallback={<WidgetLoading />}>
-          <GradingInbox teacherId={teacherProfile.id} />
-        </Suspense>
-
-        {/* Pending Releases */}
-        <Suspense fallback={<WidgetLoading />}>
-          <PendingReleases teacherId={teacherProfile.id} />
-        </Suspense>
-
-        {/* Draft Content */}
-        <Suspense fallback={<WidgetLoading />}>
-          <DraftContent teacherId={teacherProfile.id} />
-        </Suspense>
-
-        {/* Upcoming Deadlines */}
-        <Suspense fallback={<WidgetLoading />}>
-          <UpcomingDeadlines teacherId={teacherProfile.id} />
-        </Suspense>
-
-        {/* Recent Activity */}
-        <Suspense fallback={<WidgetLoading />}>
-          <RecentActivity teacherId={teacherProfile.id} />
+      {/* Widget Summary Cards */}
+      <div className="mb-6">
+        <Suspense fallback={<WidgetsLoading />}>
+          <DashboardWidgetsWrapper teacherId={teacherProfile.id} />
         </Suspense>
       </div>
 

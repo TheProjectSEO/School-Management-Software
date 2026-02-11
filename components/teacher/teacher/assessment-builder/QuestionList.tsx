@@ -28,7 +28,6 @@ interface QuestionListProps {
   onDeleteQuestion: (questionId: string) => void;
   onDuplicateQuestion?: (question: AssessmentQuestion) => void;
   onAddQuestion: () => void;
-  onAddFromBank: () => void;
 }
 
 export function QuestionList({
@@ -38,7 +37,6 @@ export function QuestionList({
   onDeleteQuestion,
   onDuplicateQuestion,
   onAddQuestion,
-  onAddFromBank,
 }: QuestionListProps) {
   const [activeId, setActiveId] = useState<string | null>(null);
 
@@ -100,24 +98,14 @@ export function QuestionList({
             <div className="text-sm text-slate-500">Total Points</div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onAddFromBank}
-            className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            <span className="material-symbols-outlined text-lg">folder</span>
-            From Bank
-          </button>
-          <button
-            type="button"
-            onClick={onAddQuestion}
-            className="flex items-center gap-2 rounded-lg bg-msu-maroon px-4 py-2.5 text-sm font-medium text-white hover:bg-msu-maroon/90"
-          >
-            <span className="material-symbols-outlined text-lg">add</span>
-            New Question
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onAddQuestion}
+          className="flex items-center gap-2 rounded-lg bg-msu-maroon px-4 py-2.5 text-sm font-medium text-white hover:bg-msu-maroon/90"
+        >
+          <span className="material-symbols-outlined text-lg">add</span>
+          New Question
+        </button>
       </div>
 
       {/* Questions List */}
@@ -130,24 +118,14 @@ export function QuestionList({
           <p className="text-sm text-slate-500 mb-4">
             Add questions to build your assessment
           </p>
-          <div className="flex items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={onAddFromBank}
-              className="flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              <span className="material-symbols-outlined text-lg">folder</span>
-              From Question Bank
-            </button>
-            <button
-              type="button"
-              onClick={onAddQuestion}
-              className="flex items-center gap-2 rounded-lg bg-msu-maroon px-4 py-2.5 text-sm font-medium text-white hover:bg-msu-maroon/90"
-            >
-              <span className="material-symbols-outlined text-lg">add</span>
-              Create New Question
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onAddQuestion}
+            className="flex items-center gap-2 rounded-lg bg-msu-maroon px-4 py-2.5 text-sm font-medium text-white hover:bg-msu-maroon/90"
+          >
+            <span className="material-symbols-outlined text-lg">add</span>
+            Create New Question
+          </button>
         </div>
       ) : (
         <DndContext
@@ -197,16 +175,7 @@ export function QuestionList({
 
       {/* Add More */}
       {questions.length > 0 && (
-        <div className="flex items-center justify-center gap-4 pt-4">
-          <button
-            type="button"
-            onClick={onAddFromBank}
-            className="flex items-center gap-2 text-sm text-slate-600 hover:text-msu-maroon"
-          >
-            <span className="material-symbols-outlined text-lg">folder</span>
-            Add from bank
-          </button>
-          <span className="text-slate-300">|</span>
+        <div className="flex items-center justify-center pt-4">
           <button
             type="button"
             onClick={onAddQuestion}

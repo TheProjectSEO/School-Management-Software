@@ -31,7 +31,6 @@ interface QuestionEditorProps {
   onSave: (question: CreateQuestionInput) => void;
   initialValue?: CreateQuestionInput | null;
   isLoading?: boolean;
-  saveToBank?: boolean;
 }
 
 export function QuestionEditor({
@@ -40,7 +39,6 @@ export function QuestionEditor({
   onSave,
   initialValue,
   isLoading = false,
-  saveToBank = false,
 }: QuestionEditorProps) {
   const [questionType, setQuestionType] = useState<QuestionType>('multiple_choice_single');
   const [prompt, setPrompt] = useState('');
@@ -376,7 +374,7 @@ export function QuestionEditor({
                 {initialValue ? 'Edit Question' : 'Create Question'}
               </h2>
               <p className="text-sm text-slate-500">
-                {saveToBank ? 'Save to question bank' : 'Add to assessment'}
+                Add to assessment
               </p>
             </div>
           </div>
@@ -627,7 +625,7 @@ export function QuestionEditor({
             ) : (
               <>
                 <span className="material-symbols-outlined text-lg">save</span>
-                {saveToBank ? 'Save to Bank' : 'Add Question'}
+                Add Question
               </>
             )}
           </button>

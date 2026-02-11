@@ -2,7 +2,7 @@
  * Assessment Builder Types
  *
  * Complete type definitions for the teacher assessment builder system.
- * Supports multiple question types, question banks, and randomization rules.
+ * Supports multiple question types and various content structures.
  */
 
 // ============================================================================
@@ -87,7 +87,7 @@ export type QuestionContent =
   | FillInBlankContent;
 
 // ============================================================================
-// QUESTION & BANK ENTITIES
+// QUESTION ENTITIES
 // ============================================================================
 
 export interface BaseQuestion {
@@ -102,60 +102,10 @@ export interface BaseQuestion {
   updatedAt: string;
 }
 
-export interface BankQuestion extends BaseQuestion {
-  bankId: string;
-  content: QuestionContent;
-}
-
 export interface AssessmentQuestion extends BaseQuestion {
   assessmentId: string;
-  bankQuestionId?: string; // If copied from bank
   orderIndex: number;
   content: QuestionContent;
-}
-
-export interface QuestionBank {
-  id: string;
-  name: string;
-  description?: string;
-  subjectId?: string;
-  courseId?: string;
-  teacherId: string;
-  questionCount: number;
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
-  questions?: BankQuestion[];
-}
-
-// ============================================================================
-// BANK RULES (RANDOMIZATION)
-// ============================================================================
-
-export type SeedMode = 'fixed' | 'per_student' | 'per_attempt';
-
-export interface BankRule {
-  id: string;
-  assessmentId: string;
-  bankId: string;
-  bankName?: string;
-  pickCount: number;
-  tagFilters: string[];
-  difficultyFilter?: DifficultyLevel[];
-  shuffleQuestions: boolean;
-  shuffleChoices: boolean;
-  seedMode: SeedMode;
-  createdAt: string;
-}
-
-export interface BankRuleInput {
-  bankId: string;
-  pickCount: number;
-  tagFilters?: string[];
-  difficultyFilter?: DifficultyLevel[];
-  shuffleQuestions?: boolean;
-  shuffleChoices?: boolean;
-  seedMode?: SeedMode;
 }
 
 // ============================================================================
@@ -224,23 +174,8 @@ export interface UpdateQuestionInput {
   tags?: string[];
 }
 
-export interface CreateBankInput {
-  name: string;
-  description?: string;
-  subjectId?: string;
-  courseId?: string;
-  tags?: string[];
-}
-
-export interface UpdateBankInput {
-  name?: string;
-  description?: string;
-  tags?: string[];
-}
-
 export interface AddQuestionToAssessmentInput {
-  bankQuestionId?: string; // Copy from bank
-  question?: CreateQuestionInput; // Or create new
+  question?: CreateQuestionInput;
   orderIndex?: number;
 }
 
@@ -268,39 +203,6 @@ export interface QuestionFilters {
   searchQuery?: string;
   limit?: number;
   offset?: number;
-}
-
-export interface BankFilters {
-  subjectId?: string;
-  courseId?: string;
-  searchQuery?: string;
-  limit?: number;
-  offset?: number;
-}
-
-// ============================================================================
-// IMPORT/EXPORT
-// ============================================================================
-
-export interface QuestionImportRow {
-  type: QuestionType;
-  prompt: string;
-  options?: string; // JSON string for options
-  correctAnswer?: string; // JSON string or simple value
-  explanation?: string;
-  points?: number;
-  difficulty?: DifficultyLevel;
-  tags?: string; // Comma-separated
-}
-
-export interface ImportResult {
-  success: boolean;
-  imported: number;
-  failed: number;
-  errors: {
-    row: number;
-    error: string;
-  }[];
 }
 
 // ============================================================================

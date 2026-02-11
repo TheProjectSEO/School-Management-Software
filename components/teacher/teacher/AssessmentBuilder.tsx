@@ -7,7 +7,6 @@ import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Badge from '@/components/ui/Badge'
 import QuestionEditorModal from './QuestionEditorModal'
-import QuestionBankSelectorModal from './QuestionBankSelectorModal'
 
 interface Question {
   id?: string
@@ -39,7 +38,6 @@ export default function AssessmentBuilder({ assessment }: AssessmentBuilderProps
 
   const [questions, setQuestions] = useState<Question[]>(assessment.questions || [])
   const [showQuestionEditor, setShowQuestionEditor] = useState(false)
-  const [showBankSelector, setShowBankSelector] = useState(false)
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null)
 
   const handleSaveQuestion = (question: Question) => {
@@ -64,15 +62,6 @@ export default function AssessmentBuilder({ assessment }: AssessmentBuilderProps
     if (confirm('Are you sure you want to delete this question?')) {
       setQuestions(questions.filter(q => q.id !== questionId))
     }
-  }
-
-  const handleAddFromBank = (selectedQuestions: any[]) => {
-    const newQuestions = selectedQuestions.map((q, index) => ({
-      ...q,
-      id: crypto.randomUUID(),
-      order: questions.length + index
-    }))
-    setQuestions([...questions, ...newQuestions])
   }
 
   const moveQuestion = (index: number, direction: 'up' | 'down') => {
@@ -211,12 +200,6 @@ export default function AssessmentBuilder({ assessment }: AssessmentBuilderProps
               <span>Questions</span>
             </div>
           </TabsTrigger>
-          <TabsTrigger value="bank-rules">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-lg">smart_toy</span>
-              <span>Bank Rules</span>
-            </div>
-          </TabsTrigger>
           <TabsTrigger value="preview">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-lg">visibility</span>
@@ -340,19 +323,13 @@ export default function AssessmentBuilder({ assessment }: AssessmentBuilderProps
                   {questions.length} question{questions.length !== 1 ? 's' : ''} • {getTotalPoints()} total points
                 </p>
               </div>
-              <div className="flex items-center gap-3">
-                <Button variant="outline" size="sm" onClick={() => setShowBankSelector(true)}>
-                  <span className="material-symbols-outlined text-base">library_add</span>
-                  Add from Bank
-                </Button>
-                <Button size="sm" onClick={() => {
-                  setEditingQuestion(null)
-                  setShowQuestionEditor(true)
-                }}>
-                  <span className="material-symbols-outlined text-base">add</span>
-                  Create New
-                </Button>
-              </div>
+              <Button size="sm" onClick={() => {
+                setEditingQuestion(null)
+                setShowQuestionEditor(true)
+              }}>
+                <span className="material-symbols-outlined text-base">add</span>
+                Create New
+              </Button>
             </div>
 
             <div className="space-y-4">
@@ -443,91 +420,15 @@ export default function AssessmentBuilder({ assessment }: AssessmentBuilderProps
                   <p className="text-slate-600 dark:text-slate-400 mb-4">
                     No questions added yet
                   </p>
-                  <div className="flex items-center justify-center gap-3">
-                    <Button variant="outline" onClick={() => setShowBankSelector(true)}>
-                      <span className="material-symbols-outlined text-lg">library_add</span>
-                      Add from Bank
-                    </Button>
-                    <Button onClick={() => {
-                      setEditingQuestion(null)
-                      setShowQuestionEditor(true)
-                    }}>
-                      <span className="material-symbols-outlined text-lg">add</span>
-                      Create New Question
-                    </Button>
-                  </div>
+                  <Button onClick={() => {
+                    setEditingQuestion(null)
+                    setShowQuestionEditor(true)
+                  }}>
+                    <span className="material-symbols-outlined text-lg">add</span>
+                    Create New Question
+                  </Button>
                 </div>
               )}
-            </div>
-          </Card>
-        </TabsContent>
-
-        {/* Bank Rules Tab */}
-        <TabsContent value="bank-rules">
-          <Card>
-            <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-4">
-              Randomization Rules
-            </h2>
-            <div className="space-y-6">
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
-                <div className="flex items-start gap-3">
-                  <span className="material-symbols-outlined text-blue-600">info</span>
-                  <div>
-                    <h3 className="font-medium text-blue-900 dark:text-blue-100 mb-1">
-                      Question Bank Randomization
-                    </h3>
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      Configure how questions are selected from banks for each student attempt.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="randomize"
-                    className="w-4 h-4 text-primary"
-                  />
-                  <label htmlFor="randomize" className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                    Enable random question selection
-                  </label>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-2">
-                    Number of questions to select from bank
-                  </label>
-                  <Input
-                    type="number"
-                    min="1"
-                    placeholder="10"
-                  />
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="shuffle"
-                    className="w-4 h-4 text-primary"
-                  />
-                  <label htmlFor="shuffle" className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                    Shuffle answer options
-                  </label>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    id="seed"
-                    className="w-4 h-4 text-primary"
-                  />
-                  <label htmlFor="seed" className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                    Use seed mode (same questions for all attempts by a student)
-                  </label>
-                </div>
-              </div>
             </div>
           </Card>
         </TabsContent>
@@ -595,12 +496,6 @@ export default function AssessmentBuilder({ assessment }: AssessmentBuilderProps
         question={editingQuestion}
       />
 
-      <QuestionBankSelectorModal
-        isOpen={showBankSelector}
-        onClose={() => setShowBankSelector(false)}
-        onSelect={handleAddFromBank}
-        courseId={formData.course_id}
-      />
     </div>
   )
 }

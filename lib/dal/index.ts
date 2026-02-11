@@ -95,11 +95,9 @@ export {
   getTeacherAssessments,
   getPendingSubmissions,
   getSubmissionDetail,
-  getQuestionBanks,
 } from "./assessments";
 export type {
   Assessment as TeacherAssessment,
-  QuestionBank,
   Submission as TeacherSubmission,
   SubmissionDetail,
 } from "./assessments";

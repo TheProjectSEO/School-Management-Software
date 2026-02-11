@@ -19,15 +19,6 @@ export type Assessment = {
   created_at: string
 }
 
-export type QuestionBank = {
-  id: string
-  name: string
-  description: string | null
-  course_id: string
-  question_count: number
-  created_at: string
-}
-
 export type Submission = {
   id: string
   assessment_id: string
@@ -347,41 +338,6 @@ export async function getSubmissionDetail(submissionId: string, teacherId: strin
   } as SubmissionDetail
 }
 
-/**
- * Get question banks for a course
- */
-export async function getQuestionBanks(courseId: string, teacherId: string) {
-  const supabase = createServiceClient()
-
-  // Verify access
-  const hasAccess = await verifyTeacherAssessmentAccess(teacherId, courseId)
-  if (!hasAccess) return []
-
-  const { data, error } = await supabase
-    .from('teacher_question_banks')
-    .select('*')
-    .eq('course_id', courseId)
-    .order('created_at', { ascending: false })
-
-  if (error) {
-    console.error('Error fetching question banks:', error)
-    return []
-  }
-
-  // Enrich with question counts
-  const enriched = await Promise.all(
-    data.map(async (bank) => {
-      const count = await getQuestionCountForBank(bank.id)
-      return {
-        ...bank,
-        question_count: count
-      } as QuestionBank
-    })
-  )
-
-  return enriched
-}
-
 // Helper functions
 async function getSubmissionCount(assessmentId: string): Promise<number> {
   const supabase = createServiceClient()
@@ -418,15 +374,6 @@ async function checkSubmissionHasFeedback(submissionId: string): Promise<boolean
     .select('*', { count: 'exact', head: true })
     .eq('submission_id', submissionId)
   return (count || 0) > 0
-}
-
-async function getQuestionCountForBank(bankId: string): Promise<number> {
-  const supabase = createServiceClient()
-  const { count } = await supabase
-    .from('teacher_bank_questions')
-    .select('*', { count: 'exact', head: true })
-    .eq('bank_id', bankId)
-  return count || 0
 }
 
 async function verifyTeacherAssessmentAccess(teacherId: string, courseId: string): Promise<boolean> {

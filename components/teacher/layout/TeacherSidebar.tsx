@@ -22,7 +22,6 @@ const navItems: NavItem[] = [
   { name: 'Live Sessions', href: '/teacher/live-sessions', icon: 'videocam' },
   { name: 'AI Planner', href: '/teacher/ai-planner', icon: 'auto_awesome' },
   { name: 'Assessments', href: '/teacher/assessments', icon: 'quiz' },
-  { name: 'Question Banks', href: '/teacher/question-banks', icon: 'library_books' },
   { name: 'Submissions', href: '/teacher/submissions', icon: 'assignment_turned_in' },
   { name: 'Grading Queue', href: '/teacher/grading', icon: 'grading' },
   { name: 'Feedback Templates', href: '/teacher/feedback-templates', icon: 'content_paste' },

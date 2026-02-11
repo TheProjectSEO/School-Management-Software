@@ -142,6 +142,8 @@ export async function updateStudentProfile(
 
 /**
  * Get overall progress stats for a student
+ * Calculates accurate per-course progress based on published lessons only,
+ * then averages across all enrolled courses.
  */
 export async function getStudentProgressStats(studentId: string): Promise<{
   totalCourses: number;
@@ -151,30 +153,85 @@ export async function getStudentProgressStats(studentId: string): Promise<{
 }> {
   const supabase = createAdminClient();
 
-  // Get enrollments count
-  const { count: totalCourses } = await supabase
+  // Get enrolled course IDs
+  const { data: enrollments } = await supabase
     .from("enrollments")
-    .select("*", { count: "exact", head: true })
+    .select("course_id")
     .eq("student_id", studentId);
 
-  // Get progress data
+  const courseIds = (enrollments || []).map((e) => e.course_id).filter(Boolean);
+  if (courseIds.length === 0) {
+    return { totalCourses: 0, averageProgress: 0, completedLessons: 0, inProgressLessons: 0 };
+  }
+
+  // Get published modules for enrolled courses
+  const { data: modules } = await supabase
+    .from("modules")
+    .select("id, course_id")
+    .in("course_id", courseIds)
+    .eq("is_published", true);
+
+  const moduleIds = (modules || []).map((m) => m.id);
+  const moduleToCourse = new Map((modules || []).map((m) => [m.id, m.course_id]));
+
+  // Get published lessons for those modules
+  const { data: lessons } = moduleIds.length > 0
+    ? await supabase
+        .from("lessons")
+        .select("id, module_id")
+        .in("module_id", moduleIds)
+        .eq("is_published", true)
+    : { data: [] as { id: string; module_id: string }[] };
+
+  // Map lessons to their course
+  const lessonsByCourse = new Map<string, Set<string>>();
+  (lessons || []).forEach((l) => {
+    const courseId = moduleToCourse.get(l.module_id);
+    if (courseId) {
+      const set = lessonsByCourse.get(courseId) || new Set();
+      set.add(l.id);
+      lessonsByCourse.set(courseId, set);
+    }
+  });
+
+  // Get completed lessons for this student (only count published lessons)
   const { data: progressData } = await supabase
     .from("student_progress")
-    .select("progress_percent, completed_at")
+    .select("course_id, lesson_id, completed_at, progress_percent")
     .eq("student_id", studentId);
 
-  const completedLessons = progressData?.filter((p) => p.completed_at)?.length || 0;
-  const inProgressLessons = progressData?.filter((p) => !p.completed_at && p.progress_percent > 0)?.length || 0;
-  const averageProgress =
-    progressData && progressData.length > 0
-      ? progressData.reduce((sum, p) => sum + p.progress_percent, 0) / progressData.length
-      : 0;
+  let totalCompleted = 0;
+  let totalInProgress = 0;
+  const completedByCourse = new Map<string, number>();
+
+  (progressData || []).forEach((p) => {
+    // Only count if the lesson is a published lesson in the course
+    if (p.lesson_id && lessonsByCourse.get(p.course_id)?.has(p.lesson_id)) {
+      if (p.completed_at) {
+        totalCompleted++;
+        completedByCourse.set(p.course_id, (completedByCourse.get(p.course_id) || 0) + 1);
+      } else if (p.progress_percent > 0) {
+        totalInProgress++;
+      }
+    }
+  });
+
+  // Calculate per-course progress, then average
+  let progressSum = 0;
+  courseIds.forEach((cid) => {
+    const totalLessons = lessonsByCourse.get(cid)?.size || 0;
+    const completed = completedByCourse.get(cid) || 0;
+    const courseProgress = totalLessons > 0 ? (completed / totalLessons) * 100 : 0;
+    progressSum += courseProgress;
+  });
+
+  const averageProgress = courseIds.length > 0 ? progressSum / courseIds.length : 0;
 
   return {
-    totalCourses: totalCourses || 0,
+    totalCourses: courseIds.length,
     averageProgress: Math.round(averageProgress),
-    completedLessons,
-    inProgressLessons,
+    completedLessons: totalCompleted,
+    inProgressLessons: totalInProgress,
   };
 }
 

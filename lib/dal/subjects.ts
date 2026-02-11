@@ -358,37 +358,94 @@ export async function getRecentSubjects(
 ): Promise<(Course & { last_accessed: string; progress_percent: number })[]> {
   const supabase = createServiceClient();
 
+  // Get recently accessed progress rows to find which courses were accessed last
   const { data, error } = await supabase
     .from("student_progress")
-    .select(`
-      course_id,
-      progress_percent,
-      last_accessed_at,
-      course:courses(*)
-    `)
+    .select("course_id, last_accessed_at")
     .eq("student_id", studentId)
-    .order("last_accessed_at", { ascending: false })
-    .limit(limit);
+    .order("last_accessed_at", { ascending: false });
 
   if (error) {
     console.error("Error fetching recent subjects:", error);
     return [];
   }
 
-  // Deduplicate by course_id
-  const uniqueCourses = new Map<string, Course & { last_accessed: string; progress_percent: number }>();
+  // Deduplicate by course_id, keeping the most recent access time
+  const courseAccessMap = new Map<string, string>();
   data?.forEach((item) => {
-    if (!uniqueCourses.has(item.course_id) && item.course) {
-      const courseData = item.course as unknown as Course;
-      uniqueCourses.set(item.course_id, {
-        ...courseData,
-        last_accessed: item.last_accessed_at,
-        progress_percent: item.progress_percent,
-      });
+    if (!courseAccessMap.has(item.course_id)) {
+      courseAccessMap.set(item.course_id, item.last_accessed_at);
     }
   });
 
-  return Array.from(uniqueCourses.values());
+  const recentCourseIds = Array.from(courseAccessMap.keys()).slice(0, limit);
+  if (recentCourseIds.length === 0) return [];
+
+  // Fetch course data
+  const { data: courses } = await supabase
+    .from("courses")
+    .select("*")
+    .in("id", recentCourseIds);
+
+  if (!courses || courses.length === 0) return [];
+
+  // Calculate accurate progress per course (same logic as getStudentSubjects)
+  const { data: modules } = await supabase
+    .from("modules")
+    .select("id, course_id")
+    .in("course_id", recentCourseIds)
+    .eq("is_published", true);
+
+  const moduleIds = (modules || []).map((m) => m.id);
+  const moduleToCourse = new Map((modules || []).map((m) => [m.id, m.course_id]));
+
+  const { data: lessons } = moduleIds.length > 0
+    ? await supabase
+        .from("lessons")
+        .select("id, module_id")
+        .in("module_id", moduleIds)
+        .eq("is_published", true)
+    : { data: [] as { id: string; module_id: string }[] };
+
+  const lessonsByCourse = new Map<string, Set<string>>();
+  (lessons || []).forEach((l) => {
+    const courseId = moduleToCourse.get(l.module_id);
+    if (courseId) {
+      const set = lessonsByCourse.get(courseId) || new Set();
+      set.add(l.id);
+      lessonsByCourse.set(courseId, set);
+    }
+  });
+
+  const { data: progressData } = await supabase
+    .from("student_progress")
+    .select("course_id, lesson_id, completed_at")
+    .eq("student_id", studentId)
+    .in("course_id", recentCourseIds)
+    .not("completed_at", "is", null);
+
+  const completedByCourse = new Map<string, number>();
+  (progressData || []).forEach((p) => {
+    if (p.lesson_id && lessonsByCourse.get(p.course_id)?.has(p.lesson_id)) {
+      completedByCourse.set(p.course_id, (completedByCourse.get(p.course_id) || 0) + 1);
+    }
+  });
+
+  const courseMap = new Map(courses.map((c) => [c.id, c]));
+
+  return recentCourseIds
+    .filter((id) => courseMap.has(id))
+    .map((id) => {
+      const course = courseMap.get(id)!;
+      const totalLessons = lessonsByCourse.get(id)?.size || 0;
+      const completedLessons = completedByCourse.get(id) || 0;
+      const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
+      return {
+        ...course,
+        last_accessed: courseAccessMap.get(id)!,
+        progress_percent: progress,
+      };
+    });
 }
 
 /**

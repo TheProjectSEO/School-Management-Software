@@ -647,36 +647,32 @@ export async function listGroupedStudentEnrollments(params: {
         .in('id', uniqueStudentIds);
 
       const profileIds = (studentRows || []).map(s => s.profile_id).filter(Boolean);
+      const matchedProfileIds = new Set<string>();
 
-      // Search by school_profiles.id first
-      const { data: matchedProfiles } = await supabase
-        .from('school_profiles')
-        .select('id')
-        .in('id', profileIds)
-        .ilike('full_name', `%${search}%`);
+      if (profileIds.length > 0) {
+        // Search school_profiles by id OR auth_user_id in one query
+        const idList = profileIds.map(id => `"${id}"`).join(',');
+        const { data: matchedProfiles } = await supabase
+          .from('school_profiles')
+          .select('id, auth_user_id')
+          .or(`id.in.(${idList}),auth_user_id.in.(${idList})`)
+          .ilike('full_name', `%${search}%`);
 
-      const matchedProfileIds = new Set((matchedProfiles || []).map(p => p.id));
+        for (const p of matchedProfiles || []) {
+          matchedProfileIds.add(p.id);
+          if (p.auth_user_id) matchedProfileIds.add(p.auth_user_id);
+        }
 
-      // Also search by auth_user_id for legacy profile_id values
-      const { data: matchedByAuth } = await supabase
-        .from('school_profiles')
-        .select('auth_user_id')
-        .in('auth_user_id', profileIds)
-        .ilike('full_name', `%${search}%`);
+        // Also search legacy profiles table
+        const { data: matchedLegacy } = await supabase
+          .from('profiles')
+          .select('id')
+          .in('id', profileIds)
+          .ilike('full_name', `%${search}%`);
 
-      for (const p of matchedByAuth || []) {
-        if (p.auth_user_id) matchedProfileIds.add(p.auth_user_id);
-      }
-
-      // Final fallback: search legacy "profiles" table
-      const { data: matchedLegacy } = await supabase
-        .from('profiles')
-        .select('id')
-        .in('id', profileIds)
-        .ilike('full_name', `%${search}%`);
-
-      for (const p of matchedLegacy || []) {
-        matchedProfileIds.add(p.id);
+        for (const p of matchedLegacy || []) {
+          matchedProfileIds.add(p.id);
+        }
       }
 
       const studentProfileMap = new Map((studentRows || []).map(s => [s.id, s.profile_id]));
@@ -704,57 +700,53 @@ export async function listGroupedStudentEnrollments(params: {
       .in('id', pageStudentIds);
 
     const profileIds = [...new Set((students || []).map(s => s.profile_id).filter(Boolean))];
+    const profileMap = new Map<string, { id: string; full_name: string; avatar_url?: string | null; email?: string }>();
 
-    // Debug: log what profile_ids we're working with
-    console.log('[enrollments] students count:', students?.length, 'profileIds:', profileIds.length, 'sample:', profileIds.slice(0, 3));
-
-    // Look up school_profiles by id first
-    let profiles: { id: string; full_name: string; avatar_url?: string; email?: string }[] = [];
     if (profileIds.length > 0) {
-      const { data } = await supabase
-        .from('school_profiles')
-        .select('id, full_name, avatar_url, email')
-        .in('id', profileIds);
-      profiles = data || [];
-    }
-
-    const profileMap = new Map(profiles.map(p => [p.id, p]));
-
-    console.log('[enrollments] school_profiles matched:', profiles.length, 'of', profileIds.length);
-
-    // For unresolved profile_ids, try school_profiles.auth_user_id
-    // (handles case where students.profile_id = auth.users.id)
-    const unresolvedIds = profileIds.filter(pid => !profileMap.has(pid));
-    if (unresolvedIds.length > 0) {
-      const { data: fallbackProfiles } = await supabase
+      // Single query: match school_profiles by EITHER id OR auth_user_id
+      // This covers both admin-created (profile_id = school_profiles.id) and
+      // self-registered students (profile_id = auth.users.id = school_profiles.auth_user_id)
+      const idList = profileIds.map(id => `"${id}"`).join(',');
+      const { data: allProfiles } = await supabase
         .from('school_profiles')
         .select('id, auth_user_id, full_name, avatar_url, email')
-        .in('auth_user_id', unresolvedIds);
-      console.log('[enrollments] auth_user_id fallback matched:', (fallbackProfiles || []).length);
-      for (const p of fallbackProfiles || []) {
+        .or(`id.in.(${idList}),auth_user_id.in.(${idList})`);
+
+      for (const p of allProfiles || []) {
+        profileMap.set(p.id, p);
         if (p.auth_user_id) profileMap.set(p.auth_user_id, p);
       }
-    }
 
-    // Final fallback: check legacy "profiles" table for any still-unresolved IDs
-    // (register route previously created profiles here instead of school_profiles)
-    const stillUnresolved = profileIds.filter(pid => !profileMap.has(pid));
-    if (stillUnresolved.length > 0) {
-      try {
+      // Fallback: check legacy "profiles" table for any still-unresolved IDs
+      const stillUnresolved = profileIds.filter(pid => !profileMap.has(pid));
+      if (stillUnresolved.length > 0) {
         const { data: legacyProfiles } = await supabase
           .from('profiles')
           .select('id, full_name, avatar_url')
           .in('id', stillUnresolved);
-        console.log('[enrollments] legacy profiles fallback matched:', (legacyProfiles || []).length);
         for (const p of legacyProfiles || []) {
           profileMap.set(p.id, { ...p, email: '' });
         }
-      } catch (e) {
-        console.log('[enrollments] legacy profiles table not available:', e);
+      }
+
+      // Last resort: get names from auth.users user_metadata
+      const finalUnresolved = profileIds.filter(pid => !profileMap.has(pid));
+      if (finalUnresolved.length > 0) {
+        for (const uid of finalUnresolved) {
+          const { data: authData } = await supabase.auth.admin.getUserById(uid);
+          if (authData?.user) {
+            const meta = authData.user.user_metadata;
+            const name = meta?.full_name
+              || [meta?.first_name, meta?.last_name].filter(Boolean).join(' ')
+              || authData.user.email
+              || 'Student';
+            profileMap.set(uid, { id: uid, full_name: name, avatar_url: null, email: authData.user.email || '' });
+          }
+        }
       }
     }
 
-    console.log('[enrollments] final profileMap size:', profileMap.size, 'needed:', profileIds.length);
+    console.log('[enrollments] profileMap resolved:', profileMap.size, 'of', profileIds.length, 'profile_ids');
 
     const studentMap = new Map((students || []).map(s => [s.id, s]));
 

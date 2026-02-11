@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { hasPermission, getCurrentAdmin } from "@/lib/dal/admin";
 import {
   listEnrollments,
+  listGroupedStudentEnrollments,
   createEnrollment,
   bulkEnroll,
   getEnrollmentStats,
@@ -34,8 +35,38 @@ export async function GET(request: NextRequest) {
     const sectionId = searchParams.get("sectionId") || undefined;
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = parseInt(searchParams.get("pageSize") || "20");
+    const view = searchParams.get("view");
 
-    const result = await listEnrollments({
+    // Flat view (legacy) - one row per enrollment
+    if (view === "flat") {
+      const result = await listEnrollments({
+        search,
+        status,
+        courseId,
+        sectionId,
+        page,
+        pageSize,
+      });
+
+      const transformedData = result.data.map((enrollment: any) => ({
+        id: enrollment.id,
+        student_id: enrollment.student_id,
+        student_name: enrollment.student?.profile?.full_name || "Unknown",
+        student_email: enrollment.student?.profile?.email || "",
+        course_id: enrollment.course_id,
+        course_name: enrollment.course?.name || "Unknown",
+        course_code: enrollment.course?.subject_code || "",
+        section_id: enrollment.section_id,
+        section_name: enrollment.section?.name || "Unknown",
+        status: enrollment.status || "active",
+        enrolled_at: enrollment.enrolled_at,
+      }));
+
+      return NextResponse.json({ ...result, data: transformedData });
+    }
+
+    // Default: Grouped view - one row per student with nested courses
+    const result = await listGroupedStudentEnrollments({
       search,
       status,
       courseId,
@@ -44,25 +75,7 @@ export async function GET(request: NextRequest) {
       pageSize,
     });
 
-    // Transform nested data to flat structure expected by frontend
-    const transformedData = result.data.map((enrollment: any) => ({
-      id: enrollment.id,
-      student_id: enrollment.student_id,
-      student_name: enrollment.student?.profile?.full_name || "Unknown",
-      student_email: enrollment.student?.profile?.email || "",
-      course_id: enrollment.course_id,
-      course_name: enrollment.course?.name || "Unknown",
-      course_code: enrollment.course?.subject_code || "",
-      section_id: enrollment.section_id,
-      section_name: enrollment.section?.name || "Unknown",
-      status: enrollment.status || "active",
-      enrolled_at: enrollment.enrolled_at,
-    }));
-
-    return NextResponse.json({
-      ...result,
-      data: transformedData,
-    });
+    return NextResponse.json(result);
   } catch (error) {
     console.error("Error in GET /api/admin/enrollments:", error);
     return NextResponse.json(

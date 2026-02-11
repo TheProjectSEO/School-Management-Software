@@ -3,16 +3,12 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ColumnDef } from "@tanstack/react-table";
-import { DataTable, FilterBar, UserStatusBadge, ConfirmModal, ExportButton } from "@/components/admin/ui";
+import { FilterBar, UserStatusBadge, ConfirmModal, ExportButton } from "@/components/admin/ui";
 import type { FilterOption } from "@/components/admin/ui/FilterBar";
 import { formatDistanceToNow } from "date-fns";
 
-interface Enrollment {
-  id: string;
-  student_id: string;
-  student_name: string;
-  student_email: string;
+interface CourseEnrollment {
+  enrollment_id: string;
   course_id: string;
   course_name: string;
   course_code: string;
@@ -22,8 +18,19 @@ interface Enrollment {
   enrolled_at: string;
 }
 
+interface StudentEnrollment {
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  section_id: string;
+  section_name: string;
+  grade_level: string;
+  enrolled_at: string;
+  courses: CourseEnrollment[];
+}
+
 interface PaginatedResult {
-  data: Enrollment[];
+  data: StudentEnrollment[];
   total: number;
   page: number;
   pageSize: number;
@@ -33,8 +40,9 @@ interface PaginatedResult {
 export default function EnrollmentsPage() {
   const searchParams = useSearchParams();
 
-  const [enrollments, setEnrollments] = useState<Enrollment[]>([]);
+  const [students, setStudents] = useState<StudentEnrollment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
   const [pagination, setPagination] = useState({
     page: 1,
     pageSize: 20,
@@ -49,12 +57,14 @@ export default function EnrollmentsPage() {
     sectionId: searchParams.get("sectionId") || "",
   });
 
-  const [selectedEnrollments, setSelectedEnrollments] = useState<Enrollment[]>([]);
+  // Action modal state - actions operate on individual course enrollments
   const [showActionModal, setShowActionModal] = useState<{
     type: "approve" | "drop" | "transfer";
-    enrollment?: Enrollment;
+    enrollment?: CourseEnrollment;
+    studentName?: string;
   } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [transferSectionId, setTransferSectionId] = useState("");
   const [dropReason, setDropReason] = useState("");
   const [availableSections, setAvailableSections] = useState<{ id: string; name: string; grade_level: string; capacity: number; enrolled_count: number }[]>([]);
@@ -76,7 +86,7 @@ export default function EnrollmentsPage() {
       const response = await fetch(`/api/admin/enrollments?${params}`);
       const result: PaginatedResult = await response.json();
 
-      setEnrollments(result.data);
+      setStudents(result.data);
       setPagination((prev) => ({
         ...prev,
         total: result.total,
@@ -102,7 +112,6 @@ export default function EnrollmentsPage() {
           const response = await fetch(`/api/admin/courses/${showActionModal.enrollment?.course_id}/sections`);
           if (response.ok) {
             const sections = await response.json();
-            // Filter out the current section
             const filtered = sections.filter((s: { id: string }) => s.id !== showActionModal.enrollment?.section_id);
             setAvailableSections(filtered);
           }
@@ -132,30 +141,38 @@ export default function EnrollmentsPage() {
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
-  const [actionError, setActionError] = useState<string | null>(null);
+  const toggleExpand = (studentId: string) => {
+    setExpandedStudents((prev) => {
+      const next = new Set(prev);
+      if (next.has(studentId)) next.delete(studentId);
+      else next.add(studentId);
+      return next;
+    });
+  };
 
   const handleAction = async () => {
-    if (!showActionModal) return;
+    if (!showActionModal?.enrollment) return;
 
     setActionLoading(true);
     setActionError(null);
     try {
       let response;
+      const enrollmentId = showActionModal.enrollment.enrollment_id;
 
-      if (showActionModal.type === "drop" && showActionModal.enrollment) {
-        response = await fetch(`/api/admin/enrollments/${showActionModal.enrollment.id}/drop`, {
+      if (showActionModal.type === "drop") {
+        response = await fetch(`/api/admin/enrollments/${enrollmentId}/drop`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ reason: dropReason }),
         });
-      } else if (showActionModal.type === "transfer" && showActionModal.enrollment) {
-        response = await fetch(`/api/admin/enrollments/${showActionModal.enrollment.id}/transfer`, {
+      } else if (showActionModal.type === "transfer") {
+        response = await fetch(`/api/admin/enrollments/${enrollmentId}/transfer`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ newSectionId: transferSectionId }),
         });
-      } else if (showActionModal.type === "approve" && showActionModal.enrollment) {
-        response = await fetch(`/api/admin/enrollments/${showActionModal.enrollment.id}/approve`, {
+      } else if (showActionModal.type === "approve") {
+        response = await fetch(`/api/admin/enrollments/${enrollmentId}/approve`, {
           method: "POST",
         });
       }
@@ -203,7 +220,6 @@ export default function EnrollmentsPage() {
       }
 
       const blob = await response.blob();
-
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -233,89 +249,16 @@ export default function EnrollmentsPage() {
     },
   ];
 
-  const columns: ColumnDef<Enrollment>[] = [
-    {
-      accessorKey: "student_name",
-      header: "Student",
-      cell: ({ row }) => (
-        <div>
-          <Link
-            href={`/admin/users/students/${row.original.student_id}`}
-            className="font-medium text-gray-900 hover:text-primary"
-          >
-            {row.original.student_name}
-          </Link>
-          <p className="text-xs text-gray-500">{row.original.student_email}</p>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "course_name",
-      header: "Course",
-      cell: ({ row }) => (
-        <div>
-          <p className="font-medium text-gray-900">{row.original.course_name}</p>
-          <p className="text-xs text-gray-500">{row.original.course_code}</p>
-        </div>
-      ),
-    },
-    {
-      accessorKey: "section_name",
-      header: "Section",
-      cell: ({ row }) => <span>{row.original.section_name}</span>,
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: ({ row }) => <UserStatusBadge status={row.original.status} />,
-    },
-    {
-      accessorKey: "enrolled_at",
-      header: "Enrolled",
-      cell: ({ row }) => (
-        <span className="text-sm text-gray-500">
-          {row.original.enrolled_at
-            ? formatDistanceToNow(new Date(row.original.enrolled_at), { addSuffix: true })
-            : "—"}
-        </span>
-      ),
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      cell: ({ row }) => (
-        <div className="flex items-center gap-1">
-          {row.original.status === "pending" && (
-            <button
-              onClick={() => setShowActionModal({ type: "approve", enrollment: row.original })}
-              className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-              title="Approve"
-            >
-              <span className="material-symbols-outlined text-lg">check_circle</span>
-            </button>
-          )}
-          {row.original.status === "active" && (
-            <>
-              <button
-                onClick={() => setShowActionModal({ type: "transfer", enrollment: row.original })}
-                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                title="Transfer Section"
-              >
-                <span className="material-symbols-outlined text-lg">swap_horiz</span>
-              </button>
-              <button
-                onClick={() => setShowActionModal({ type: "drop", enrollment: row.original })}
-                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                title="Drop"
-              >
-                <span className="material-symbols-outlined text-lg">person_remove</span>
-              </button>
-            </>
-          )}
-        </div>
-      ),
-    },
-  ];
+  // Count stats from current page data
+  const pendingCount = students.reduce(
+    (sum, s) => sum + s.courses.filter((c) => c.status === "pending").length, 0
+  );
+  const activeCount = students.reduce(
+    (sum, s) => sum + s.courses.filter((c) => c.status === "active").length, 0
+  );
+  const droppedCount = students.reduce(
+    (sum, s) => sum + s.courses.filter((c) => c.status === "dropped").length, 0
+  );
 
   return (
     <div className="space-y-6">
@@ -352,11 +295,11 @@ export default function EnrollmentsPage() {
         <div className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <span className="material-symbols-outlined text-green-600">check_circle</span>
+              <span className="material-symbols-outlined text-green-600">people</span>
             </div>
             <div>
               <p className="text-2xl font-bold text-gray-900">{pagination.total}</p>
-              <p className="text-sm text-gray-500">Total Enrollments</p>
+              <p className="text-sm text-gray-500">Total Students</p>
             </div>
           </div>
         </div>
@@ -366,9 +309,7 @@ export default function EnrollmentsPage() {
               <span className="material-symbols-outlined text-blue-600">pending</span>
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">
-                {enrollments?.filter((e) => e.status === "pending").length || 0}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{pendingCount}</p>
               <p className="text-sm text-gray-500">Pending Approval</p>
             </div>
           </div>
@@ -379,10 +320,8 @@ export default function EnrollmentsPage() {
               <span className="material-symbols-outlined text-purple-600">school</span>
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">
-                {enrollments?.filter((e) => e.status === "active").length || 0}
-              </p>
-              <p className="text-sm text-gray-500">Active</p>
+              <p className="text-2xl font-bold text-gray-900">{activeCount}</p>
+              <p className="text-sm text-gray-500">Active Enrollments</p>
             </div>
           </div>
         </div>
@@ -392,9 +331,7 @@ export default function EnrollmentsPage() {
               <span className="material-symbols-outlined text-orange-600">person_remove</span>
             </div>
             <div>
-              <p className="text-2xl font-bold text-gray-900">
-                {enrollments?.filter((e) => e.status === "dropped").length || 0}
-              </p>
+              <p className="text-2xl font-bold text-gray-900">{droppedCount}</p>
               <p className="text-sm text-gray-500">Dropped</p>
             </div>
           </div>
@@ -410,19 +347,97 @@ export default function EnrollmentsPage() {
         onReset={handleReset}
       />
 
-      {/* Data Table */}
-      <DataTable
-        columns={columns}
-        data={enrollments}
-        pagination={pagination}
-        onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
-        selectable
-        onSelectionChange={setSelectedEnrollments}
-        loading={loading}
-        emptyMessage="No enrollments found"
-        emptyIcon="assignment_ind"
-        rowKey="id"
-      />
+      {/* Student Table with Expandable Courses */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="w-10 px-3 py-3" />
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Student
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Section
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Grade
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Courses
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Enrolled
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center">
+                    <div className="flex items-center justify-center gap-2 text-gray-500">
+                      <div className="w-5 h-5 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
+                      Loading...
+                    </div>
+                  </td>
+                </tr>
+              ) : students.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-12 text-center text-gray-500">
+                    <span className="material-symbols-outlined text-4xl mb-2 block">assignment_ind</span>
+                    No enrollments found
+                  </td>
+                </tr>
+              ) : (
+                students.map((student) => {
+                  const isExpanded = expandedStudents.has(student.student_id);
+                  return (
+                    <StudentRow
+                      key={student.student_id}
+                      student={student}
+                      isExpanded={isExpanded}
+                      onToggle={() => toggleExpand(student.student_id)}
+                      onAction={(type, enrollment) =>
+                        setShowActionModal({ type, enrollment, studentName: student.student_name })
+                      }
+                    />
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination */}
+        {pagination.totalPages > 1 && (
+          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 bg-gray-50">
+            <p className="text-sm text-gray-600">
+              Showing {(pagination.page - 1) * pagination.pageSize + 1}–
+              {Math.min(pagination.page * pagination.pageSize, pagination.total)} of{" "}
+              {pagination.total} students
+            </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
+                disabled={pagination.page <= 1}
+                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <span className="text-sm text-gray-600">
+                Page {pagination.page} of {pagination.totalPages}
+              </span>
+              <button
+                onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
+                disabled={pagination.page >= pagination.totalPages}
+                className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Drop Modal */}
       <ConfirmModal
@@ -434,7 +449,7 @@ export default function EnrollmentsPage() {
           <div className="space-y-4">
             <p>
               Are you sure you want to drop{" "}
-              <strong>{showActionModal?.enrollment?.student_name}</strong> from{" "}
+              <strong>{showActionModal?.studentName}</strong> from{" "}
               <strong>{showActionModal?.enrollment?.course_name}</strong>?
             </p>
             <div>
@@ -464,7 +479,7 @@ export default function EnrollmentsPage() {
             <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">Transfer Section</h3>
               <p className="text-sm text-gray-600 mb-4">
-                Transfer <strong>{showActionModal.enrollment?.student_name}</strong> to a different
+                Transfer <strong>{showActionModal.studentName}</strong> to a different
                 section for <strong>{showActionModal.enrollment?.course_name}</strong>.
               </p>
               {actionError && (
@@ -527,7 +542,7 @@ export default function EnrollmentsPage() {
         message={
           <p>
             Approve enrollment for{" "}
-            <strong>{showActionModal?.enrollment?.student_name}</strong> in{" "}
+            <strong>{showActionModal?.studentName}</strong> in{" "}
             <strong>{showActionModal?.enrollment?.course_name}</strong>?
           </p>
         }
@@ -535,6 +550,161 @@ export default function EnrollmentsPage() {
         variant="info"
         loading={actionLoading}
       />
+    </div>
+  );
+}
+
+// ============================================================================
+// Student Row with expandable courses
+// ============================================================================
+
+function StudentRow({
+  student,
+  isExpanded,
+  onToggle,
+  onAction,
+}: {
+  student: StudentEnrollment;
+  isExpanded: boolean;
+  onToggle: () => void;
+  onAction: (type: "approve" | "drop" | "transfer", enrollment: CourseEnrollment) => void;
+}) {
+  const hasMultipleCourses = student.courses.length > 1;
+
+  return (
+    <>
+      {/* Main student row */}
+      <tr className="hover:bg-gray-50 transition-colors">
+        <td className="px-3 py-3 text-center">
+          {hasMultipleCourses ? (
+            <button
+              onClick={onToggle}
+              className="p-0.5 rounded hover:bg-gray-200 transition-colors"
+              title={isExpanded ? "Collapse" : "Expand"}
+            >
+              <span className="material-symbols-outlined text-lg text-gray-500">
+                {isExpanded ? "expand_less" : "expand_more"}
+              </span>
+            </button>
+          ) : (
+            <span className="inline-block w-6" />
+          )}
+        </td>
+        <td className="px-4 py-3">
+          <Link
+            href={`/admin/users/students/${student.student_id}`}
+            className="font-medium text-gray-900 hover:text-primary"
+          >
+            {student.student_name}
+          </Link>
+          <p className="text-xs text-gray-500">{student.student_email}</p>
+        </td>
+        <td className="px-4 py-3 text-sm text-gray-700">
+          {student.section_name}
+        </td>
+        <td className="px-4 py-3 text-sm text-gray-700">
+          {student.grade_level || "—"}
+        </td>
+        <td className="px-4 py-3">
+          {hasMultipleCourses ? (
+            <button
+              onClick={onToggle}
+              className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-xs font-medium text-gray-700 transition-colors"
+            >
+              <span className="material-symbols-outlined text-sm">menu_book</span>
+              {student.courses.length} courses
+            </button>
+          ) : student.courses.length === 1 ? (
+            <div className="flex items-center gap-2">
+              <div>
+                <p className="text-sm font-medium text-gray-900">{student.courses[0].course_name}</p>
+                <p className="text-xs text-gray-500">{student.courses[0].course_code}</p>
+              </div>
+              <UserStatusBadge status={student.courses[0].status} />
+              <CourseActions enrollment={student.courses[0]} onAction={onAction} />
+            </div>
+          ) : (
+            <span className="text-sm text-gray-400">No courses</span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-sm text-gray-500">
+          {student.enrolled_at
+            ? formatDistanceToNow(new Date(student.enrolled_at), { addSuffix: true })
+            : "—"}
+        </td>
+      </tr>
+
+      {/* Expanded courses */}
+      {isExpanded &&
+        student.courses.map((course) => (
+          <tr key={course.enrollment_id} className="bg-gray-50/70">
+            <td className="px-3 py-2" />
+            <td className="px-4 py-2" />
+            <td className="px-4 py-2 text-sm text-gray-500">
+              {course.section_name}
+            </td>
+            <td className="px-4 py-2" />
+            <td className="px-4 py-2">
+              <div className="flex items-center gap-2">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{course.course_name}</p>
+                  <p className="text-xs text-gray-500">{course.course_code}</p>
+                </div>
+                <UserStatusBadge status={course.status} />
+                <CourseActions enrollment={course} onAction={onAction} />
+              </div>
+            </td>
+            <td className="px-4 py-2 text-sm text-gray-500">
+              {course.enrolled_at
+                ? formatDistanceToNow(new Date(course.enrolled_at), { addSuffix: true })
+                : "—"}
+            </td>
+          </tr>
+        ))}
+    </>
+  );
+}
+
+// ============================================================================
+// Action buttons for a single course enrollment
+// ============================================================================
+
+function CourseActions({
+  enrollment,
+  onAction,
+}: {
+  enrollment: CourseEnrollment;
+  onAction: (type: "approve" | "drop" | "transfer", enrollment: CourseEnrollment) => void;
+}) {
+  return (
+    <div className="flex items-center gap-0.5 ml-auto">
+      {enrollment.status === "pending" && (
+        <button
+          onClick={() => onAction("approve", enrollment)}
+          className="p-1 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+          title="Approve"
+        >
+          <span className="material-symbols-outlined text-base">check_circle</span>
+        </button>
+      )}
+      {enrollment.status === "active" && (
+        <>
+          <button
+            onClick={() => onAction("transfer", enrollment)}
+            className="p-1 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+            title="Transfer Section"
+          >
+            <span className="material-symbols-outlined text-base">swap_horiz</span>
+          </button>
+          <button
+            onClick={() => onAction("drop", enrollment)}
+            className="p-1 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            title="Drop"
+          >
+            <span className="material-symbols-outlined text-base">person_remove</span>
+          </button>
+        </>
+      )}
     </div>
   );
 }

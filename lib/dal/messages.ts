@@ -149,6 +149,28 @@ export async function getTeacherConversations(
         unread_count: Number(conv.unread_count) || 0,
         total_messages: Number(conv.total_messages) || 0,
       })
+    } else {
+      // Unknown role — check if this partner is an admin (handles case where
+      // the get_user_conversations RPC hasn't been updated to detect admins)
+      const { data: adminRecord } = await supabase
+        .from('admins')
+        .select('id')
+        .eq('profile_id', conv.partner_profile_id)
+        .maybeSingle()
+
+      if (adminRecord) {
+        allConversations.push({
+          partner_profile_id: conv.partner_profile_id,
+          partner_name: conv.partner_name || 'Admin',
+          partner_avatar_url: conv.partner_avatar_url,
+          partner_role: 'admin',
+          last_message_body: conv.last_message_body,
+          last_message_at: conv.last_message_at,
+          last_message_sender_type: conv.last_message_sender_type,
+          unread_count: Number(conv.unread_count) || 0,
+          total_messages: Number(conv.total_messages) || 0,
+        })
+      }
     }
   }
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import QRCodeLib from "qrcode";
 
 type QRCode = {
   id: string;
@@ -15,10 +16,19 @@ type QRCode = {
   expires_at?: string;
 };
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "";
+
+function getEnrollmentUrl(code: string) {
+  return `${APP_URL}/apply?qr=${encodeURIComponent(code)}`;
+}
+
 export default function EnrollmentQRPage() {
   const [qrCodes, setQrCodes] = useState<QRCode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [modalQr, setModalQr] = useState<QRCode | null>(null);
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
     load();
@@ -63,6 +73,37 @@ export default function EnrollmentQRPage() {
     }
   }
 
+  async function copyLink(qr: QRCode) {
+    const url = getEnrollmentUrl(qr.code);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedId(qr.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // Fallback for older browsers
+      const textarea = document.createElement("textarea");
+      textarea.value = url;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textarea);
+      setCopiedId(qr.id);
+      setTimeout(() => setCopiedId(null), 2000);
+    }
+  }
+
+  const openQrModal = useCallback(async (qr: QRCode) => {
+    setModalQr(qr);
+    setQrDataUrl(null);
+    const url = getEnrollmentUrl(qr.code);
+    try {
+      const dataUrl = await QRCodeLib.toDataURL(url, { width: 400, margin: 2 });
+      setQrDataUrl(dataUrl);
+    } catch {
+      setQrDataUrl(null);
+    }
+  }, []);
+
   return (
     <main className="p-6 space-y-6">
       <div>
@@ -99,6 +140,7 @@ export default function EnrollmentQRPage() {
                 <th className="px-3 py-2 text-left">Scans</th>
                 <th className="px-3 py-2 text-left">Applications</th>
                 <th className="px-3 py-2 text-left">Active</th>
+                <th className="px-3 py-2 text-left">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -111,11 +153,29 @@ export default function EnrollmentQRPage() {
                   <td className="px-3 py-2">{qr.scan_count ?? 0}</td>
                   <td className="px-3 py-2">{qr.application_count ?? 0}</td>
                   <td className="px-3 py-2">{qr.is_active ? "Yes" : "No"}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openQrModal(qr)}
+                        className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
+                      >
+                        View QR
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => copyLink(qr)}
+                        className="px-2 py-1 text-xs rounded bg-gray-100 hover:bg-gray-200 text-gray-700"
+                      >
+                        {copiedId === qr.id ? "Copied!" : "Copy Link"}
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
               {qrCodes.length === 0 && (
                 <tr>
-                  <td className="px-3 py-4 text-center text-gray-500" colSpan={7}>
+                  <td className="px-3 py-4 text-center text-gray-500" colSpan={8}>
                     No QR codes created yet.
                   </td>
                 </tr>
@@ -124,7 +184,78 @@ export default function EnrollmentQRPage() {
           </table>
         </div>
       )}
+
+      {modalQr && (
+        <QRModal
+          qr={modalQr}
+          qrDataUrl={qrDataUrl}
+          onClose={() => setModalQr(null)}
+        />
+      )}
     </main>
+  );
+}
+
+function QRModal({
+  qr,
+  qrDataUrl,
+  onClose,
+}: {
+  qr: QRCode;
+  qrDataUrl: string | null;
+  onClose: () => void;
+}) {
+  const url = getEnrollmentUrl(qr.code);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+      <div
+        className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full mx-4 space-y-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">{qr.name}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+          >
+            &times;
+          </button>
+        </div>
+
+        <div className="flex justify-center">
+          {qrDataUrl ? (
+            <img src={qrDataUrl} alt={`QR code for ${qr.code}`} className="w-64 h-64" />
+          ) : (
+            <div className="w-64 h-64 flex items-center justify-center bg-gray-100 rounded">
+              <p className="text-gray-500 text-sm">Generating...</p>
+            </div>
+          )}
+        </div>
+
+        <p className="text-xs text-gray-500 text-center break-all">{url}</p>
+
+        <div className="flex justify-center gap-3">
+          {qrDataUrl && (
+            <a
+              href={qrDataUrl}
+              download={`qr-${qr.code}.png`}
+              className="px-4 py-2 text-sm rounded bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Download
+            </a>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-sm rounded border border-gray-300 text-gray-700 hover:bg-gray-50"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 

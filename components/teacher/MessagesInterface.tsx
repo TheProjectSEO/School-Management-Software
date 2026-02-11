@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { playMessageSound } from "@/lib/utils/notificationSound";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
@@ -108,6 +109,8 @@ export default function MessagesInterface({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabaseRef = useRef(createClient());
   const selectedConversationRef = useRef<Conversation | null>(null);
+  const autoSelectedRef = useRef(false);
+  const searchParams = useSearchParams();
 
   // Keep ref in sync with state for use in subscription callback
   useEffect(() => {
@@ -146,6 +149,21 @@ export default function MessagesInterface({
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
+
+  // Auto-select conversation from URL ?partner= param (e.g. from notification click)
+  useEffect(() => {
+    if (autoSelectedRef.current || isLoading || conversations.length === 0) return;
+    const partnerId = searchParams.get("partner");
+    if (!partnerId) return;
+
+    const match = conversations.find(
+      (c) => c.participantId === partnerId || c.studentProfileId === partnerId
+    );
+    if (match) {
+      setSelectedConversation(match);
+      autoSelectedRef.current = true;
+    }
+  }, [conversations, isLoading, searchParams]);
 
   // Fetch group chats
   const fetchGroupChats = useCallback(async () => {

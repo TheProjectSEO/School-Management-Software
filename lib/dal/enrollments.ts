@@ -561,3 +561,205 @@ export async function getEnrollments(params: {
     return { data: [], total: 0, page: params.page || 1, pageSize: params.pageSize || 20, totalPages: 0 };
   }
 }
+
+// ============================================================================
+// GROUPED STUDENT ENROLLMENTS (one row per student, courses nested)
+// ============================================================================
+
+export interface CourseEnrollment {
+  enrollment_id: string;
+  course_id: string;
+  course_name: string;
+  course_code: string;
+  section_id: string;
+  section_name: string;
+  status: string;
+  enrolled_at: string;
+}
+
+export interface GroupedStudentEnrollment {
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  section_id: string;
+  section_name: string;
+  grade_level: string;
+  enrolled_at: string;
+  courses: CourseEnrollment[];
+}
+
+/**
+ * List enrollments grouped by student (one entry per student with nested courses).
+ * Uses separate queries per CLAUDE.md (no FK joins).
+ */
+export async function listGroupedStudentEnrollments(params: {
+  schoolId?: string;
+  sectionId?: string;
+  courseId?: string;
+  status?: string;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<{
+  data: GroupedStudentEnrollment[];
+  total: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
+  try {
+    const supabase = createServiceClient();
+    const { schoolId, sectionId, courseId, status, search, page = 1, pageSize = 20 } = params;
+
+    // Step 1: Get flat enrollment records matching filters
+    let baseQuery = supabase
+      .from('enrollments')
+      .select('id, student_id, course_id, section_id, status, enrolled_at, created_at');
+
+    if (schoolId) baseQuery = baseQuery.eq('school_id', schoolId);
+    if (sectionId) baseQuery = baseQuery.eq('section_id', sectionId);
+    if (courseId) baseQuery = baseQuery.eq('course_id', courseId);
+    if (status) baseQuery = baseQuery.eq('status', status);
+
+    const { data: enrollmentRows, error: enrollError } = await baseQuery;
+
+    if (enrollError) {
+      console.error('Error fetching enrollment rows:', enrollError);
+      return { data: [], total: 0, page, pageSize, totalPages: 0 };
+    }
+
+    // Step 2: Group by student_id
+    const enrollmentsByStudent = new Map<string, typeof enrollmentRows>();
+    for (const row of enrollmentRows || []) {
+      if (!enrollmentsByStudent.has(row.student_id)) {
+        enrollmentsByStudent.set(row.student_id, []);
+      }
+      enrollmentsByStudent.get(row.student_id)!.push(row);
+    }
+
+    let uniqueStudentIds = [...enrollmentsByStudent.keys()];
+
+    // Step 3: If search query, filter students by name
+    if (search && uniqueStudentIds.length > 0) {
+      const { data: studentRows } = await supabase
+        .from('students')
+        .select('id, profile_id')
+        .in('id', uniqueStudentIds);
+
+      const profileIds = (studentRows || []).map(s => s.profile_id);
+      const { data: matchedProfiles } = await supabase
+        .from('school_profiles')
+        .select('id')
+        .in('id', profileIds)
+        .ilike('full_name', `%${search}%`);
+
+      const matchedProfileIds = new Set((matchedProfiles || []).map(p => p.id));
+      const studentProfileMap = new Map((studentRows || []).map(s => [s.id, s.profile_id]));
+
+      uniqueStudentIds = uniqueStudentIds.filter(id => {
+        const pid = studentProfileMap.get(id);
+        return pid && matchedProfileIds.has(pid);
+      });
+    }
+
+    // Step 4: Paginate by unique students
+    const total = uniqueStudentIds.length;
+    const totalPages = Math.ceil(total / pageSize);
+    const fromIdx = (page - 1) * pageSize;
+    const pageStudentIds = uniqueStudentIds.slice(fromIdx, fromIdx + pageSize);
+
+    if (pageStudentIds.length === 0) {
+      return { data: [], total, page, pageSize, totalPages };
+    }
+
+    // Step 5: Fetch student details (separate queries per CLAUDE.md)
+    const { data: students } = await supabase
+      .from('students')
+      .select('id, profile_id, section_id, grade_level')
+      .in('id', pageStudentIds);
+
+    const profileIds = [...new Set((students || []).map(s => s.profile_id))];
+    const { data: profiles } = await supabase
+      .from('school_profiles')
+      .select('id, full_name, avatar_url, email')
+      .in('id', profileIds);
+
+    const profileMap = new Map((profiles || []).map(p => [p.id, p]));
+    const studentMap = new Map((students || []).map(s => [s.id, s]));
+
+    // Step 6: Fetch all referenced sections
+    const allSectionIds = new Set<string>();
+    for (const s of students || []) {
+      if (s.section_id) allSectionIds.add(s.section_id);
+    }
+    for (const sid of pageStudentIds) {
+      for (const e of enrollmentsByStudent.get(sid) || []) {
+        if (e.section_id) allSectionIds.add(e.section_id);
+      }
+    }
+
+    const { data: sections } = await supabase
+      .from('sections')
+      .select('id, name, grade_level')
+      .in('id', Array.from(allSectionIds));
+
+    const sectionMap = new Map((sections || []).map(s => [s.id, s]));
+
+    // Step 7: Fetch all referenced courses
+    const allCourseIds = new Set<string>();
+    for (const sid of pageStudentIds) {
+      for (const e of enrollmentsByStudent.get(sid) || []) {
+        allCourseIds.add(e.course_id);
+      }
+    }
+
+    const { data: courses } = await supabase
+      .from('courses')
+      .select('id, name, subject_code')
+      .in('id', Array.from(allCourseIds));
+
+    const courseMap = new Map((courses || []).map(c => [c.id, c]));
+
+    // Step 8: Build grouped result
+    const data: GroupedStudentEnrollment[] = pageStudentIds
+      .map(studentId => {
+        const student = studentMap.get(studentId);
+        if (!student) return null;
+
+        const profile = profileMap.get(student.profile_id);
+        const section = student.section_id ? sectionMap.get(student.section_id) : null;
+
+        const courseEnrollments: CourseEnrollment[] = (enrollmentsByStudent.get(studentId) || []).map(e => {
+          const course = courseMap.get(e.course_id);
+          const enrollSection = e.section_id ? sectionMap.get(e.section_id) : null;
+          return {
+            enrollment_id: e.id,
+            course_id: e.course_id,
+            course_name: course?.name || 'Unknown',
+            course_code: course?.subject_code || '',
+            section_id: e.section_id,
+            section_name: enrollSection?.name || '',
+            status: e.status || 'active',
+            enrolled_at: e.enrolled_at || e.created_at,
+          };
+        });
+
+        return {
+          student_id: studentId,
+          student_name: profile?.full_name || 'Unknown',
+          student_email: profile?.email || '',
+          section_id: student.section_id || '',
+          section_name: section?.name || 'Not assigned',
+          grade_level: student.grade_level || section?.grade_level || '',
+          enrolled_at: courseEnrollments[0]?.enrolled_at || '',
+          courses: courseEnrollments,
+        };
+      })
+      .filter((item): item is GroupedStudentEnrollment => item !== null);
+
+    return { data, total, page, pageSize, totalPages };
+  } catch (error) {
+    console.error('Unexpected error in listGroupedStudentEnrollments:', error);
+    return { data: [], total: 0, page: params.page || 1, pageSize: params.pageSize || 20, totalPages: 0 };
+  }
+}

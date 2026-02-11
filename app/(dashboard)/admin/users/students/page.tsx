@@ -334,6 +334,12 @@ export default function StudentsPage() {
       type: "select",
       placeholder: "All Grades",
       options: [
+        { value: "1", label: "Grade 1" },
+        { value: "2", label: "Grade 2" },
+        { value: "3", label: "Grade 3" },
+        { value: "4", label: "Grade 4" },
+        { value: "5", label: "Grade 5" },
+        { value: "6", label: "Grade 6" },
         { value: "7", label: "Grade 7" },
         { value: "8", label: "Grade 8" },
         { value: "9", label: "Grade 9" },
@@ -617,7 +623,7 @@ export default function StudentsPage() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option value="">Select Grade Level</option>
-                {["7", "8", "9", "10", "11", "12"].map((grade) => (
+                {["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map((grade) => (
                   <option key={grade} value={grade}>
                     Grade {grade}
                   </option>
@@ -814,7 +820,7 @@ export default function StudentsPage() {
                   disabled={actionLoading}
                 >
                   <option value="">Choose a grade level...</option>
-                  {["7", "8", "9", "10", "11", "12"].map((grade) => (
+                  {["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map((grade) => (
                     <option key={grade} value={grade}>
                       Grade {grade}
                     </option>

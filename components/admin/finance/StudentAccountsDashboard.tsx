@@ -234,6 +234,12 @@ export function StudentAccountsDashboard() {
           className="px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
         >
           <option value="">All Grades</option>
+          <option value="Grade 1">Grade 1</option>
+          <option value="Grade 2">Grade 2</option>
+          <option value="Grade 3">Grade 3</option>
+          <option value="Grade 4">Grade 4</option>
+          <option value="Grade 5">Grade 5</option>
+          <option value="Grade 6">Grade 6</option>
           <option value="Grade 7">Grade 7</option>
           <option value="Grade 8">Grade 8</option>
           <option value="Grade 9">Grade 9</option>

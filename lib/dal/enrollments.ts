@@ -668,6 +668,17 @@ export async function listGroupedStudentEnrollments(params: {
         if (p.auth_user_id) matchedProfileIds.add(p.auth_user_id);
       }
 
+      // Final fallback: search legacy "profiles" table
+      const { data: matchedLegacy } = await supabase
+        .from('profiles')
+        .select('id')
+        .in('id', profileIds)
+        .ilike('full_name', `%${search}%`);
+
+      for (const p of matchedLegacy || []) {
+        matchedProfileIds.add(p.id);
+      }
+
       const studentProfileMap = new Map((studentRows || []).map(s => [s.id, s.profile_id]));
 
       uniqueStudentIds = uniqueStudentIds.filter(id => {
@@ -694,6 +705,9 @@ export async function listGroupedStudentEnrollments(params: {
 
     const profileIds = [...new Set((students || []).map(s => s.profile_id).filter(Boolean))];
 
+    // Debug: log what profile_ids we're working with
+    console.log('[enrollments] students count:', students?.length, 'profileIds:', profileIds.length, 'sample:', profileIds.slice(0, 3));
+
     // Look up school_profiles by id first
     let profiles: { id: string; full_name: string; avatar_url?: string; email?: string }[] = [];
     if (profileIds.length > 0) {
@@ -706,18 +720,42 @@ export async function listGroupedStudentEnrollments(params: {
 
     const profileMap = new Map(profiles.map(p => [p.id, p]));
 
+    console.log('[enrollments] school_profiles matched:', profiles.length, 'of', profileIds.length);
+
     // For unresolved profile_ids, try school_profiles.auth_user_id
-    // (handles legacy case where students.profile_id = auth.users.id)
+    // (handles case where students.profile_id = auth.users.id)
     const unresolvedIds = profileIds.filter(pid => !profileMap.has(pid));
     if (unresolvedIds.length > 0) {
       const { data: fallbackProfiles } = await supabase
         .from('school_profiles')
         .select('id, auth_user_id, full_name, avatar_url, email')
         .in('auth_user_id', unresolvedIds);
+      console.log('[enrollments] auth_user_id fallback matched:', (fallbackProfiles || []).length);
       for (const p of fallbackProfiles || []) {
         if (p.auth_user_id) profileMap.set(p.auth_user_id, p);
       }
     }
+
+    // Final fallback: check legacy "profiles" table for any still-unresolved IDs
+    // (register route previously created profiles here instead of school_profiles)
+    const stillUnresolved = profileIds.filter(pid => !profileMap.has(pid));
+    if (stillUnresolved.length > 0) {
+      try {
+        const { data: legacyProfiles } = await supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', stillUnresolved);
+        console.log('[enrollments] legacy profiles fallback matched:', (legacyProfiles || []).length);
+        for (const p of legacyProfiles || []) {
+          profileMap.set(p.id, { ...p, email: '' });
+        }
+      } catch (e) {
+        console.log('[enrollments] legacy profiles table not available:', e);
+      }
+    }
+
+    console.log('[enrollments] final profileMap size:', profileMap.size, 'needed:', profileIds.length);
+
     const studentMap = new Map((students || []).map(s => [s.id, s]));
 
     // Step 6: Fetch all referenced sections

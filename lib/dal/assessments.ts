@@ -26,6 +26,7 @@ export type Submission = {
   student_id: string
   student_name: string
   student_lrn: string
+  student_avatar_url: string | null
   score: number | null
   status: 'submitted' | 'graded' | 'returned' | 'released'
   submitted_at: string
@@ -232,13 +233,13 @@ export async function getPendingSubmissions(teacherId: string, filters?: {
   }
 
   const uniqueProfileIds = [...new Set([...studentMap.values()].map(s => s.profile_id).filter(Boolean))]
-  const profileMap = new Map<string, string>()
+  const profileMap = new Map<string, { full_name: string; avatar_url: string | null }>()
   if (uniqueProfileIds.length > 0) {
     const { data: profiles } = await supabase
       .from('school_profiles')
-      .select('id, full_name')
+      .select('id, full_name, avatar_url')
       .in('id', uniqueProfileIds)
-    profiles?.forEach(p => profileMap.set(p.id, p.full_name))
+    profiles?.forEach(p => profileMap.set(p.id, { full_name: p.full_name, avatar_url: p.avatar_url }))
   }
 
   // Enrich submissions — check feedback from the submission's own feedback column
@@ -246,7 +247,8 @@ export async function getPendingSubmissions(teacherId: string, filters?: {
   const enriched = data.map((submission) => {
     const assessment = assessmentMap.get(submission.assessment_id)
     const student = studentMap.get(submission.student_id)
-    const studentName = student?.profile_id ? (profileMap.get(student.profile_id) || 'Unknown Student') : 'Unknown Student'
+    const profile = student?.profile_id ? profileMap.get(student.profile_id) : null
+    const studentName = profile?.full_name || 'Unknown Student'
 
     return {
       id: submission.id,
@@ -255,6 +257,7 @@ export async function getPendingSubmissions(teacherId: string, filters?: {
       student_id: submission.student_id,
       student_name: studentName,
       student_lrn: student?.lrn || '',
+      student_avatar_url: profile?.avatar_url || null,
       score: submission.score,
       status: submission.status,
       submitted_at: submission.submitted_at,
@@ -322,14 +325,76 @@ export async function getSubmissionDetail(submissionId: string, teacherId: strin
   }
 
   // Get answers flat (no FK joins)
-  const { data: answers } = await supabase
+  const { data: answers, error: answersError } = await supabase
     .from('student_answers')
     .select('*')
     .eq('submission_id', submissionId)
     .order('created_at', { ascending: true })
 
-  // Fetch questions separately, with fallback to teacher_assessment_questions
-  const questionIds = [...new Set(answers?.map(a => a.question_id).filter(Boolean) || [])]
+  if (answersError) {
+    console.error('Error fetching student_answers:', answersError)
+  }
+
+  // Fallback: if student_answers is empty (table may not have existed when student
+  // submitted), try teacher_grading_queue which stores subjective answers,
+  // and also load questions from the assessment directly
+  let answerRows = answers || []
+  let queueAnswerMap = new Map<string, { student_response: string | null; max_points: number }>()
+
+  if (answerRows.length === 0) {
+    // Try teacher_grading_queue for any saved answers
+    const { data: queueItems } = await supabase
+      .from('teacher_grading_queue')
+      .select('question_id, question_text, question_type, student_response, max_points')
+      .eq('submission_id', submissionId)
+
+    if (queueItems && queueItems.length > 0) {
+      queueItems.forEach(qi => {
+        queueAnswerMap.set(qi.question_id, {
+          student_response: qi.student_response,
+          max_points: qi.max_points
+        })
+      })
+    }
+
+    // Build synthetic answer rows from all assessment questions
+    // so the teacher can see every question even if student_answers was empty
+    const { data: allQuestions } = await supabase
+      .from('questions')
+      .select('id, question_text, question_type, points')
+      .eq('assessment_id', assessment.id)
+      .order('order_index', { ascending: true })
+
+    let questionList = allQuestions || []
+
+    // Fallback to teacher_assessment_questions
+    if (questionList.length === 0) {
+      const { data: taqQuestions } = await supabase
+        .from('teacher_assessment_questions')
+        .select('id, question_text, question_type, points')
+        .eq('assessment_id', assessment.id)
+        .order('order_index', { ascending: true })
+      questionList = taqQuestions || []
+    }
+
+    // Build synthetic answer data from questions + queue
+    answerRows = questionList.map(q => {
+      const queueItem = queueAnswerMap.get(q.id)
+      return {
+        id: q.id,
+        submission_id: submissionId,
+        question_id: q.id,
+        selected_option_id: null,
+        text_answer: queueItem?.student_response || null,
+        is_correct: null,
+        points_earned: null,
+        created_at: submission.submitted_at
+      }
+    })
+  }
+
+  // Fetch question details for mapping
+  const questionIds = [...new Set(answerRows.map(a => a.question_id).filter(Boolean))]
   const questionMap = new Map<string, { question_text: string; question_type: string; points: number }>()
 
   if (questionIds.length > 0) {
@@ -375,7 +440,7 @@ export async function getSubmissionDetail(submissionId: string, teacherId: strin
     feedback: submission.feedback,
     status: submission.status,
     attempt_number: submission.attempt_number,
-    answers: answers?.map(a => {
+    answers: answerRows.map(a => {
       const question = questionMap.get(a.question_id)
       return {
         id: a.id,
@@ -388,7 +453,7 @@ export async function getSubmissionDetail(submissionId: string, teacherId: strin
         is_correct: a.is_correct,
         points_earned: a.points_earned
       }
-    }) || []
+    })
   } as SubmissionDetail
 }
 

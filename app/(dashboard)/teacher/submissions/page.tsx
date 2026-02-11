@@ -224,10 +224,18 @@ async function SubmissionsContent({ statusFilter }: { statusFilter?: string }) {
               <Card className="hover:border-primary transition-colors">
                 <div className="flex items-start gap-4">
                   {/* Student Avatar */}
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0">
-                    <span className="text-primary font-semibold text-lg">
-                      {submission.student_name.charAt(0).toUpperCase()}
-                    </span>
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {submission.student_avatar_url ? (
+                      <img
+                        src={submission.student_avatar_url}
+                        alt={submission.student_name}
+                        className="w-full h-full rounded-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-primary font-semibold text-lg">
+                        {submission.student_name.charAt(0).toUpperCase()}
+                      </span>
+                    )}
                   </div>
 
                   {/* Content */}

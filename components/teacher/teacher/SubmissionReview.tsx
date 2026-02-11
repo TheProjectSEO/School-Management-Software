@@ -21,12 +21,29 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  // Initialize scores from existing answer data
+  // Initialize scores from existing answer data or distribute AI score proportionally
   const [answerScores, setAnswerScores] = useState<Record<string, number>>(() => {
     const initial: Record<string, number> = {}
-    submission.answers.forEach(answer => {
-      initial[answer.question_id] = answer.points_earned ?? (answer.is_correct ? answer.points : 0)
-    })
+    const hasAnyScores = submission.answers.some(a => a.points_earned !== null || a.is_correct !== null)
+
+    if (hasAnyScores) {
+      // Use actual graded scores
+      submission.answers.forEach(answer => {
+        initial[answer.question_id] = answer.points_earned ?? (answer.is_correct ? answer.points : 0)
+      })
+    } else if (submission.ai_score !== null && submission.ai_score !== undefined && submission.answers.length > 0) {
+      // Distribute AI score proportionally across questions
+      const totalPossible = submission.answers.reduce((sum, a) => sum + a.points, 0)
+      submission.answers.forEach(answer => {
+        const proportion = totalPossible > 0 ? answer.points / totalPossible : 0
+        initial[answer.question_id] = Math.round(submission.ai_score! * proportion)
+      })
+    } else {
+      // Default: 0 for all
+      submission.answers.forEach(answer => {
+        initial[answer.question_id] = 0
+      })
+    }
     return initial
   })
 

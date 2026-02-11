@@ -20,7 +20,7 @@ interface Section {
   course_count: number;
 }
 
-const GRADE_LEVELS = ["7", "8", "9", "10", "11", "12"];
+const GRADE_LEVELS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
 export default function SectionsPage() {
   const [sections, setSections] = useState<Section[]>([]);

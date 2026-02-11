@@ -109,7 +109,7 @@ function generateActionCards(
       subtitle: assessment.courseName,
       badge: assessment.type.toUpperCase(),
       badgeColor: getAssessmentBadgeColor(assessment.daysUntilDue, assessment.isOverdue),
-      link: `/assessments/${assessment.id}`,
+      link: `/student/assessments/${assessment.id}`,
       icon: getAssessmentIcon(assessment.type),
       meta: formatDueDate(assessment.daysUntilDue, assessment.isOverdue),
     }));
@@ -132,7 +132,7 @@ function generateActionCards(
           link = `/subjects/${rec.courseId}/modules/${rec.moduleId}`;
         }
         if (rec.assessmentId) {
-          link = `/assessments/${rec.assessmentId}`;
+          link = `/student/assessments/${rec.assessmentId}`;
         }
 
         // Determine badge based on priority
@@ -190,7 +190,7 @@ function generateActionCards(
         subtitle: assessment.courseName,
         badge: assessment.type.toUpperCase(),
         badgeColor: getAssessmentBadgeColor(assessment.daysUntilDue, assessment.isOverdue),
-        link: `/assessments/${assessment.id}`,
+        link: `/student/assessments/${assessment.id}`,
         icon: getAssessmentIcon(assessment.type),
         meta: formatDueDate(assessment.daysUntilDue, assessment.isOverdue),
       });

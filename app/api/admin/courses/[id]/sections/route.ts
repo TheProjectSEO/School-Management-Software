@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentAdmin, hasPermission } from "@/lib/dal/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// GET /api/admin/courses/[id]/sections - Get sections for a course
+// GET /api/admin/courses/[id]/sections - Get sections assigned to a course
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -21,17 +21,28 @@ export async function GET(
     const { id: courseId } = await params;
     const supabase = createAdminClient();
 
-    // Get sections with enrolled student count
+    // Sections relate to courses via teacher_assignments, not a direct FK
+    const { data: assignments, error: assignError } = await supabase
+      .from("teacher_assignments")
+      .select("section_id")
+      .eq("course_id", courseId);
+
+    if (assignError) {
+      console.error("Error fetching teacher_assignments:", assignError);
+      return NextResponse.json({ error: "Failed to fetch sections" }, { status: 500 });
+    }
+
+    const sectionIds = [...new Set((assignments || []).map((a) => a.section_id).filter(Boolean))];
+
+    if (sectionIds.length === 0) {
+      return NextResponse.json([]);
+    }
+
+    // Get section details
     const { data: sections, error } = await supabase
       .from("sections")
-      .select(`
-        id,
-        name,
-        grade_level,
-        capacity,
-        school_year
-      `)
-      .eq("course_id", courseId)
+      .select("id, name, grade_level, capacity")
+      .in("id", sectionIds)
       .order("name");
 
     if (error) {
@@ -43,10 +54,9 @@ export async function GET(
     const sectionsWithCounts = await Promise.all(
       (sections || []).map(async (section) => {
         const { count } = await supabase
-          .from("enrollments")
+          .from("students")
           .select("*", { count: "exact", head: true })
-          .eq("section_id", section.id)
-          .eq("status", "active");
+          .eq("section_id", section.id);
 
         return {
           ...section,

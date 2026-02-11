@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import { AdminGuard } from '@/components/auth/RoleGuard';
 import { useAuth } from '@/hooks/useAuth';
-import { createClient } from '@/lib/supabase/client';
 import AdminSidebar from '@/components/admin/layout/AdminSidebar';
 import { AdminNotificationProvider } from '@/components/admin/providers/AdminNotificationProvider';
 import { Toaster } from 'sonner';
@@ -23,43 +22,20 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const { user } = useAuth();
   const [adminProfile, setAdminProfile] = useState<AdminProfile | null>(null);
 
-  // Fetch admin profile data
+  // Fetch admin profile data via API (avoids RLS issues with browser client)
   useEffect(() => {
     async function fetchAdminProfile() {
       if (!user?.id) return;
 
-      const supabase = createClient();
-
       try {
-        // Get profile ID
-        const { data: profile } = await supabase
-          .from('school_profiles')
-          .select('id')
-          .eq('auth_user_id', user.id)
-          .single();
-
-        if (!profile) return;
-
-        // Get admin record
-        const { data: admin } = await supabase
-          .from('admins')
-          .select('id, school_id')
-          .eq('profile_id', profile.id)
-          .single();
-
-        if (admin) {
-          // Get school name separately
-          const { data: school } = await supabase
-            .from('schools')
-            .select('name')
-            .eq('id', admin.school_id)
-            .single();
-
+        const res = await fetch('/api/admin/profile');
+        if (res.ok) {
+          const data = await res.json();
           setAdminProfile({
-            adminId: admin.id,
-            profileId: profile.id,
-            schoolId: admin.school_id,
-            schoolName: school?.name || 'School',
+            adminId: data.adminProfileId || data.adminId || '',
+            profileId: data.profileId || '',
+            schoolId: data.schoolId || '',
+            schoolName: data.schoolName || 'School',
           });
         }
       } catch (error) {

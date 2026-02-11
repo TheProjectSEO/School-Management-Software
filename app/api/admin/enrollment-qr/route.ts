@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
         is_active: true,
         enrollment_url: body.enrollmentUrl ?? null,
         qr_image_url: body.qrImageUrl ?? null,
-        created_by: admin.adminId,
+        created_by: admin.profileId,
         school_id: admin.schoolId,
       })
       .select("id")

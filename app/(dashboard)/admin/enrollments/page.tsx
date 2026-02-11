@@ -274,7 +274,9 @@ export default function EnrollmentsPage() {
       header: "Enrolled",
       cell: ({ row }) => (
         <span className="text-sm text-gray-500">
-          {formatDistanceToNow(new Date(row.original.enrolled_at), { addSuffix: true })}
+          {row.original.enrolled_at
+            ? formatDistanceToNow(new Date(row.original.enrolled_at), { addSuffix: true })
+            : "—"}
         </span>
       ),
     },

@@ -1,13 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentAdmin } from "@/lib/dal/admin";
 
 /**
  * POST /api/admin/messages
  * Send a message from admin to a user (student or teacher)
- * Uses admin client to bypass RLS
- *
- * Accepts: { recipientProfileId, message, subject?, attachments?, parentMessageId? }
+ * Inserts directly into teacher_direct_messages table with sender_type='admin'
  */
 export async function POST(request: NextRequest) {
   try {
@@ -16,16 +14,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const supabase = createAdminClient();
+    const supabase = createServiceClient();
 
     const body = await request.json();
-    const {
-      recipientProfileId,
-      message,
-      subject,
-      attachments,
-      parentMessageId,
-    } = body;
+    const { recipientProfileId, message, subject } = body;
 
     // Validate required fields
     if (!recipientProfileId || !message) {
@@ -35,54 +27,50 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use RPC function that bypasses RLS
-    // The RPC verifies admin access and recipient belongs to same school
-    const { data, error } = await supabase.rpc("admin_send_message", {
-      recipient_profile_id: recipientProfileId,
-      message_subject: subject || "Direct Message",
-      message_body: message.trim(),
-      recipient_type: null, // Auto-detect
-      message_attachments: attachments || null,
-      parent_msg_id: parentMessageId || null,
-    });
+    // Verify recipient exists in same school
+    const { data: recipientProfile } = await supabase
+      .from("school_profiles")
+      .select("id, full_name")
+      .eq("id", recipientProfileId)
+      .maybeSingle();
+
+    if (!recipientProfile) {
+      return NextResponse.json(
+        { error: "Recipient not found" },
+        { status: 404 }
+      );
+    }
+
+    // Insert message into teacher_direct_messages with sender_type='admin'
+    const { data: newMessage, error } = await supabase
+      .from("teacher_direct_messages")
+      .insert({
+        school_id: admin.schoolId,
+        from_profile_id: admin.profileId,
+        to_profile_id: recipientProfileId,
+        body: message.trim(),
+        sender_type: "admin",
+      })
+      .select("id, created_at")
+      .single();
 
     if (error) {
-      console.error("Error sending message via RPC:", error);
-
-      if (error.message?.includes("Access denied")) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-      if (error.message?.includes("Recipient not found")) {
-        return NextResponse.json(
-          { error: "Recipient not found or access denied" },
-          { status: 404 }
-        );
-      }
-
+      console.error("Error sending message:", error);
       return NextResponse.json(
         { error: "Failed to send message" },
         { status: 500 }
       );
     }
-
-    if (!data || data.length === 0) {
-      return NextResponse.json(
-        { error: "Failed to send message" },
-        { status: 500 }
-      );
-    }
-
-    const result = data[0];
 
     return NextResponse.json(
       {
         success: true,
-        message_id: result.message_id,
+        message_id: newMessage.id,
         message: {
-          id: result.message_id,
+          id: newMessage.id,
           subject: subject || "Direct Message",
           body: message.trim(),
-          createdAt: result.created_at,
+          createdAt: newMessage.created_at,
         },
       },
       { status: 201 }

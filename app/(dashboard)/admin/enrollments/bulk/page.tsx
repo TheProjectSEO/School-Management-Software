@@ -375,7 +375,7 @@ export default function BulkEnrollPage() {
                 className="px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
               >
                 <option value="">All Grades</option>
-                {["7", "8", "9", "10", "11", "12"].map((grade) => (
+                {["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map((grade) => (
                   <option key={grade} value={grade}>
                     Grade {grade}
                   </option>

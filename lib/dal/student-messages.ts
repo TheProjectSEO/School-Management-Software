@@ -53,8 +53,8 @@ export async function getStudentConversations(
     return [];
   }
 
-  // Filter to only show teacher conversations and enrich with teacher info
-  const teacherConversations: Conversation[] = [];
+  // Include both teacher and student conversations
+  const allConversations: Conversation[] = [];
 
   for (const conv of conversations || []) {
     if (conv.partner_role === "teacher") {
@@ -65,7 +65,7 @@ export async function getStudentConversations(
         .eq("profile_id", conv.partner_profile_id)
         .single();
 
-      teacherConversations.push({
+      allConversations.push({
         partner_profile_id: conv.partner_profile_id,
         partner_name: conv.partner_name || "Teacher",
         partner_avatar_url: conv.partner_avatar_url,
@@ -77,10 +77,22 @@ export async function getStudentConversations(
         total_messages: Number(conv.total_messages) || 0,
         teacher_id: teacher?.id,
       });
+    } else if (conv.partner_role === "student") {
+      allConversations.push({
+        partner_profile_id: conv.partner_profile_id,
+        partner_name: conv.partner_name || "Student",
+        partner_avatar_url: conv.partner_avatar_url,
+        partner_role: "student",
+        last_message_body: conv.last_message_body,
+        last_message_at: conv.last_message_at,
+        last_message_sender_type: conv.last_message_sender_type,
+        unread_count: Number(conv.unread_count) || 0,
+        total_messages: Number(conv.total_messages) || 0,
+      });
     }
   }
 
-  return teacherConversations;
+  return allConversations;
 }
 
 // ============================================================================
@@ -425,4 +437,94 @@ export async function getTeacherIdByProfileId(
 
   if (error || !data) return null;
   return data.id;
+}
+
+// ============================================================================
+// GET AVAILABLE PEERS
+// ============================================================================
+
+export interface PeerStudent {
+  profile_id: string;
+  full_name: string;
+  avatar_url?: string | null;
+}
+
+/**
+ * Get peer students available for messaging
+ * (same section or shared courses)
+ */
+export async function getAvailablePeers(
+  studentId: string
+): Promise<PeerStudent[]> {
+  const supabase = createServiceClient();
+
+  // Get student's section_id
+  const { data: studentData } = await supabase
+    .from("students")
+    .select("section_id, profile_id")
+    .eq("id", studentId)
+    .single();
+
+  if (!studentData) return [];
+
+  const peerProfileIds = new Set<string>();
+
+  // 1. Students in same section
+  if (studentData.section_id) {
+    const { data: sectionStudents } = await supabase
+      .from("students")
+      .select("profile_id")
+      .eq("section_id", studentData.section_id)
+      .neq("id", studentId);
+
+    for (const s of sectionStudents || []) {
+      peerProfileIds.add(s.profile_id);
+    }
+  }
+
+  // 2. Students in shared courses
+  const { data: enrollments } = await supabase
+    .from("enrollments")
+    .select("course_id")
+    .eq("student_id", studentId);
+
+  const courseIds = (enrollments || []).map((e) => e.course_id);
+
+  if (courseIds.length > 0) {
+    const { data: courseEnrollments } = await supabase
+      .from("enrollments")
+      .select("student_id")
+      .in("course_id", courseIds)
+      .neq("student_id", studentId);
+
+    const peerStudentIds = [...new Set((courseEnrollments || []).map((e) => e.student_id))];
+
+    if (peerStudentIds.length > 0) {
+      const { data: studentProfiles } = await supabase
+        .from("students")
+        .select("profile_id")
+        .in("id", peerStudentIds);
+
+      for (const s of studentProfiles || []) {
+        peerProfileIds.add(s.profile_id);
+      }
+    }
+  }
+
+  // Remove self
+  peerProfileIds.delete(studentData.profile_id);
+
+  if (peerProfileIds.size === 0) return [];
+
+  // Fetch profiles
+  const { data: profiles } = await supabase
+    .from("school_profiles")
+    .select("id, full_name, avatar_url")
+    .in("id", Array.from(peerProfileIds));
+
+  return (profiles || []).map((p) => ({
+    profile_id: p.id,
+    full_name: p.full_name,
+    avatar_url: p.avatar_url,
+  }));
 }

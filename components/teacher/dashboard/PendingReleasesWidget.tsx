@@ -68,9 +68,9 @@ export default function PendingReleasesWidget({ items }: PendingReleasesWidgetPr
             ))}
           </div>
 
-          <Link href="/teacher/gradebook">
+          <Link href="/teacher/grading">
             <Button variant="primary" className="w-full">
-              Release Grades
+              Review Grades
             </Button>
           </Link>
         </>

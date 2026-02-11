@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { Conversation, DirectMessage, Teacher, RealtimeMessage, MessageStatus } from "@/lib/dal/types";
+import type { Conversation, Teacher, RealtimeMessage, MessageStatus } from "@/lib/dal/types";
+import type { PeerStudent } from "@/lib/dal/student-messages";
 import { createClient } from "@/lib/supabase/client";
 import { useRealtimeMessages } from "@/hooks/useRealtimeMessages";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
@@ -12,11 +13,34 @@ import { OnlineStatus } from "@/components/ui/OnlineIndicator";
 import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
 import { playMessageSound } from "@/lib/utils/notificationSound";
 
+interface GroupChat {
+  id: string;
+  section_id: string;
+  name: string;
+  description?: string;
+  section_name: string;
+  member_count: number;
+  last_message_body?: string;
+  last_message_at?: string;
+  last_message_sender?: string;
+}
+
+interface GroupMessage {
+  id: string;
+  sender_profile_id: string;
+  sender_name: string;
+  sender_avatar_url?: string;
+  sender_role: string;
+  body: string;
+  created_at: string;
+}
+
 interface MessagesClientProps {
   conversations: Conversation[];
   unreadCount: number;
   availableTeachers: (Teacher & { course_name?: string })[];
-  studentId: string;
+  availablePeers: PeerStudent[];
+  groupChats: GroupChat[];
   schoolId: string;
   profileId: string;
 }
@@ -25,7 +49,8 @@ export function MessagesClient({
   conversations: initialConversations,
   unreadCount: initialUnreadCount,
   availableTeachers,
-  studentId,
+  availablePeers,
+  groupChats: initialGroupChats,
   schoolId,
   profileId,
 }: MessagesClientProps) {
@@ -38,6 +63,10 @@ export function MessagesClient({
   const [showNewConversation, setShowNewConversation] = useState(false);
   const [teacherSearch, setTeacherSearch] = useState("");
   const [isConnected, setIsConnected] = useState(false);
+  const [activeTab, setActiveTab] = useState<"direct" | "groups">("direct");
+  const [groupChats] = useState<GroupChat[]>(initialGroupChats);
+  const [selectedGroupChat, setSelectedGroupChat] = useState<GroupChat | null>(null);
+  const [groupMessages, setGroupMessages] = useState<GroupMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabaseRef = useRef(createClient());
   const selectedConversationRef = useRef<Conversation | null>(null);
@@ -68,25 +97,21 @@ export function MessagesClient({
   const { isOnline, getLastSeen } = usePresence(profileId, schoolId);
 
   // Global real-time subscription for all messages involving this user
-  // This handles: new message notifications, read receipts, unread count updates
   useEffect(() => {
     if (!profileId) return;
 
     const supabase = supabaseRef.current;
-    console.log("[MessagesClient] Setting up global real-time subscription for:", profileId);
 
     const channel = supabase
       .channel(`student-messages:${profileId}:${Date.now()}`)
       .on(
         "postgres_changes",
         {
-          event: "*", // Listen to all events (INSERT, UPDATE)
+          event: "*",
           schema: "public",
           table: "teacher_direct_messages",
         },
         (payload) => {
-          console.log("[MessagesClient] Received real-time event:", payload.eventType, payload);
-
           const msg = payload.new as {
             id: string;
             from_profile_id: string;
@@ -101,27 +126,20 @@ export function MessagesClient({
 
           if (!msg) return;
 
-          // Only process messages TO or FROM this user
           if (msg.to_profile_id !== profileId && msg.from_profile_id !== profileId) {
-            console.log("[MessagesClient] Message not for this user, ignoring");
             return;
           }
 
           const currentConversation = selectedConversationRef.current;
 
-          // Handle INSERT events (new messages)
           if (payload.eventType === "INSERT") {
-            // If message is FROM this user (outgoing), skip - already handled by optimistic update
             if (msg.from_profile_id === profileId) {
-              console.log("[MessagesClient] Skipping own message (handled by optimistic update)");
               return;
             }
 
-            // If message is TO this user (incoming from teacher), play sound and update unread
             if (msg.to_profile_id === profileId) {
               playMessageSound();
 
-              // Update unread count in conversations list
               setConversations((prev) =>
                 prev.map((c) =>
                   c.partner_profile_id === msg.from_profile_id
@@ -136,13 +154,11 @@ export function MessagesClient({
               );
             }
 
-            // If this message belongs to the current conversation, add it to the list
             if (
               currentConversation &&
               msg.from_profile_id === currentConversation.partner_profile_id
             ) {
               setMessages((prev) => {
-                // Check if message already exists
                 if (prev.some((m) => m.id === msg.id)) return prev;
 
                 const newMsg: RealtimeMessage = {
@@ -160,16 +176,11 @@ export function MessagesClient({
                 return [...prev, newMsg];
               });
 
-              // Mark as read immediately since user is viewing
               markAsRead(currentConversation.partner_profile_id);
             }
           }
 
-          // Handle UPDATE events (read receipts, delivered status)
           if (payload.eventType === "UPDATE") {
-            console.log("[MessagesClient] Message updated - read:", msg.is_read, "read_at:", msg.read_at);
-
-            // Update messages in current conversation
             if (
               currentConversation &&
               (msg.from_profile_id === currentConversation.partner_profile_id ||
@@ -189,14 +200,6 @@ export function MessagesClient({
               );
             }
 
-            // Update unread count when partner reads messages
-            // (When teacher reads student's message, is_read becomes true)
-            if (msg.is_read && msg.from_profile_id === profileId) {
-              // Our message was read by the partner - just update the message state (handled above)
-              console.log("[MessagesClient] Our message was read by partner");
-            }
-
-            // When we read teacher's messages (handled by markAsRead), update unread count
             if (msg.is_read && msg.to_profile_id === profileId) {
               setConversations((prev) =>
                 prev.map((c) =>
@@ -209,32 +212,82 @@ export function MessagesClient({
           }
         }
       )
-      .subscribe((status, err) => {
-        console.log("[MessagesClient] Subscription status:", status, err || "");
+      .subscribe((status) => {
         setIsConnected(status === "SUBSCRIBED");
       });
 
     return () => {
-      console.log("[MessagesClient] Cleaning up subscription");
       supabase.removeChannel(channel);
     };
   }, [profileId, schoolId, markAsRead]);
 
+  // Real-time subscription for group chat messages
+  useEffect(() => {
+    if (!profileId) return;
+
+    const supabase = supabaseRef.current;
+
+    const channel = supabase
+      .channel(`student-group-messages:${profileId}:${Date.now()}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "section_group_chat_messages",
+        },
+        (payload) => {
+          const msg = payload.new as {
+            id: string;
+            group_chat_id: string;
+            sender_profile_id: string;
+            sender_role: string;
+            body: string;
+            created_at: string;
+          } | null;
+
+          if (!msg) return;
+          if (msg.sender_profile_id === profileId) return;
+
+          // If viewing this group chat, add the message
+          if (selectedGroupChat && msg.group_chat_id === selectedGroupChat.id) {
+            setGroupMessages((prev) => {
+              if (prev.some((m) => m.id === msg.id)) return prev;
+              return [
+                ...prev,
+                {
+                  id: msg.id,
+                  sender_profile_id: msg.sender_profile_id,
+                  sender_name: "Member",
+                  sender_role: msg.sender_role,
+                  body: msg.body,
+                  created_at: msg.created_at,
+                },
+              ];
+            });
+            playMessageSound();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profileId, selectedGroupChat?.id]);
+
   // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, groupMessages]);
 
   // Load messages and subscribe to real-time when conversation is selected
   useEffect(() => {
     if (selectedConversation) {
-      loadMessages(selectedConversation.partner_profile_id);
+      loadMessages(selectedConversation.partner_profile_id, selectedConversation.partner_role);
 
-      // Subscribe to real-time updates for this conversation
       subscribeToConversation(selectedConversation.partner_profile_id);
       connectTyping(selectedConversation.partner_profile_id, "Student");
-
-      // Mark messages as delivered when opening conversation
       markAsDelivered(selectedConversation.partner_profile_id);
     }
 
@@ -247,24 +300,20 @@ export function MessagesClient({
   // Handle new real-time messages
   useEffect(() => {
     if (newMessage && selectedConversation) {
-      // Check if message belongs to current conversation
       const isFromPartner = newMessage.from_profile_id === selectedConversation.partner_profile_id;
       const isToPartner = newMessage.to_profile_id === selectedConversation.partner_profile_id;
 
       if (isFromPartner || isToPartner) {
         setMessages((prev) => {
-          // Check if message already exists (avoid duplicates)
           const exists = prev.some((m) => m.id === newMessage.id);
           if (exists) return prev;
           return [...prev, newMessage as RealtimeMessage];
         });
 
-        // If message is from partner, mark it as read immediately
         if (isFromPartner) {
           markAsRead(selectedConversation.partner_profile_id);
         }
 
-        // Update conversation list
         setConversations((prev) =>
           prev.map((c) =>
             c.partner_profile_id === selectedConversation.partner_profile_id
@@ -294,15 +343,12 @@ export function MessagesClient({
         })
       );
 
-      // Also update conversation unread counts when messages are marked as read
-      // Check if any updated message affects current conversation
       if (selectedConversation) {
         updatedMessages.forEach((msg) => {
           if (
             msg.from_profile_id === selectedConversation.partner_profile_id ||
             msg.to_profile_id === selectedConversation.partner_profile_id
           ) {
-            // Update conversation unread count
             setConversations((prev) =>
               prev.map((c) =>
                 c.partner_profile_id === selectedConversation.partner_profile_id
@@ -327,10 +373,15 @@ export function MessagesClient({
     [selectedConversation, notifyTyping]
   );
 
-  const loadMessages = async (teacherProfileId: string) => {
+  const loadMessages = async (partnerProfileId: string, partnerRole: string) => {
     setIsLoading(true);
     try {
-      const res = await fetchWithAuth(`/api/student/messages/${teacherProfileId}`);
+      // Use different API route for peers vs teachers
+      const url =
+        partnerRole === "student"
+          ? `/api/student/messages/peers/${partnerProfileId}`
+          : `/api/student/messages/${partnerProfileId}`;
+      const res = await fetchWithAuth(url);
       if (res.ok) {
         const data = await res.json();
         setMessages(data.messages || []);
@@ -342,16 +393,44 @@ export function MessagesClient({
     }
   };
 
+  // Fetch group chat messages
+  const fetchGroupMessages = useCallback(async (groupId: string) => {
+    setIsLoading(true);
+    try {
+      const res = await fetchWithAuth(`/api/student/messages/groups/${groupId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setGroupMessages(data.messages || []);
+      }
+    } catch (error) {
+      console.error("Error fetching group messages:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Handle group chat selection
+  const handleSelectGroupChat = (group: GroupChat) => {
+    setSelectedGroupChat(group);
+    setSelectedConversation(null);
+    fetchGroupMessages(group.id);
+  };
+
+  // Handle direct conversation selection
+  const handleSelectConversation = (conversation: Conversation) => {
+    setSelectedConversation(conversation);
+    setSelectedGroupChat(null);
+    setGroupMessages([]);
+  };
+
   const handleSendMessage = async () => {
     if (!selectedConversation || !messageInput.trim() || isSending) return;
 
     const messageBody = messageInput.trim();
     const tempId = `temp-${Date.now()}`;
 
-    // Stop typing indicator
     notifyTyping(false);
 
-    // Optimistic update - add message with "sending" status
     const optimisticMessage: RealtimeMessage = {
       id: tempId,
       school_id: schoolId,
@@ -361,7 +440,7 @@ export function MessagesClient({
       sender_type: "student",
       is_read: false,
       created_at: new Date().toISOString(),
-      tempId, // Flag as optimistic
+      tempId,
     };
 
     setMessages((prev) => [...prev, optimisticMessage]);
@@ -369,7 +448,13 @@ export function MessagesClient({
     setIsSending(true);
 
     try {
-      const res = await fetchWithAuth(`/api/student/messages/${selectedConversation.partner_profile_id}`, {
+      // Use different API route for peers vs teachers
+      const url =
+        selectedConversation.partner_role === "student"
+          ? `/api/student/messages/peers/${selectedConversation.partner_profile_id}`
+          : `/api/student/messages/${selectedConversation.partner_profile_id}`;
+
+      const res = await fetchWithAuth(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: messageBody }),
@@ -378,7 +463,6 @@ export function MessagesClient({
       const data = await res.json();
 
       if (res.ok && data.success) {
-        // Replace optimistic message with real one
         setMessages((prev) =>
           prev.map((m) =>
             m.id === tempId
@@ -387,7 +471,6 @@ export function MessagesClient({
           )
         );
 
-        // Update conversation list
         setConversations((prev) =>
           prev.map((c) =>
             c.partner_profile_id === selectedConversation.partner_profile_id
@@ -396,13 +479,11 @@ export function MessagesClient({
           )
         );
       } else {
-        // Error - remove optimistic message
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
         alert("Failed to send message. Please try again.");
       }
     } catch (error) {
       console.error("Error sending message:", error);
-      // Remove optimistic message on error
       setMessages((prev) => prev.filter((m) => m.id !== tempId));
       alert("Failed to send message. Please try again.");
     } finally {
@@ -410,16 +491,58 @@ export function MessagesClient({
     }
   };
 
+  // Handle sending group message
+  const handleSendGroupMessage = async () => {
+    if (!selectedGroupChat || !messageInput.trim() || isSending) return;
+
+    const messageBody = messageInput.trim();
+    const tempId = `temp-${Date.now()}`;
+
+    const optimisticMessage: GroupMessage = {
+      id: tempId,
+      sender_profile_id: profileId,
+      sender_name: "You",
+      sender_role: "student",
+      body: messageBody,
+      created_at: new Date().toISOString(),
+    };
+
+    setGroupMessages((prev) => [...prev, optimisticMessage]);
+    setMessageInput("");
+    setIsSending(true);
+
+    try {
+      const res = await fetchWithAuth(`/api/student/messages/groups/${selectedGroupChat.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: messageBody }),
+      });
+
+      if (!res.ok) {
+        setGroupMessages((prev) => prev.filter((m) => m.id !== tempId));
+        alert("Failed to send message.");
+      } else {
+        const data = await res.json();
+        setGroupMessages((prev) =>
+          prev.map((m) => (m.id === tempId ? { ...m, id: data.message_id } : m))
+        );
+      }
+    } catch (error) {
+      console.error("Error sending group message:", error);
+      setGroupMessages((prev) => prev.filter((m) => m.id !== tempId));
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const startNewConversation = async (teacher: Teacher & { course_name?: string }) => {
-    // Check if conversation already exists
     const existing = conversations.find((c) => c.partner_profile_id === teacher.profile_id);
     if (existing) {
-      setSelectedConversation(existing);
+      handleSelectConversation(existing);
       setShowNewConversation(false);
       return;
     }
 
-    // Create new conversation object
     const newConversation: Conversation = {
       partner_profile_id: teacher.profile_id,
       partner_name: teacher.profile?.full_name || "Teacher",
@@ -435,7 +558,34 @@ export function MessagesClient({
     };
 
     setConversations([newConversation, ...conversations]);
-    setSelectedConversation(newConversation);
+    handleSelectConversation(newConversation);
+    setMessages([]);
+    setShowNewConversation(false);
+    setTeacherSearch("");
+  };
+
+  const startPeerConversation = (peer: PeerStudent) => {
+    const existing = conversations.find((c) => c.partner_profile_id === peer.profile_id);
+    if (existing) {
+      handleSelectConversation(existing);
+      setShowNewConversation(false);
+      return;
+    }
+
+    const newConversation: Conversation = {
+      partner_profile_id: peer.profile_id,
+      partner_name: peer.full_name,
+      partner_avatar_url: peer.avatar_url ?? undefined,
+      partner_role: "student",
+      last_message_body: "",
+      last_message_at: new Date().toISOString(),
+      last_message_sender_type: "student",
+      unread_count: 0,
+      total_messages: 0,
+    };
+
+    setConversations([newConversation, ...conversations]);
+    handleSelectConversation(newConversation);
     setMessages([]);
     setShowNewConversation(false);
     setTeacherSearch("");
@@ -473,6 +623,20 @@ export function MessagesClient({
     );
   });
 
+  const filteredPeers = availablePeers.filter((peer) => {
+    if (!teacherSearch.trim()) return true;
+    return peer.full_name.toLowerCase().includes(teacherSearch.toLowerCase());
+  });
+
+  // Determine if we're in DM or group chat mode for the send handler
+  const handleSend = () => {
+    if (selectedGroupChat) {
+      handleSendGroupMessage();
+    } else {
+      handleSendMessage();
+    }
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-180px)]">
       {/* Header */}
@@ -480,103 +644,189 @@ export function MessagesClient({
         <div>
           <h1 className="text-2xl font-bold text-slate-900 dark:text-white">Messages</h1>
           <p className="text-slate-600 dark:text-slate-400 text-sm">
-            Contact your teachers directly
+            Chat with teachers, classmates, and section groups
           </p>
         </div>
-        <button
-          onClick={() => setShowNewConversation(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-        >
-          <span className="material-symbols-outlined text-xl">add</span>
-          New Message
-        </button>
+        {activeTab === "direct" && (
+          <button
+            onClick={() => setShowNewConversation(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            <span className="material-symbols-outlined text-xl">add</span>
+            New Message
+          </button>
+        )}
       </div>
 
       {/* Main Content */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0 overflow-hidden">
         {/* Conversations List */}
         <div className="lg:col-span-1 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex flex-col max-h-full overflow-hidden">
-          <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
-            <h2 className="font-semibold text-slate-900 dark:text-white">
-              Conversations
-              {initialUnreadCount > 0 && (
-                <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-primary text-white rounded-full">
-                  {initialUnreadCount}
+          <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold text-slate-900 dark:text-white">
+                Conversations
+                {initialUnreadCount > 0 && (
+                  <span className="ml-2 px-2 py-0.5 text-xs font-bold bg-primary text-white rounded-full">
+                    {initialUnreadCount}
+                  </span>
+                )}
+              </h2>
+              <div className="flex items-center gap-1.5">
+                <div
+                  className={`h-2 w-2 rounded-full ${
+                    isConnected ? "bg-green-500" : "bg-yellow-500"
+                  }`}
+                />
+                <span className="text-xs text-slate-500">
+                  {isConnected ? "Live" : "Connecting..."}
                 </span>
-              )}
-            </h2>
-            {/* Connection indicator */}
-            <div className="flex items-center gap-1.5">
-              <div
-                className={`h-2 w-2 rounded-full ${
-                  isConnected ? "bg-green-500" : "bg-yellow-500"
+              </div>
+            </div>
+            {/* Tabs */}
+            <div className="flex gap-1 bg-slate-100 dark:bg-slate-700 rounded-lg p-1">
+              <button
+                onClick={() => setActiveTab("direct")}
+                className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-colors ${
+                  activeTab === "direct"
+                    ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
                 }`}
-              />
-              <span className="text-xs text-slate-500">
-                {isConnected ? "Live" : "Connecting..."}
-              </span>
+              >
+                Direct
+              </button>
+              <button
+                onClick={() => setActiveTab("groups")}
+                className={`flex-1 py-1.5 px-3 text-sm font-medium rounded-md transition-colors ${
+                  activeTab === "groups"
+                    ? "bg-white dark:bg-slate-600 text-slate-900 dark:text-white shadow-sm"
+                    : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+                }`}
+              >
+                Groups
+              </button>
             </div>
           </div>
 
           <div className="flex-1 overflow-y-auto">
-            {conversations.length === 0 ? (
-              <div className="p-8 text-center text-slate-500">
-                <span className="material-symbols-outlined text-5xl mb-3">chat</span>
-                <p>No conversations yet</p>
-                <p className="text-sm mt-1">Start by messaging a teacher</p>
-              </div>
-            ) : (
-              conversations.map((conversation) => (
-                <button
-                  key={conversation.partner_profile_id}
-                  onClick={() => setSelectedConversation(conversation)}
-                  className={`w-full p-4 text-left border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
-                    selectedConversation?.partner_profile_id === conversation.partner_profile_id
-                      ? "bg-primary/5 border-l-4 border-l-primary"
-                      : ""
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    {/* Avatar */}
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                      {conversation.partner_avatar_url ? (
-                        <img
-                          src={conversation.partner_avatar_url}
-                          alt={conversation.partner_name}
-                          className="w-full h-full rounded-full object-cover"
-                        />
-                      ) : (
-                        <span className="text-primary font-semibold text-sm">
-                          {getInitials(conversation.partner_name)}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold text-slate-900 dark:text-white truncate">
-                          {conversation.partner_name}
-                        </h3>
-                        {conversation.unread_count > 0 && (
-                          <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold bg-msu-gold text-black rounded-full">
-                            {conversation.unread_count}
+            {activeTab === "direct" ? (
+              // Direct Messages List
+              conversations.length === 0 ? (
+                <div className="p-8 text-center text-slate-500">
+                  <span className="material-symbols-outlined text-5xl mb-3">chat</span>
+                  <p>No conversations yet</p>
+                  <p className="text-sm mt-1">Start by messaging a teacher or classmate</p>
+                </div>
+              ) : (
+                conversations.map((conversation) => (
+                  <button
+                    key={conversation.partner_profile_id}
+                    onClick={() => handleSelectConversation(conversation)}
+                    className={`w-full p-4 text-left border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
+                      selectedConversation?.partner_profile_id === conversation.partner_profile_id
+                        ? "bg-primary/5 border-l-4 border-l-primary"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        conversation.partner_role === "student" ? "bg-blue-100 dark:bg-blue-900/30" : "bg-primary/10"
+                      }`}>
+                        {conversation.partner_avatar_url ? (
+                          <img
+                            src={conversation.partner_avatar_url}
+                            alt={conversation.partner_name}
+                            className="w-full h-full rounded-full object-cover"
+                          />
+                        ) : (
+                          <span className={`font-semibold text-sm ${
+                            conversation.partner_role === "student" ? "text-blue-600 dark:text-blue-400" : "text-primary"
+                          }`}>
+                            {getInitials(conversation.partner_name)}
                           </span>
                         )}
                       </div>
-                      {conversation.course_name && (
-                        <p className="text-xs text-slate-500 truncate">{conversation.course_name}</p>
-                      )}
-                      <p className="text-sm text-slate-600 dark:text-slate-400 truncate mt-1">
-                        {conversation.last_message_body || "No messages yet"}
-                      </p>
-                      <p className="text-xs text-slate-400 mt-1">
-                        {formatTime(conversation.last_message_at)}
-                      </p>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <h3 className="font-semibold text-slate-900 dark:text-white truncate">
+                              {conversation.partner_name}
+                            </h3>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                              conversation.partner_role === "student"
+                                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                                : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                            }`}>
+                              {conversation.partner_role === "student" ? "Student" : "Teacher"}
+                            </span>
+                          </div>
+                          {conversation.unread_count > 0 && (
+                            <span className="ml-2 px-1.5 py-0.5 text-[10px] font-bold bg-msu-gold text-black rounded-full">
+                              {conversation.unread_count}
+                            </span>
+                          )}
+                        </div>
+                        {conversation.course_name && (
+                          <p className="text-xs text-slate-500 truncate">{conversation.course_name}</p>
+                        )}
+                        <p className="text-sm text-slate-600 dark:text-slate-400 truncate mt-1">
+                          {conversation.last_message_body || "No messages yet"}
+                        </p>
+                        <p className="text-xs text-slate-400 mt-1">
+                          {formatTime(conversation.last_message_at)}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))
+                  </button>
+                ))
+              )
+            ) : (
+              // Group Chats List
+              groupChats.length === 0 ? (
+                <div className="p-8 text-center text-slate-500">
+                  <span className="material-symbols-outlined text-5xl mb-3">groups</span>
+                  <p>No section group chats yet</p>
+                  <p className="text-sm mt-1">Group chats are created when you&apos;re enrolled in a section</p>
+                </div>
+              ) : (
+                groupChats.map((group) => (
+                  <button
+                    key={group.id}
+                    onClick={() => handleSelectGroupChat(group)}
+                    className={`w-full p-4 text-left border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors ${
+                      selectedGroupChat?.id === group.id
+                        ? "bg-primary/5 border-l-4 border-l-primary"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center flex-shrink-0">
+                        <span className="material-symbols-outlined text-purple-600 dark:text-purple-400 text-lg">
+                          groups
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-slate-900 dark:text-white truncate">
+                          {group.section_name || group.name}
+                        </h3>
+                        <p className="text-xs text-slate-500">{group.member_count} members</p>
+                        {group.last_message_body && (
+                          <p className="text-sm text-slate-600 dark:text-slate-400 truncate mt-1">
+                            <span className="font-medium">{group.last_message_sender}: </span>
+                            {group.last_message_body}
+                          </p>
+                        )}
+                        {group.last_message_at && (
+                          <p className="text-xs text-slate-400 mt-1">
+                            {formatTime(group.last_message_at)}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                ))
+              )
             )}
           </div>
         </div>
@@ -589,7 +839,9 @@ export function MessagesClient({
               <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="relative">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                      selectedConversation.partner_role === "student" ? "bg-blue-100 dark:bg-blue-900/30" : "bg-primary/10"
+                    }`}>
                       {selectedConversation.partner_avatar_url ? (
                         <img
                           src={selectedConversation.partner_avatar_url}
@@ -597,16 +849,27 @@ export function MessagesClient({
                           className="w-full h-full rounded-full object-cover"
                         />
                       ) : (
-                        <span className="text-primary font-semibold text-sm">
+                        <span className={`font-semibold text-sm ${
+                          selectedConversation.partner_role === "student" ? "text-blue-600" : "text-primary"
+                        }`}>
                           {getInitials(selectedConversation.partner_name)}
                         </span>
                       )}
                     </div>
                   </div>
                   <div>
-                    <h3 className="font-semibold text-slate-900 dark:text-white">
-                      {selectedConversation.partner_name}
-                    </h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-slate-900 dark:text-white">
+                        {selectedConversation.partner_name}
+                      </h3>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                        selectedConversation.partner_role === "student"
+                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                          : "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+                      }`}>
+                        {selectedConversation.partner_role === "student" ? "Student" : "Teacher"}
+                      </span>
+                    </div>
                     {selectedConversation.course_name && (
                       <p className="text-xs text-slate-500">{selectedConversation.course_name}</p>
                     )}
@@ -616,7 +879,6 @@ export function MessagesClient({
                     />
                   </div>
                 </div>
-
               </div>
 
               {/* Messages */}
@@ -629,11 +891,13 @@ export function MessagesClient({
                   <div className="flex flex-col items-center justify-center h-full text-slate-500">
                     <span className="material-symbols-outlined text-5xl mb-3">waving_hand</span>
                     <p>Start the conversation!</p>
-                    <p className="text-sm mt-1">Send your first message to this teacher</p>
+                    <p className="text-sm mt-1">
+                      Send your first message to {selectedConversation.partner_name}
+                    </p>
                   </div>
                 ) : (
                   messages.map((message) => {
-                    const isOwn = message.sender_type === "student";
+                    const isOwn = message.from_profile_id === profileId;
                     const status: MessageStatus = getMessageStatus(message);
                     return (
                       <div
@@ -666,7 +930,6 @@ export function MessagesClient({
                   })
                 )}
 
-                {/* Typing Indicator */}
                 {isPartnerTyping && selectedConversation && (
                   <div className="flex items-end gap-2 mb-4">
                     <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -692,7 +955,7 @@ export function MessagesClient({
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
-                        handleSendMessage();
+                        handleSend();
                       }
                     }}
                     placeholder="Type a message... (Shift+Enter for new line)"
@@ -701,7 +964,125 @@ export function MessagesClient({
                     disabled={isSending}
                   />
                   <button
-                    onClick={handleSendMessage}
+                    onClick={handleSend}
+                    disabled={isSending || !messageInput.trim()}
+                    className="px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {isSending ? (
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                    ) : (
+                      <span className="material-symbols-outlined">send</span>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : selectedGroupChat ? (
+            <>
+              {/* Group Chat Header */}
+              <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                    <span className="material-symbols-outlined text-purple-600 dark:text-purple-400">
+                      groups
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-slate-900 dark:text-white">
+                      {selectedGroupChat.section_name || selectedGroupChat.name}
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      {selectedGroupChat.member_count} members
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Group Messages */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 min-h-0">
+                {isLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                  </div>
+                ) : groupMessages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-slate-500">
+                    <span className="material-symbols-outlined text-5xl mb-3">forum</span>
+                    <p>No messages yet</p>
+                    <p className="text-sm mt-1">Start the conversation in this group!</p>
+                  </div>
+                ) : (
+                  groupMessages.map((message) => {
+                    const isOwnMessage = message.sender_profile_id === profileId;
+
+                    return (
+                      <div
+                        key={message.id}
+                        className={`flex ${isOwnMessage ? "justify-end" : "justify-start"}`}
+                      >
+                        <div className={`max-w-[70%] ${isOwnMessage ? "" : "flex gap-2"}`}>
+                          {!isOwnMessage && (
+                            <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 flex items-center justify-center flex-shrink-0">
+                              {message.sender_avatar_url ? (
+                                <img
+                                  src={message.sender_avatar_url}
+                                  alt={message.sender_name}
+                                  className="w-full h-full rounded-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-xs font-medium text-slate-600 dark:text-slate-300">
+                                  {getInitials(message.sender_name || "?")}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          <div
+                            className={`px-4 py-3 rounded-2xl ${
+                              isOwnMessage
+                                ? "bg-primary text-white rounded-br-md"
+                                : "bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white rounded-bl-md"
+                            }`}
+                          >
+                            {!isOwnMessage && (
+                              <p className="text-xs font-medium mb-1 opacity-75">
+                                {message.sender_name}
+                                {message.sender_role === "teacher" && (
+                                  <span className="ml-1 text-purple-600 dark:text-purple-400">(Teacher)</span>
+                                )}
+                              </p>
+                            )}
+                            <p className="whitespace-pre-wrap">{message.body}</p>
+                            <p className="text-xs opacity-75 text-right mt-1">
+                              {formatTime(message.created_at)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+
+                <div ref={messagesEndRef} />
+              </div>
+
+              {/* Group Message Input */}
+              <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+                <div className="flex items-end gap-3">
+                  <textarea
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendGroupMessage();
+                      }
+                    }}
+                    placeholder="Type a message to the group..."
+                    rows={2}
+                    className="flex-1 px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                    disabled={isSending}
+                  />
+                  <button
+                    onClick={handleSendGroupMessage}
                     disabled={isSending || !messageInput.trim()}
                     className="px-4 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
@@ -718,7 +1099,7 @@ export function MessagesClient({
             <div className="flex flex-col items-center justify-center h-full text-slate-500">
               <span className="material-symbols-outlined text-6xl mb-4">forum</span>
               <p className="text-lg font-medium">Select a conversation</p>
-              <p className="text-sm mt-1">Or start a new one with a teacher</p>
+              <p className="text-sm mt-1">Or start a new one with a teacher or classmate</p>
             </div>
           )}
         </div>
@@ -733,7 +1114,10 @@ export function MessagesClient({
                 Start New Conversation
               </h2>
               <button
-                onClick={() => setShowNewConversation(false)}
+                onClick={() => {
+                  setShowNewConversation(false);
+                  setTeacherSearch("");
+                }}
                 className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg"
               >
                 <span className="material-symbols-outlined">close</span>
@@ -741,55 +1125,99 @@ export function MessagesClient({
             </div>
 
             <div className="p-4 overflow-y-auto max-h-[60vh]">
-              <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                Select a teacher from your enrolled courses:
-              </p>
-
               <input
                 type="text"
                 value={teacherSearch}
                 onChange={(e) => setTeacherSearch(e.target.value)}
-                placeholder="Start typing a teacher name or course..."
+                placeholder="Search by name or course..."
                 className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary mb-4"
               />
 
-              {filteredTeachers.length === 0 ? (
+              {/* Teachers Section */}
+              {filteredTeachers.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                    Teachers
+                  </p>
+                  <div className="space-y-2 mb-4">
+                    {filteredTeachers.map((teacher) => (
+                      <button
+                        key={teacher.id}
+                        onClick={() => startNewConversation(teacher)}
+                        className="w-full p-3 text-left rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                            {teacher.profile?.avatar_url ? (
+                              <img
+                                src={teacher.profile.avatar_url}
+                                alt={teacher.profile.full_name}
+                                className="w-full h-full rounded-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-primary font-semibold text-sm">
+                                {getInitials(teacher.profile?.full_name || "T")}
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900 dark:text-white">
+                              {teacher.profile?.full_name || "Teacher"}
+                            </h3>
+                            <p className="text-sm text-slate-500">{teacher.course_name}</p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Students Section */}
+              {filteredPeers.length > 0 && (
+                <>
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                    Classmates
+                  </p>
+                  <div className="space-y-2">
+                    {filteredPeers.map((peer) => (
+                      <button
+                        key={peer.profile_id}
+                        onClick={() => startPeerConversation(peer)}
+                        className="w-full p-3 text-left rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center">
+                            {peer.avatar_url ? (
+                              <img
+                                src={peer.avatar_url}
+                                alt={peer.full_name}
+                                className="w-full h-full rounded-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-blue-600 dark:text-blue-400 font-semibold text-sm">
+                                {getInitials(peer.full_name)}
+                              </span>
+                            )}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-slate-900 dark:text-white">
+                              {peer.full_name}
+                            </h3>
+                            <p className="text-sm text-slate-500">Student</p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {filteredTeachers.length === 0 && filteredPeers.length === 0 && (
                 <div className="text-center py-8 text-slate-500">
                   <span className="material-symbols-outlined text-4xl mb-2">person_off</span>
-                  <p>No teachers available</p>
+                  <p>No contacts found</p>
                   <p className="text-sm mt-1">You need to be enrolled in courses first</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredTeachers.map((teacher) => (
-                    <button
-                      key={teacher.id}
-                      onClick={() => startNewConversation(teacher)}
-                      className="w-full p-4 text-left rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          {teacher.profile?.avatar_url ? (
-                            <img
-                              src={teacher.profile.avatar_url}
-                              alt={teacher.profile.full_name}
-                              className="w-full h-full rounded-full object-cover"
-                            />
-                          ) : (
-                            <span className="text-primary font-semibold text-sm">
-                              {getInitials(teacher.profile?.full_name || "T")}
-                            </span>
-                          )}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-slate-900 dark:text-white">
-                            {teacher.profile?.full_name || "Teacher"}
-                          </h3>
-                          <p className="text-sm text-slate-500">{teacher.course_name}</p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
                 </div>
               )}
             </div>

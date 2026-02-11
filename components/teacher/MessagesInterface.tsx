@@ -45,6 +45,14 @@ interface SearchStudent {
   grade_level?: string;
 }
 
+interface AdminContact {
+  admin_id: string;
+  profile_id: string;
+  role: string;
+  full_name: string;
+  avatar_url?: string;
+}
+
 interface GroupChat {
   id: string;
   section_id: string;
@@ -96,6 +104,7 @@ export default function MessagesInterface({
   const [selectedGroupChat, setSelectedGroupChat] = useState<GroupChat | null>(null);
   const [groupMessages, setGroupMessages] = useState<GroupMessage[]>([]);
   const [activeTab, setActiveTab] = useState<"direct" | "groups">("direct");
+  const [availableAdmins, setAvailableAdmins] = useState<AdminContact[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabaseRef = useRef(createClient());
   const selectedConversationRef = useRef<Conversation | null>(null);
@@ -150,6 +159,23 @@ export default function MessagesInterface({
       console.error("Error fetching group chats:", err);
     }
   }, []);
+
+  // Fetch available admins
+  const fetchAdmins = useCallback(async () => {
+    try {
+      const response = await fetchWithAuth("/api/teacher/messages/admins");
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableAdmins(data.admins || []);
+      }
+    } catch (err) {
+      console.error("Error fetching admins:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchAdmins();
+  }, [fetchAdmins]);
 
   // Sync/create group chats for teacher's sections
   const syncGroupChats = useCallback(async () => {
@@ -284,6 +310,36 @@ export default function MessagesInterface({
     return () => clearTimeout(timer);
   }, [studentSearch, showNewConversation, searchStudents]);
 
+  // Start new conversation with an admin
+  const startAdminConversation = (admin: AdminContact) => {
+    const existing = conversations.find(
+      (c) => c.participantId === admin.profile_id || c.studentProfileId === admin.profile_id
+    );
+    if (existing) {
+      setSelectedConversation(existing);
+      setShowNewConversation(false);
+      setStudentSearch("");
+      return;
+    }
+
+    const newConv: Conversation = {
+      id: `new-${admin.profile_id}`,
+      participantId: admin.profile_id,
+      participantName: admin.full_name,
+      participantRole: "Admin",
+      lastMessage: "",
+      lastMessageTime: new Date().toISOString(),
+      unreadCount: 0,
+      studentProfileId: admin.profile_id,
+    };
+
+    setConversations([newConv, ...conversations]);
+    setSelectedConversation(newConv);
+    setMessages([]);
+    setShowNewConversation(false);
+    setStudentSearch("");
+  };
+
   // Start new conversation with a student
   const startNewConversation = (student: SearchStudent) => {
     // Check if conversation already exists
@@ -319,9 +375,12 @@ export default function MessagesInterface({
   };
 
   // Fetch messages for selected conversation
-  const fetchMessages = useCallback(async (studentProfileId: string) => {
+  const fetchMessages = useCallback(async (studentProfileId: string, isAdmin?: boolean) => {
     try {
-      const response = await fetchWithAuth(`/api/teacher/messages/${studentProfileId}`);
+      const url = isAdmin
+        ? `/api/teacher/messages/admins/${studentProfileId}`
+        : `/api/teacher/messages/${studentProfileId}`;
+      const response = await fetchWithAuth(url);
 
       if (!response.ok) {
         throw new Error("Failed to fetch messages");
@@ -360,11 +419,10 @@ export default function MessagesInterface({
 
   useEffect(() => {
     const partnerId = selectedConversation?.studentProfileId || selectedConversation?.participantId;
+    const isAdmin = selectedConversation?.participantRole === "Admin";
     if (partnerId) {
-      fetchMessages(partnerId);
-      // Connect typing indicator for this conversation
+      fetchMessages(partnerId, isAdmin);
       connectTyping(partnerId, "Teacher");
-      // Mark messages as read
       markMessagesAsRead(partnerId);
     }
     return () => {
@@ -521,6 +579,7 @@ export default function MessagesInterface({
     if (!newMessage.trim() || !selectedConversation || isSending) return;
 
     const studentProfileId = selectedConversation.studentProfileId || selectedConversation.participantId;
+    const isAdmin = selectedConversation.participantRole === "Admin";
     const messageContent = newMessage.trim();
 
     // Add optimistic message IMMEDIATELY (before API call)
@@ -541,13 +600,18 @@ export default function MessagesInterface({
     setIsSending(true);
 
     try {
-      const response = await fetchWithAuth("/api/teacher/messages/send", {
+      // Use admin route for admin conversations, standard route for students
+      const url = isAdmin
+        ? `/api/teacher/messages/admins/${studentProfileId}`
+        : "/api/teacher/messages/send";
+      const payload = isAdmin
+        ? { content: messageContent }
+        : { studentProfileId, content: messageContent };
+
+      const response = await fetchWithAuth(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          studentProfileId,
-          content: messageContent,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
@@ -1006,36 +1070,81 @@ export default function MessagesInterface({
 
             <div className="p-4">
               <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
-                Search for a student in your sections to start a conversation:
+                Search for a student or select an admin to start a conversation:
               </p>
 
               <input
                 type="text"
                 value={studentSearch}
                 onChange={(e) => setStudentSearch(e.target.value)}
-                placeholder="Search student name..."
+                placeholder="Search by name..."
                 className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary mb-4"
                 autoFocus
               />
 
               <div className="max-h-[50vh] overflow-y-auto">
+                {/* Admins Section */}
+                {availableAdmins.length > 0 && (!studentSearch.trim() || availableAdmins.some(a => a.full_name.toLowerCase().includes(studentSearch.toLowerCase()))) && (
+                  <>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                      Admins
+                    </p>
+                    <div className="space-y-2 mb-4">
+                      {availableAdmins
+                        .filter(a => !studentSearch.trim() || a.full_name.toLowerCase().includes(studentSearch.toLowerCase()))
+                        .map((admin) => (
+                          <button
+                            key={admin.admin_id}
+                            onClick={() => startAdminConversation(admin)}
+                            className="w-full p-3 text-left rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                                {admin.avatar_url ? (
+                                  <img
+                                    src={admin.avatar_url}
+                                    alt={admin.full_name}
+                                    className="w-full h-full rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="text-amber-700 dark:text-amber-400 font-semibold text-sm">
+                                    {admin.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
+                                  </span>
+                                )}
+                              </div>
+                              <div>
+                                <h3 className="font-semibold text-slate-900 dark:text-white">
+                                  {admin.full_name}
+                                </h3>
+                                <p className="text-sm text-slate-500 capitalize">
+                                  {admin.role?.replace(/_/g, " ") || "Admin"}
+                                </p>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                    </div>
+                  </>
+                )}
+
+                {/* Students Section */}
+                {studentSearch.trim() && (
+                  <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                    Students
+                  </p>
+                )}
                 {isSearching ? (
                   <div className="flex items-center justify-center py-8">
                     <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
                   </div>
-                ) : searchResults.length === 0 ? (
+                ) : searchResults.length === 0 && studentSearch.trim() ? (
+                  <div className="text-center py-4 text-slate-500">
+                    <p className="text-sm">No students found</p>
+                  </div>
+                ) : !studentSearch.trim() && availableAdmins.length === 0 ? (
                   <div className="text-center py-8 text-slate-500">
-                    {studentSearch.trim() ? (
-                      <>
-                        <span className="material-symbols-outlined text-4xl mb-2">person_off</span>
-                        <p>No students found</p>
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-4xl mb-2">search</span>
-                        <p>Type a name to search</p>
-                      </>
-                    )}
+                    <span className="material-symbols-outlined text-4xl mb-2">search</span>
+                    <p>Type a name to search</p>
                   </div>
                 ) : (
                   <div className="space-y-2">

@@ -88,7 +88,9 @@ export {
   getStudentUnreadMessageCount,
   getAvailableTeachers,
   getTeacherIdByProfileId,
+  getAvailablePeers,
 } from "./student-messages";
+export type { PeerStudent } from "./student-messages";
 
 // Export teacher assessment functions
 export {

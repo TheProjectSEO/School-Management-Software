@@ -1,5 +1,5 @@
 -- Add grade_level and is_active columns to courses table if they don't exist
--- These are needed for Grade 1-6 elementary subject management
+-- Also make section_id nullable so subjects can exist without a section
 
 DO $$
 BEGIN
@@ -27,6 +27,9 @@ BEGIN
     ALTER TABLE courses ADD COLUMN credits INTEGER;
   END IF;
 END $$;
+
+-- Make section_id nullable (subjects can exist without being tied to a section)
+ALTER TABLE courses ALTER COLUMN section_id DROP NOT NULL;
 
 -- Create index on grade_level for filtering
 CREATE INDEX IF NOT EXISTS idx_courses_grade_level ON courses(grade_level);

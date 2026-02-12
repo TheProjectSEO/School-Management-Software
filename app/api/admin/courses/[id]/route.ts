@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentAdmin, hasPermission } from "@/lib/dal/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // GET /api/admin/courses/[id] - Get a single course by ID
@@ -8,23 +8,17 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canRead = await hasPermission("users:read");
-    if (!canRead) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI("users:read");
+    if (!auth.success) return auth.response;
 
     const { id: courseId } = await params;
     const supabase = createAdminClient();
 
     const { data: course, error } = await supabase
       .from("courses")
-      .select("id, name, subject_code, description, credits, school_id")
+      .select("id, name, subject_code, description, credits, grade_level, is_active, school_id")
       .eq("id", courseId)
+      .eq("school_id", auth.admin.schoolId)
       .single();
 
     if (error) {
@@ -51,19 +45,12 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canWrite = await hasPermission("users:update");
-    if (!canWrite) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI("users:update");
+    if (!auth.success) return auth.response;
 
     const { id: courseId } = await params;
     const body = await request.json();
-    const { name, subject_code, description, credits } = body;
+    const { name, subject_code, description, credits, grade_level } = body;
 
     // Validate required fields
     if (!name || !subject_code) {
@@ -75,24 +62,26 @@ export async function PUT(
 
     const supabase = createAdminClient();
 
-    // Check if course exists
+    // Check if course exists and belongs to this school
     const { data: existingCourse, error: fetchError } = await supabase
       .from("courses")
       .select("id")
       .eq("id", courseId)
+      .eq("school_id", auth.admin.schoolId)
       .single();
 
     if (fetchError || !existingCourse) {
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
-    // Check for duplicate subject_code (excluding current course)
+    // Check for duplicate subject_code (excluding current course, same school)
     const { data: duplicateCourse } = await supabase
       .from("courses")
       .select("id")
       .eq("subject_code", subject_code)
+      .eq("school_id", auth.admin.schoolId)
       .neq("id", courseId)
-      .single();
+      .maybeSingle();
 
     if (duplicateCourse) {
       return NextResponse.json(
@@ -109,10 +98,11 @@ export async function PUT(
         subject_code,
         description: description || null,
         credits: credits ?? null,
+        grade_level: grade_level || null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", courseId)
-      .select("id, name, subject_code, description, credits, school_id")
+      .select("id, name, subject_code, description, credits, grade_level, is_active, school_id")
       .single();
 
     if (updateError) {
@@ -136,42 +126,33 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canDelete = await hasPermission("users:delete");
-    if (!canDelete) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI("users:delete");
+    if (!auth.success) return auth.response;
 
     const { id: courseId } = await params;
     const supabase = createAdminClient();
+
+    // Verify course belongs to this school
+    const { data: course } = await supabase
+      .from("courses")
+      .select("id")
+      .eq("id", courseId)
+      .eq("school_id", auth.admin.schoolId)
+      .maybeSingle();
+
+    if (!course) {
+      return NextResponse.json({ error: "Course not found" }, { status: 404 });
+    }
 
     // Check if course has active enrollments
     const { count: enrollmentCount } = await supabase
       .from("enrollments")
       .select("*", { count: "exact", head: true })
-      .eq("course_id", courseId)
-      .eq("status", "active");
+      .eq("course_id", courseId);
 
     if (enrollmentCount && enrollmentCount > 0) {
       return NextResponse.json(
-        { error: "Cannot delete course with active enrollments. Please drop all enrollments first." },
-        { status: 400 }
-      );
-    }
-
-    // Check if course has sections
-    const { count: sectionCount } = await supabase
-      .from("sections")
-      .select("*", { count: "exact", head: true })
-      .eq("course_id", courseId);
-
-    if (sectionCount && sectionCount > 0) {
-      return NextResponse.json(
-        { error: "Cannot delete course with sections. Please delete all sections first." },
+        { error: "Cannot delete course with enrollments. Please remove all enrollments first." },
         { status: 400 }
       );
     }

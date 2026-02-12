@@ -1,31 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentAdmin, hasPermission } from "@/lib/dal/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // GET /api/admin/courses - List all courses
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canRead = await hasPermission("users:read");
-    if (!canRead) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI("users:read");
+    if (!auth.success) return auth.response;
 
     const supabase = createAdminClient();
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
+    const gradeLevel = searchParams.get("grade_level");
 
     let query = supabase
       .from("courses")
-      .select("id, name, subject_code, description, credits, school_id")
+      .select("id, name, subject_code, description, credits, grade_level, is_active, school_id")
+      .eq("school_id", auth.admin.schoolId)
+      .order("grade_level")
       .order("name");
 
     if (search) {
       query = query.or(`name.ilike.%${search}%,subject_code.ilike.%${search}%`);
+    }
+
+    if (gradeLevel) {
+      query = query.eq("grade_level", gradeLevel);
     }
 
     const { data, error } = await query;
@@ -48,18 +48,11 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/courses - Create a new course
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canCreate = await hasPermission("users:create");
-    if (!canCreate) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI("users:create");
+    if (!auth.success) return auth.response;
 
     const body = await request.json();
-    const { name, subject_code, description, credits } = body;
+    const { name, subject_code, description, credits, grade_level } = body;
 
     // Validate required fields
     if (!name || !subject_code) {
@@ -71,12 +64,13 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Check for duplicate subject_code
+    // Check for duplicate subject_code within the same school
     const { data: existingCourse } = await supabase
       .from("courses")
       .select("id")
       .eq("subject_code", subject_code)
-      .single();
+      .eq("school_id", auth.admin.schoolId)
+      .maybeSingle();
 
     if (existingCourse) {
       return NextResponse.json(
@@ -93,9 +87,11 @@ export async function POST(request: NextRequest) {
         subject_code,
         description: description || null,
         credits: credits ?? null,
-        school_id: admin.schoolId,
+        grade_level: grade_level || null,
+        is_active: true,
+        school_id: auth.admin.schoolId,
       })
-      .select("id, name, subject_code, description, credits, school_id")
+      .select("id, name, subject_code, description, credits, grade_level, is_active, school_id")
       .single();
 
     if (insertError) {

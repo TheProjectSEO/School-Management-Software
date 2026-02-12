@@ -1,68 +1,87 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentAdmin, hasPermission } from "@/lib/dal/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// POST /api/admin/sections/[id]/courses - Assign a course + teacher to a section
+// POST /api/admin/sections/[id]/courses - Assign course(s) + teacher to a section
+// Supports single: { courseId, teacherProfileId }
+// Supports bulk:   { assignments: [{ courseId, teacherProfileId }] }
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canUpdate = await hasPermission("users:update");
-    if (!canUpdate) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI("users:update");
+    if (!auth.success) return auth.response;
 
     const { id: sectionId } = await params;
     const body = await request.json();
-    const { courseId, teacherProfileId } = body;
 
-    if (!courseId || !teacherProfileId) {
+    // Normalize to array of assignments
+    let assignments: { courseId: string; teacherProfileId: string }[];
+
+    if (body.assignments && Array.isArray(body.assignments)) {
+      assignments = body.assignments;
+    } else if (body.courseId && body.teacherProfileId) {
+      assignments = [{ courseId: body.courseId, teacherProfileId: body.teacherProfileId }];
+    } else {
       return NextResponse.json(
-        { error: "courseId and teacherProfileId are required" },
+        { error: "courseId and teacherProfileId are required (or assignments array)" },
+        { status: 400 }
+      );
+    }
+
+    if (assignments.length === 0) {
+      return NextResponse.json(
+        { error: "At least one assignment is required" },
         { status: 400 }
       );
     }
 
     const supabase = createAdminClient();
 
-    // Check if this course is already assigned to this section
-    const { data: existing } = await supabase
+    // Get existing assignments for this section to skip duplicates
+    const courseIds = assignments.map((a) => a.courseId);
+    const { data: existingAssignments } = await supabase
       .from("teacher_assignments")
-      .select("id")
+      .select("course_id")
       .eq("section_id", sectionId)
-      .eq("course_id", courseId)
-      .maybeSingle();
+      .in("course_id", courseIds);
 
-    if (existing) {
-      return NextResponse.json(
-        { error: "This course is already assigned to this section" },
-        { status: 409 }
-      );
+    const existingCourseIds = new Set(
+      (existingAssignments || []).map((a) => a.course_id)
+    );
+
+    // Filter out already-assigned courses
+    const toInsert = assignments
+      .filter((a) => !existingCourseIds.has(a.courseId))
+      .map((a) => ({
+        teacher_profile_id: a.teacherProfileId,
+        course_id: a.courseId,
+        section_id: sectionId,
+      }));
+
+    const skipped = assignments.length - toInsert.length;
+
+    if (toInsert.length === 0) {
+      return NextResponse.json({
+        success: true,
+        created: 0,
+        skipped,
+        message: "All selected subjects are already assigned to this section.",
+      });
     }
 
-    // Insert teacher_assignment
-    const { data, error } = await supabase
+    // Bulk insert
+    const { error } = await supabase
       .from("teacher_assignments")
-      .insert({
-        teacher_profile_id: teacherProfileId,
-        course_id: courseId,
-        section_id: sectionId,
-      })
-      .select("id")
-      .single();
+      .insert(toInsert);
 
     if (error) {
-      console.error("Error creating assignment:", error);
+      console.error("Error creating assignments:", error);
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // Auto-sync section group chat after teacher assignment
+    // Auto-sync section group chat
     const { data: section } = await supabase
       .from("sections")
       .select("school_id")
@@ -78,7 +97,12 @@ export async function POST(
       });
     }
 
-    return NextResponse.json({ success: true, id: data.id }, { status: 201 });
+    return NextResponse.json({
+      success: true,
+      created: toInsert.length,
+      skipped,
+      message: `${toInsert.length} subject${toInsert.length !== 1 ? "s" : ""} assigned${skipped > 0 ? `. ${skipped} already assigned.` : "."}`,
+    }, { status: 201 });
   } catch (error) {
     console.error("Error in POST /api/admin/sections/[id]/courses:", error);
     return NextResponse.json(
@@ -94,17 +118,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireAdminAPI("users:update");
+    if (!auth.success) return auth.response;
 
-    const canUpdate = await hasPermission("users:update");
-    if (!canUpdate) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    await params; // consume params
+    await params;
 
     const { searchParams } = new URL(request.url);
     const assignmentId = searchParams.get("assignmentId");

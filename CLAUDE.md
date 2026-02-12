@@ -152,3 +152,69 @@ DAL files in `lib/dal/` export typed async functions that use the service client
 Required: `JWT_SECRET`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_APP_URL`
 
 Optional: `DAILY_API_KEY` (video), `OPENAI_API_KEY` (AI), `RESEND_API_KEY` (email), `PAYMONGO_SECRET_KEY` / `PAYMONGO_PUBLIC_KEY` (payments)
+
+### Known Bug Patterns & Past Errors
+
+Recurring bugs are logged below in YAML format. **Always check this list before writing new code.**
+
+```yaml
+bugs:
+  - id: BUG-001
+    date: "2025-05-01"
+    title: FK joins silently return 0 rows
+    severity: critical
+    pattern: |
+      Supabase PostgREST FK joins (table!inner(...), table!fk_name(...))
+      silently return empty arrays when FK constraints are missing in the DB.
+    affected_files:
+      - "multiple pages and API routes"
+    fix: Always use flat column selects + separate queries. Never use FK joins.
+    status: resolved-recurring
+    notes: >
+      This is the #1 recurring bug. See "Critical Bug Pattern: FK Joins"
+      section above. Every new query must follow the flat-select pattern.
+
+  - id: BUG-002
+    date: "2025-06-01"
+    title: Enrollment-only queries block section-assigned students
+    severity: critical
+    pattern: |
+      Pages/APIs that query ONLY the `enrollments` table to verify student
+      access will fail for Grade 1-6 students whose courses are assigned
+      via their section (teacher_assignments) rather than explicit enrollment.
+    affected_files:
+      - "app/(dashboard)/student/subjects/[subjectId]/recordings/page.tsx"
+      - "app/(dashboard)/student/live-sessions/page.tsx"
+      - "any page that checks enrollments without section fallback"
+    fix: |
+      Use `studentHasCourseAccess()` from lib/dal/student.ts for access checks.
+      Use `getStudentCourseIds()` from lib/dal/student.ts for course listing.
+      Both check enrollments first, then fall back to teacher_assignments
+      via the student's section_id.
+    status: resolved
+    notes: >
+      Fixed in commit b6f26b6. The student dashboard subjects page already
+      had the fallback, but recordings and live-sessions pages did not.
+      Always use the DAL helpers instead of inline enrollment queries.
+
+  - id: BUG-003
+    date: "2025-06-01"
+    title: Missing enrollment records for section-assigned students
+    severity: high
+    pattern: |
+      bulkUpdateStudentSection() updated the student's section_id but did
+      NOT create enrollment records for courses assigned to that section.
+      This caused downstream features (messaging, attendance, grades,
+      assessments) that query enrollments to miss these students entirely.
+    affected_files:
+      - "lib/dal/users.ts (bulkUpdateStudentSection)"
+    fix: |
+      bulkUpdateStudentSection() now auto-creates enrollment records for
+      all courses assigned to the section via teacher_assignments.
+      POST /api/admin/enrollments/sync-section endpoint added to backfill
+      existing students missing enrollments.
+    status: resolved
+    notes: >
+      Fixed in commit 4cd27ed. For existing data, call
+      POST /api/admin/enrollments/sync-section (no body = all sections).
+```

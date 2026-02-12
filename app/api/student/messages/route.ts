@@ -1,25 +1,26 @@
-/**
+﻿/**
  * API Route: Student Messages
  * GET - Get all conversations for the student
  */
 
 import { NextResponse } from "next/server";
+import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 import {
-  getCurrentStudent,
   getStudentConversations,
   getUnreadMessageCount,
 } from "@/lib/dal";
 
 export async function GET() {
   try {
-    const student = await getCurrentStudent();
-    if (!student) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireStudentAPI();
+    if (!authResult.success) {
+      return authResult.response;
     }
+    const { student } = authResult;
 
     const [conversations, unreadCount] = await Promise.all([
-      getStudentConversations(student.id),
-      getUnreadMessageCount(student.id),
+      getStudentConversations(student.studentId),
+      getUnreadMessageCount(student.studentId),
     ]);
 
     return NextResponse.json({

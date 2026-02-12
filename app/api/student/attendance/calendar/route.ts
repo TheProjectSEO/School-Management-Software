@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentStudent } from "@/lib/dal";
+import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 import { getAttendanceCalendar } from "@/lib/dal/attendance";
 
 export async function GET(request: NextRequest) {
   try {
-    const student = await getCurrentStudent();
-
-    if (!student) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireStudentAPI();
+    if (!authResult.success) {
+      return authResult.response;
     }
+    const { student } = authResult;
 
     const searchParams = request.nextUrl.searchParams;
     const year = parseInt(searchParams.get("year") || "");
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const calendarEntries = await getAttendanceCalendar(student.id, year, month);
+    const calendarEntries = await getAttendanceCalendar(student.studentId, year, month);
 
     return NextResponse.json({
       year,

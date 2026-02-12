@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 import { submitQuiz } from "@/lib/dal";
-import { getCurrentStudent } from "@/lib/dal/student";
 import type { QuizSubmissionPayload } from "@/lib/dal/types";
 
 export async function POST(
@@ -10,13 +10,9 @@ export async function POST(
   try {
     const { id: assessmentId } = await params;
 
-    // Get current student
-    const student = await getCurrentStudent();
-    if (!student) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    const authResult = await requireStudentAPI();
+    if (!authResult.success) {
+      return authResult.response;
     }
 
     const body = await request.json();

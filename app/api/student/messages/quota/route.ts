@@ -1,17 +1,19 @@
-/**
+﻿/**
  * API Route: Message Quota Check
  * GET - Check message quota for a specific teacher
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentStudent, getMessageQuota } from "@/lib/dal";
+import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
+import { getMessageQuota } from "@/lib/dal";
 
 export async function GET(request: NextRequest) {
   try {
-    const student = await getCurrentStudent();
-    if (!student) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireStudentAPI();
+    if (!authResult.success) {
+      return authResult.response;
     }
+    const { student } = authResult;
 
     const searchParams = request.nextUrl.searchParams;
     const teacherId = searchParams.get("teacherId");
@@ -23,7 +25,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const quota = await getMessageQuota(student.id, teacherId);
+    const quota = await getMessageQuota(student.studentId, teacherId);
 
     return NextResponse.json({ quota });
   } catch (error) {

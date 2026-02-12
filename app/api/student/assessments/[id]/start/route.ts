@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 import { startQuiz, canTakeAssessment } from "@/lib/dal";
-import { getCurrentStudent } from "@/lib/dal/student";
 
 export async function POST(
   request: NextRequest,
@@ -9,17 +9,14 @@ export async function POST(
   try {
     const { id: assessmentId } = await params;
 
-    // Get current student
-    const student = await getCurrentStudent();
-    if (!student) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    const authResult = await requireStudentAPI();
+    if (!authResult.success) {
+      return authResult.response;
     }
+    const { student } = authResult;
 
     // Check if student can take the assessment
-    const { canTake, reason } = await canTakeAssessment(assessmentId, student.id);
+    const { canTake, reason } = await canTakeAssessment(assessmentId, student.studentId);
     if (!canTake) {
       return NextResponse.json(
         { error: reason || "Cannot take assessment" },
@@ -28,7 +25,7 @@ export async function POST(
     }
 
     // Start the quiz (creates pending submission)
-    const result = await startQuiz(assessmentId, student.id, student.school_id);
+    const result = await startQuiz(assessmentId, student.studentId, student.schoolId);
     if (!result) {
       return NextResponse.json(
         { error: "Failed to start quiz" },

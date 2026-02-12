@@ -8,6 +8,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAdminAPI } from "@/lib/dal/admin";
 
 interface RouteParams {
   params: Promise<{ structureId: string }>;
@@ -15,6 +16,9 @@ interface RouteParams {
 
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = await requireAdminAPI("finance:read");
+    if (!auth.success) return auth.response;
+
     const { structureId } = await params;
     const supabase = createServiceClient();
 
@@ -53,6 +57,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
 export async function PATCH(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = await requireAdminAPI("finance:update");
+    if (!auth.success) return auth.response;
+
     const { structureId } = await params;
     const body = await request.json();
     const {
@@ -147,6 +154,9 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
+    const auth = await requireAdminAPI("finance:delete");
+    if (!auth.success) return auth.response;
+
     const { structureId } = await params;
     const supabase = createServiceClient();
 

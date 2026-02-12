@@ -1,19 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 import { saveAnswer } from "@/lib/dal";
-import { getCurrentStudent } from "@/lib/dal/student";
 
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Get current student
-    const student = await getCurrentStudent();
-    if (!student) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    const authResult = await requireStudentAPI();
+    if (!authResult.success) {
+      return authResult.response;
     }
 
     const body = await request.json();

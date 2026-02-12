@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callOpenAIChatCompletions } from "@/lib/ai/openai";
+import { requireAdminAPI } from "@/lib/dal/admin";
 
 /**
  * GET /api/admin/finance/fee-collection-ai
@@ -64,6 +65,9 @@ interface CollectionSummary {
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAdminAPI("finance:read");
+    if (!auth.success) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const minRiskLevel = searchParams.get("minRiskLevel") || "low";
     const gradeLevel = searchParams.get("gradeLevel");
@@ -426,6 +430,9 @@ export async function GET(request: NextRequest) {
 // POST: Generate personalized reminder message
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAdminAPI("finance:read");
+    if (!auth.success) return auth.response;
+
     const body = await request.json();
     const {
       student_fee_account_id,

@@ -1,12 +1,12 @@
-/**
+﻿/**
  * API Route: Student Conversation with Teacher
  * GET - Get messages in conversation
  * POST - Send a message to teacher (with quota enforcement)
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 import {
-  getCurrentStudent,
   getStudentConversationMessages,
   sendMessageToTeacher,
   markStudentMessagesAsRead,
@@ -20,21 +20,22 @@ interface RouteContext {
 
 export async function GET(request: NextRequest, context: RouteContext) {
   try {
-    const student = await getCurrentStudent();
-    if (!student) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireStudentAPI();
+    if (!authResult.success) {
+      return authResult.response;
     }
+    const { student } = authResult;
 
     const { teacherProfileId } = await context.params;
     const searchParams = request.nextUrl.searchParams;
     const limit = parseInt(searchParams.get("limit") || "50");
     const offset = parseInt(searchParams.get("offset") || "0");
 
-    console.log("[Messages API] Getting messages for student:", student.id, "with teacher:", teacherProfileId);
+    console.log("[Messages API] Getting messages for student:", student.studentId, "with teacher:", teacherProfileId);
 
     // Get messages
     const messages = await getStudentConversationMessages(
-      student.id,
+      student.studentId,
       teacherProfileId,
       { limit, offset }
     );
@@ -45,11 +46,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const teacherId = await getTeacherIdByProfileId(teacherProfileId);
     let quota = null;
     if (teacherId) {
-      quota = await getMessageQuota(student.id, teacherId);
+      quota = await getMessageQuota(student.studentId, teacherId);
     }
 
     // Mark messages as read
-    await markStudentMessagesAsRead(student.id, teacherProfileId);
+    await markStudentMessagesAsRead(student.studentId, teacherProfileId);
 
     return NextResponse.json({
       messages,
@@ -66,10 +67,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
 
 export async function POST(request: NextRequest, context: RouteContext) {
   try {
-    const student = await getCurrentStudent();
-    if (!student) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireStudentAPI();
+    if (!authResult.success) {
+      return authResult.response;
     }
+    const { student } = authResult;
 
     const { teacherProfileId } = await context.params;
     const body = await request.json();
@@ -93,9 +95,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     // Send message (quota enforcement happens in database function)
     const result = await sendMessageToTeacher(
-      student.id,
+      student.studentId,
       teacherId,
-      student.school_id,
+      student.schoolId,
       message.trim(),
       attachments
     );

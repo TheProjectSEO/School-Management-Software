@@ -88,19 +88,12 @@ export async function PATCH(
       }
     }
 
-    // Update session
+    // Update session (flat select to avoid FK join issues per CLAUDE.md)
     const { data: updatedSession, error } = await supabase
       .from("teacher_live_sessions")
       .update(updates)
       .eq("id", id)
-      .select(
-        `
-        *,
-        course:courses(id, name, subject_code),
-        section:sections(id, name),
-        module:modules(id, title)
-      `
-      )
+      .select("*")
       .single();
 
     if (error) {
@@ -110,6 +103,45 @@ export async function PATCH(
         { status: 500 }
       );
     }
+
+    // Fetch related data separately (avoid FK joins per CLAUDE.md)
+    let courseInfo = null;
+    let sectionInfo = null;
+    let moduleInfo = null;
+
+    if (updatedSession?.course_id) {
+      const { data: course } = await supabase
+        .from("courses")
+        .select("id, name, subject_code")
+        .eq("id", updatedSession.course_id)
+        .single();
+      courseInfo = course;
+    }
+
+    if (updatedSession?.section_id) {
+      const { data: section } = await supabase
+        .from("sections")
+        .select("id, name")
+        .eq("id", updatedSession.section_id)
+        .single();
+      sectionInfo = section;
+    }
+
+    if (updatedSession?.module_id) {
+      const { data: mod } = await supabase
+        .from("modules")
+        .select("id, title")
+        .eq("id", updatedSession.module_id)
+        .single();
+      moduleInfo = mod;
+    }
+
+    const enrichedSession = {
+      ...updatedSession,
+      course: courseInfo,
+      section: sectionInfo,
+      module: moduleInfo,
+    };
 
     const mirrorUpdates: Record<string, unknown> = {};
     if (updates.title !== undefined) mirrorUpdates.title = updates.title;
@@ -134,7 +166,7 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({ session: updatedSession });
+    return NextResponse.json({ session: enrichedSession });
   } catch (error) {
     console.error("Live session PATCH error:", error);
     return NextResponse.json(

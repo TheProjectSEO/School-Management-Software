@@ -19,7 +19,7 @@ export async function GET() {
     // Get admin profile_ids in the same school
     const { data: admins, error: adminsError } = await supabase
       .from("admins")
-      .select("id, profile_id, role")
+      .select("id, profile_id, school_id")
       .eq("school_id", schoolId);
 
     if (adminsError) {
@@ -31,11 +31,11 @@ export async function GET() {
       return NextResponse.json({ admins: [] });
     }
 
-    // Fetch profile data separately
+    // Fetch profile data separately (includes role)
     const profileIds = admins.map((a) => a.profile_id);
     const { data: profiles } = await supabase
       .from("school_profiles")
-      .select("id, full_name, avatar_url")
+      .select("id, full_name, avatar_url, role")
       .in("id", profileIds);
 
     const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
@@ -45,7 +45,7 @@ export async function GET() {
       return {
         admin_id: admin.id,
         profile_id: admin.profile_id,
-        role: admin.role,
+        role: profile?.role || "admin",
         full_name: profile?.full_name || "Admin",
         avatar_url: profile?.avatar_url,
       };

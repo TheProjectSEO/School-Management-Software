@@ -1,24 +1,26 @@
-/**
+﻿/**
  * API Route for Single Announcement
  * GET - Get announcement details
  * POST - Mark announcement as read
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentStudent, getAnnouncementDetail, markAnnouncementAsRead } from "@/lib/dal";
+import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
+import { getAnnouncementDetail, markAnnouncementAsRead } from "@/lib/dal";
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const student = await getCurrentStudent();
-    if (!student) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireStudentAPI();
+    if (!authResult.success) {
+      return authResult.response;
     }
+    const { student } = authResult;
 
     const { id } = await params;
-    const announcement = await getAnnouncementDetail(id, student.id);
+    const announcement = await getAnnouncementDetail(id, student.studentId);
 
     if (!announcement) {
       return NextResponse.json({ error: "Announcement not found" }, { status: 404 });
@@ -36,13 +38,14 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const student = await getCurrentStudent();
-    if (!student) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireStudentAPI();
+    if (!authResult.success) {
+      return authResult.response;
     }
+    const { student } = authResult;
 
     const { id } = await params;
-    const success = await markAnnouncementAsRead(id, student.id);
+    const success = await markAnnouncementAsRead(id, student.studentId);
 
     if (!success) {
       return NextResponse.json({ error: "Failed to mark as read" }, { status: 500 });

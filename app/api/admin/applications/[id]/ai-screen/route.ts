@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callOpenAIChatCompletions } from "@/lib/ai/openai";
+import { requireAdminAPI } from "@/lib/dal/admin";
 
 /**
  * POST /api/admin/applications/[id]/ai-screen
@@ -34,6 +35,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAdminAPI();
+    if (!auth.success) return auth.response;
+
     const { id } = await params;
     const supabase = createServiceClient();
 

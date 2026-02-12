@@ -15,9 +15,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAdminAPI } from "@/lib/dal/admin";
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAdminAPI("finance:read");
+    if (!auth.success) return auth.response;
     const { searchParams } = new URL(request.url);
     const schoolId = searchParams.get("schoolId");
     const schoolYearId = searchParams.get("schoolYearId");

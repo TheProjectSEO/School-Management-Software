@@ -1,26 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createN8nSchemaClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
+
+// Lazy import to avoid issues with cookies() import at module level
+async function getN8nSchemaClient() {
+  const { createN8nSchemaClient } = await import("@/lib/supabase/server");
+  return createN8nSchemaClient();
+}
 
 /**
  * GET /api/teacher/live-sessions
  * List live sessions for teacher
  */
 export async function GET(request: NextRequest) {
-  const authResult = await requireTeacherAPI();
-  if (!authResult.success) {
-    return authResult.response;
-  }
-
-  const { teacherId } = authResult.teacher;
-  const { searchParams } = new URL(request.url);
-  const assignmentId = searchParams.get("assignmentId");
-  const courseId = searchParams.get("courseId");
-  const status = searchParams.get("status");
-  const upcoming = searchParams.get("upcoming") === "true";
-
   try {
+    const authResult = await requireTeacherAPI();
+    if (!authResult.success) {
+      return authResult.response;
+    }
+
+    const { teacherId } = authResult.teacher;
+    const { searchParams } = new URL(request.url);
+    const assignmentId = searchParams.get("assignmentId");
+    const courseId = searchParams.get("courseId");
+    const status = searchParams.get("status");
+    const upcoming = searchParams.get("upcoming") === "true";
     const supabase = createServiceClient();
     const serviceClient = createServiceClient(); // Use service client to bypass RLS
 
@@ -53,7 +57,6 @@ export async function GET(request: NextRequest) {
         `
         id,
         course_id,
-        section_id,
         title,
         description,
         scheduled_start,
@@ -142,11 +145,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get section info from live_sessions.section_id directly
-    const sectionIds = [...new Set((sessions || [])
-      .map((s: any) => s.section_id)
-      .filter(Boolean))];
+    // Get section info from teacher_assignments (live_sessions may not have section_id column)
+    // Build a course_id -> section_id map from teacher_assignments
+    const courseSectionMap: Record<string, string> = {};
+    teacherAssignments.forEach((a: any) => {
+      if (a.section_id) courseSectionMap[a.course_id] = a.section_id;
+    });
 
+    const sectionIds = [...new Set(Object.values(courseSectionMap).filter(Boolean))];
     let sectionMap: Record<string, { id: string; name: string }> = {};
     if (sectionIds.length > 0) {
       const { data: sections } = await supabase
@@ -162,13 +168,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform to match expected UI format (map daily_room_url to join_url)
-    const transformedSessions = (sessions || []).map((session: any) => ({
-      ...session,
-      join_url: session.daily_room_url, // UI expects join_url
-      has_transcript: transcriptMap[session.id] || false,
-      course: courseMap[session.course_id] || null,
-      section: session.section_id ? sectionMap[session.section_id] || null : null,
-    }));
+    const transformedSessions = (sessions || []).map((session: any) => {
+      const sectionId = courseSectionMap[session.course_id];
+      return {
+        ...session,
+        join_url: session.daily_room_url, // UI expects join_url
+        has_transcript: transcriptMap[session.id] || false,
+        course: courseMap[session.course_id] || null,
+        section: sectionId ? sectionMap[sectionId] || null : null,
+      };
+    });
 
     return NextResponse.json({ sessions: transformedSessions });
   } catch (error) {
@@ -193,7 +202,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const supabase = createServiceClient();
-    const n8nSupabase = await createN8nSchemaClient();
     const body = await request.json();
 
     const {
@@ -250,11 +258,12 @@ export async function POST(request: NextRequest) {
     // Column is teacher_profile_id (NOT NULL constraint)
     console.log("[Live Sessions POST] Creating session for course:", assignment.course_id, "section:", assignment.section_id, "teacher:", teacherId);
     const serviceClient = createServiceClient();
+    // Note: section_id column may not exist on live_sessions table (migration pending)
+    // Section info is stored via teacher_assignments -> course_id relationship
     const { data: session, error } = await serviceClient
       .from("live_sessions")
       .insert({
         course_id: assignment.course_id,
-        section_id: assignment.section_id || null,
         module_id: moduleId || null,
         teacher_profile_id: teacherId, // Required NOT NULL column
         title: title?.trim() || "Live Session",
@@ -265,12 +274,7 @@ export async function POST(request: NextRequest) {
         recording_enabled: true,
         max_participants: 50,
       })
-      .select(
-        `
-        *,
-        course:courses(id, name, subject_code)
-      `
-      )
+      .select("*")
       .single();
 
     if (error) {
@@ -286,6 +290,7 @@ export async function POST(request: NextRequest) {
 
     // Sync to n8n_content_creation.teacher_live_sessions (optional)
     try {
+      const n8nSupabase = await getN8nSchemaClient();
       const { error: syncError } = await n8nSupabase
         .from("teacher_live_sessions")
         .upsert(
@@ -315,10 +320,22 @@ export async function POST(request: NextRequest) {
       // Continue - n8n schema sync is optional
     }
 
+    // Fetch course info separately (avoid FK joins per CLAUDE.md)
+    let courseInfo = null;
+    if (session.course_id) {
+      const { data: course } = await supabase
+        .from("courses")
+        .select("id, name, subject_code")
+        .eq("id", session.course_id)
+        .single();
+      courseInfo = course;
+    }
+
     // Transform response to match UI expectations
     const transformedSession = {
       ...session,
       join_url: session.daily_room_url,
+      course: courseInfo,
     };
 
     return NextResponse.json({ session: transformedSession }, { status: 201 });

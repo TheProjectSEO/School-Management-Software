@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 import { getQuestionsForQuiz, getAssessmentForQuiz, canTakeAssessment, getPendingSubmission, getSavedAnswers } from "@/lib/dal";
-import { getCurrentStudent } from "@/lib/dal/student";
 
 export async function GET(
   request: NextRequest,
@@ -9,17 +9,14 @@ export async function GET(
   try {
     const { id: assessmentId } = await params;
 
-    // Get current student
-    const student = await getCurrentStudent();
-    if (!student) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 401 }
-      );
+    const authResult = await requireStudentAPI();
+    if (!authResult.success) {
+      return authResult.response;
     }
+    const { student } = authResult;
 
     // Check if student can take the assessment
-    const { canTake, reason, attemptCount } = await canTakeAssessment(assessmentId, student.id);
+    const { canTake, reason, attemptCount } = await canTakeAssessment(assessmentId, student.studentId);
 
     // Get assessment details
     const assessment = await getAssessmentForQuiz(assessmentId);
@@ -34,7 +31,7 @@ export async function GET(
     const questions = await getQuestionsForQuiz(assessmentId);
 
     // Check for existing pending submission and get saved answers
-    const pendingSubmission = await getPendingSubmission(assessmentId, student.id);
+    const pendingSubmission = await getPendingSubmission(assessmentId, student.studentId);
     let savedAnswers: Record<string, { selectedOptionId?: string; textAnswer?: string }> = {};
 
     if (pendingSubmission) {

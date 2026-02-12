@@ -20,6 +20,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAdminAPI } from "@/lib/dal/admin";
 
 interface AssessFeesRequest {
   student_id: string;
@@ -49,6 +50,9 @@ interface AssessFeesRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAdminAPI("finance:create");
+    if (!auth.success) return auth.response;
+
     const body: AssessFeesRequest = await request.json();
     const {
       student_id,
@@ -514,6 +518,9 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAdminAPI("finance:read");
+    if (!auth.success) return auth.response;
+
     const { searchParams } = new URL(request.url);
     const studentId = searchParams.get("student_id");
     const schoolYearId = searchParams.get("school_year_id");

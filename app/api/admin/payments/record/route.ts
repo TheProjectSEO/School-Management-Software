@@ -17,6 +17,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAdminAPI } from "@/lib/dal/admin";
 
 interface RecordPaymentRequest {
   student_fee_account_id: string;
@@ -48,6 +49,9 @@ interface RecordPaymentRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAdminAPI("finance:create");
+    if (!auth.success) return auth.response;
+
     const body: RecordPaymentRequest = await request.json();
     const {
       student_fee_account_id,
@@ -283,6 +287,9 @@ export async function POST(request: NextRequest) {
  */
 export async function PATCH(request: NextRequest) {
   try {
+    const auth = await requireAdminAPI("finance:update");
+    if (!auth.success) return auth.response;
+
     const body = await request.json();
     const { payment_id, check_status, bounce_fee } = body;
 

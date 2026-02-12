@@ -24,6 +24,10 @@ export async function GET() {
 
     if (error) {
       console.error("Error fetching group chats:", error);
+      // If RPC doesn't exist, return empty array gracefully
+      if (error.code === "42883" || error.message?.includes("does not exist")) {
+        return NextResponse.json({ groupChats: [] });
+      }
       return NextResponse.json({ error: "Failed to fetch group chats" }, { status: 500 });
     }
 

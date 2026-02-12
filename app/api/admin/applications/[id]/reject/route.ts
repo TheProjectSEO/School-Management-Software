@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { sendApplicantEmail } from "@/lib/notifications/email";
 import { sendApplicantSms } from "@/lib/notifications/sms";
+import { requireAdminAPI } from "@/lib/dal/admin";
 
 type RejectPayload = {
   adminProfileId?: string;
@@ -9,6 +10,9 @@ type RejectPayload = {
 };
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await requireAdminAPI();
+  if (!auth.success) return auth.response;
+
   const { id: applicationId } = await params;
   const body = (await req.json().catch(() => ({}))) as RejectPayload;
   const supabase = createServiceClient();

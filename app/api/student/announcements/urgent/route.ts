@@ -1,19 +1,21 @@
-/**
+﻿/**
  * API Route for Urgent Announcements
  * GET - Get urgent/high-priority unread announcements for dashboard alerts
  */
 
 import { NextResponse } from "next/server";
-import { getCurrentStudent, getUrgentAnnouncements } from "@/lib/dal";
+import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
+import { getUrgentAnnouncements } from "@/lib/dal";
 
 export async function GET() {
   try {
-    const student = await getCurrentStudent();
-    if (!student) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireStudentAPI();
+    if (!authResult.success) {
+      return authResult.response;
     }
+    const { student } = authResult;
 
-    const announcements = await getUrgentAnnouncements(student.id);
+    const announcements = await getUrgentAnnouncements(student.studentId);
 
     return NextResponse.json({
       announcements,

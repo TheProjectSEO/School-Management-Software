@@ -58,6 +58,10 @@ export type AdminPermission =
   | 'enrollments:read'
   | 'enrollments:create'
   | 'enrollments:update'
+  | 'finance:read'
+  | 'finance:create'
+  | 'finance:update'
+  | 'finance:delete'
   | 'reports:read'
   | 'reports:export'
   | 'settings:read'
@@ -92,6 +96,10 @@ function getDefaultPermissions(role: AdminRole): AdminPermission[] {
       'enrollments:read',
       'enrollments:create',
       'enrollments:update',
+      'finance:read',
+      'finance:create',
+      'finance:update',
+      'finance:delete',
       'reports:read',
       'reports:export',
       'settings:read',
@@ -109,6 +117,10 @@ function getDefaultPermissions(role: AdminRole): AdminPermission[] {
       'enrollments:read',
       'enrollments:create',
       'enrollments:update',
+      'finance:read',
+      'finance:create',
+      'finance:update',
+      'finance:delete',
       'reports:read',
       'reports:export',
       'settings:read',

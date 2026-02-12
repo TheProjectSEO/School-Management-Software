@@ -1,18 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { markAllNotificationsAsRead } from "@/lib/dal";
+import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 
-export async function POST(request: NextRequest) {
+export async function POST() {
   try {
-    const { studentId } = await request.json();
-
-    if (!studentId) {
-      return NextResponse.json(
-        { error: "Student ID is required" },
-        { status: 400 }
-      );
+    const authResult = await requireStudentAPI();
+    if (!authResult.success) {
+      return authResult.response;
     }
 
-    const success = await markAllNotificationsAsRead(studentId);
+    const { student } = authResult;
+
+    const success = await markAllNotificationsAsRead(student.studentId);
 
     if (!success) {
       return NextResponse.json(

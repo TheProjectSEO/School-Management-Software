@@ -1,17 +1,19 @@
-/**
+﻿/**
  * API Route for Student Announcements
  * GET - Get announcements targeted to the current student
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentStudent, getStudentAnnouncements, getUnreadAnnouncementCount } from "@/lib/dal";
+import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
+import { getStudentAnnouncements, getUnreadAnnouncementCount } from "@/lib/dal";
 
 export async function GET(request: NextRequest) {
   try {
-    const student = await getCurrentStudent();
-    if (!student) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const authResult = await requireStudentAPI();
+    if (!authResult.success) {
+      return authResult.response;
     }
+    const { student } = authResult;
 
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1");
@@ -20,13 +22,13 @@ export async function GET(request: NextRequest) {
     const priority = searchParams.get("priority") as "low" | "normal" | "high" | "urgent" | null;
 
     const [announcements, unreadCount] = await Promise.all([
-      getStudentAnnouncements(student.id, {
+      getStudentAnnouncements(student.studentId, {
         page,
         pageSize,
         unreadOnly,
         priority: priority || undefined,
       }),
-      getUnreadAnnouncementCount(student.id),
+      getUnreadAnnouncementCount(student.studentId),
     ]);
 
     return NextResponse.json({

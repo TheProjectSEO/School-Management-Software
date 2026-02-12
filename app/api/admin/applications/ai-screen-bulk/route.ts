@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callOpenAIChatCompletions } from "@/lib/ai/openai";
+import { requireAdminAPI } from "@/lib/dal/admin";
 
 /**
  * POST /api/admin/applications/ai-screen-bulk
@@ -34,6 +35,9 @@ interface ScreeningResultSummary {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAdminAPI();
+    if (!auth.success) return auth.response;
+
     const body: BulkScreeningRequest = await request.json();
     const { applicationIds, status, limit = 10 } = body;
 

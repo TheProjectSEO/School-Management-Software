@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { requireAdminAPI } from "@/lib/dal/admin";
 
 const BUCKET = "application-documents";
 
@@ -7,6 +8,9 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; docId: string }> }
 ) {
+  const auth = await requireAdminAPI();
+  if (!auth.success) return auth.response;
+
   const { id, docId } = await params;
   const supabase = createServiceClient();
 

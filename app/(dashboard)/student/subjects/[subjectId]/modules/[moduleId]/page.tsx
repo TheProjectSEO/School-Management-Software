@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createServiceClient } from "@/lib/supabase/service";
 import {
   getCurrentStudent,
   getModuleById,
   getLessonsByModule,
   getSubjectById,
   getLessonWithProgress,
+  studentHasCourseAccess,
 } from "@/lib/dal";
 import { resolveVideoSource } from "@/lib/utils/video";
+import { getClassroomTheme } from "@/lib/utils/classroom/theme";
 import VideoPlayer from "./VideoPlayer";
 import LessonNavigation from "./LessonNavigation";
 import NotesPanel from "./NotesPanel";
@@ -33,17 +34,9 @@ export default async function ModulePage({
     redirect("/login");
   }
 
-  const supabase = createServiceClient();
-
-  // Verify student is enrolled in this course (security check)
-  const { data: enrollment } = await supabase
-    .from('enrollments')
-    .select('id, section_id')
-    .eq('student_id', student.id)
-    .eq('course_id', subjectId)
-    .maybeSingle();
-
-  if (!enrollment) {
+  // Verify student has access (enrolled OR section-based assignment)
+  const hasAccess = await studentHasCourseAccess(student.id, subjectId);
+  if (!hasAccess) {
     redirect("/student/subjects");
   }
 
@@ -64,16 +57,10 @@ export default async function ModulePage({
     redirect("/student/subjects");
   }
 
-  // Fetch grade level from enrollment section
-  let gradeLevel = '10';
-  if (enrollment.section_id) {
-    const { data: sectionData } = await supabase
-      .from('sections')
-      .select('grade_level')
-      .eq('id', enrollment.section_id)
-      .maybeSingle();
-    gradeLevel = sectionData?.grade_level || '10';
-  }
+  // Get grade level from student record
+  const gradeLevel = student.grade_level || '10';
+  const theme = getClassroomTheme(gradeLevel);
+  const isPlayful = theme.type === 'playful';
 
   // Fetch lessons for this module
   const lessons = await getLessonsByModule(moduleId);
@@ -88,20 +75,24 @@ export default async function ModulePage({
     return (
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap gap-2 items-center text-sm">
-          <Link href="/student" className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors">Home</Link>
-          <span className="text-slate-400 dark:text-slate-600 font-medium">/</span>
-          <Link href="/student/subjects" className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors">Subjects</Link>
-          <span className="text-slate-400 dark:text-slate-600 font-medium">/</span>
-          <Link href={`/student/subjects/${subjectId}`} className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors">{subject.name}</Link>
-          <span className="text-slate-400 dark:text-slate-600 font-medium">/</span>
-          <span className="text-primary dark:text-msu-gold font-medium">{module.title}</span>
+          <Link href="/student" className={`font-medium transition-colors ${isPlayful ? 'text-purple-400 hover:text-pink-500' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}>{isPlayful ? '\u{1F3E0} Home' : 'Home'}</Link>
+          <span className={`font-medium ${isPlayful ? 'text-pink-300' : 'text-slate-400 dark:text-slate-600'}`}>/</span>
+          <Link href="/student/subjects" className={`font-medium transition-colors ${isPlayful ? 'text-purple-400 hover:text-pink-500' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}>{isPlayful ? '\u{1F4DA} Subjects' : 'Subjects'}</Link>
+          <span className={`font-medium ${isPlayful ? 'text-pink-300' : 'text-slate-400 dark:text-slate-600'}`}>/</span>
+          <Link href={`/student/subjects/${subjectId}`} className={`font-medium transition-colors ${isPlayful ? 'text-purple-400 hover:text-pink-500' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}>{subject.name}</Link>
+          <span className={`font-medium ${isPlayful ? 'text-pink-300' : 'text-slate-400 dark:text-slate-600'}`}>/</span>
+          <span className={`font-medium ${isPlayful ? 'text-pink-600' : 'text-primary dark:text-msu-gold'}`}>{module.title}</span>
         </div>
-        <div className="text-center py-16 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-          <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-600 mb-3 block">menu_book</span>
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">No Lessons Available Yet</h3>
-          <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">This module doesn&apos;t have any published lessons yet. Check back later.</p>
-          <Link href={`/student/subjects/${subjectId}`} className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
-            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+        <div className={`text-center py-16 ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700'}`}>
+          {isPlayful ? (
+            <span className="text-6xl mb-3 block">{'\u{1F4D6}'}</span>
+          ) : (
+            <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-600 mb-3 block">menu_book</span>
+          )}
+          <h3 className={`text-xl font-bold mb-2 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>{isPlayful ? 'No Lessons Yet!' : 'No Lessons Available Yet'}</h3>
+          <p className={`text-sm mb-6 ${isPlayful ? 'text-purple-500' : 'text-slate-500 dark:text-slate-400'}`}>{isPlayful ? 'Your teacher is still preparing this module. Check back soon!' : 'This module doesn\'t have any published lessons yet. Check back later.'}</p>
+          <Link href={`/student/subjects/${subjectId}`} className={`inline-flex items-center gap-2 text-sm font-medium hover:underline ${isPlayful ? 'text-pink-600' : 'text-primary'}`}>
+            {isPlayful ? '\u{1F519}' : <span className="material-symbols-outlined text-[18px]">arrow_back</span>}
             Back to {subject.name}
           </Link>
         </div>
@@ -125,28 +116,19 @@ export default async function ModulePage({
     <div className="flex flex-col gap-6 -mx-4 sm:-mx-6 lg:-mx-8">
       {/* Breadcrumb */}
       <div className="mx-4 sm:mx-6 lg:mx-8 flex flex-wrap gap-2 items-center text-sm">
-        <Link
-          href="/student"
-          className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors"
-        >
-          Home
+        <Link href="/student" className={`font-medium transition-colors ${isPlayful ? 'text-purple-400 hover:text-pink-500' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}>
+          {isPlayful ? '\u{1F3E0} Home' : 'Home'}
         </Link>
-        <span className="text-slate-400 dark:text-slate-600 font-medium">/</span>
-        <Link
-          href="/student/subjects"
-          className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors"
-        >
-          Subjects
+        <span className={`font-medium ${isPlayful ? 'text-pink-300' : 'text-slate-400 dark:text-slate-600'}`}>/</span>
+        <Link href="/student/subjects" className={`font-medium transition-colors ${isPlayful ? 'text-purple-400 hover:text-pink-500' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}>
+          {isPlayful ? '\u{1F4DA} Subjects' : 'Subjects'}
         </Link>
-        <span className="text-slate-400 dark:text-slate-600 font-medium">/</span>
-        <Link
-          href={`/student/subjects/${subjectId}`}
-          className="text-slate-500 dark:text-slate-400 hover:text-primary font-medium transition-colors"
-        >
+        <span className={`font-medium ${isPlayful ? 'text-pink-300' : 'text-slate-400 dark:text-slate-600'}`}>/</span>
+        <Link href={`/student/subjects/${subjectId}`} className={`font-medium transition-colors ${isPlayful ? 'text-purple-400 hover:text-pink-500' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}>
           {subject.name}
         </Link>
-        <span className="text-slate-400 dark:text-slate-600 font-medium">/</span>
-        <span className="text-primary dark:text-msu-gold font-medium">{module.title}</span>
+        <span className={`font-medium ${isPlayful ? 'text-pink-300' : 'text-slate-400 dark:text-slate-600'}`}>/</span>
+        <span className={`font-medium ${isPlayful ? 'text-pink-600' : 'text-primary dark:text-msu-gold'}`}>{module.title}</span>
       </div>
 
       {/* Video Player or Content */}
@@ -193,39 +175,51 @@ export default async function ModulePage({
         {/* Lesson Info */}
         <div className="flex items-start justify-between mt-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
-              {currentLesson.title}
+            <h1 className={`text-2xl font-bold mb-1 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+              {isPlayful ? `\u{1F4D6} ${currentLesson.title}` : currentLesson.title}
             </h1>
-            <div className="flex items-center gap-4 text-sm text-slate-500 dark:text-slate-400">
+            <div className={`flex items-center gap-4 text-sm ${isPlayful ? 'text-purple-500' : 'text-slate-500 dark:text-slate-400'}`}>
               {currentLesson.duration_minutes && (
                 <div className="flex items-center gap-1">
-                  <span className="material-symbols-outlined text-[16px]">schedule</span>
+                  {isPlayful ? <span>{'\u23F0'}</span> : <span className="material-symbols-outlined text-[16px]">schedule</span>}
                   <span>{currentLesson.duration_minutes} min</span>
                 </div>
               )}
               <div className="flex items-center gap-1">
-                <span className="material-symbols-outlined text-[16px]">
-                  {currentLesson.content_type === "video" && "play_circle"}
-                  {currentLesson.content_type === "reading" && "menu_book"}
-                  {currentLesson.content_type === "quiz" && "quiz"}
-                  {currentLesson.content_type === "activity" && "assignment"}
-                </span>
-                <span className="capitalize">{currentLesson.content_type}</span>
+                {!isPlayful && (
+                  <span className="material-symbols-outlined text-[16px]">
+                    {currentLesson.content_type === "video" && "play_circle"}
+                    {currentLesson.content_type === "reading" && "menu_book"}
+                    {currentLesson.content_type === "quiz" && "quiz"}
+                    {currentLesson.content_type === "activity" && "assignment"}
+                  </span>
+                )}
+                {isPlayful ? (
+                  <span>
+                    {currentLesson.content_type === "video" && "\u{1F3AC} Video"}
+                    {currentLesson.content_type === "reading" && "\u{1F4D6} Reading"}
+                    {currentLesson.content_type === "quiz" && "\u{1F4DD} Quiz"}
+                    {currentLesson.content_type === "activity" && "\u270F\uFE0F Activity"}
+                    {!["video", "reading", "quiz", "activity"].includes(currentLesson.content_type) && "\u{1F4CB} Content"}
+                  </span>
+                ) : (
+                  <span className="capitalize">{currentLesson.content_type}</span>
+                )}
               </div>
               {lessonWithProgress?.completed && (
-                <div className="flex items-center gap-1 text-msu-green">
-                  <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                  <span>Completed</span>
+                <div className={`flex items-center gap-1 ${isPlayful ? 'text-green-600' : 'text-msu-green'}`}>
+                  {isPlayful ? <span>{'\u2705'}</span> : <span className="material-symbols-outlined text-[16px]">check_circle</span>}
+                  <span>{isPlayful ? 'Done!' : 'Completed'}</span>
                 </div>
               )}
             </div>
           </div>
           <div className="flex gap-2">
-            <button className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary transition-all shadow-sm">
-              <span className="material-symbols-outlined">bookmark_border</span>
+            <button className={`p-2 transition-all shadow-sm ${isPlayful ? 'rounded-xl bg-pink-50 border-2 border-pink-200 text-pink-400 hover:text-pink-600 hover:border-pink-400' : 'rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary'}`}>
+              {isPlayful ? <span className="text-xl">{'\u{1F516}'}</span> : <span className="material-symbols-outlined">bookmark_border</span>}
             </button>
-            <button className="p-2 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary transition-all shadow-sm">
-              <span className="material-symbols-outlined">share</span>
+            <button className={`p-2 transition-all shadow-sm ${isPlayful ? 'rounded-xl bg-purple-50 border-2 border-purple-200 text-purple-400 hover:text-purple-600 hover:border-purple-400' : 'rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary'}`}>
+              {isPlayful ? <span className="text-xl">{'\u{1F517}'}</span> : <span className="material-symbols-outlined">share</span>}
             </button>
           </div>
         </div>
@@ -242,9 +236,9 @@ export default async function ModulePage({
 
       {/* Lesson Content */}
       {currentLesson.content && (
-        <div className="mx-4 sm:mx-6 lg:mx-8 bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-          <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-            Lesson Description
+        <div className={`mx-4 sm:mx-6 lg:mx-8 p-6 ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-white' : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700'}`}>
+          <h3 className={`text-lg font-bold mb-4 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+            {isPlayful ? '\u{1F4DD} Lesson Description' : 'Lesson Description'}
           </h3>
           <div
             className="prose prose-slate dark:prose-invert max-w-none"
@@ -283,9 +277,9 @@ export default async function ModulePage({
       />
 
       {/* All Lessons in Module */}
-      <div className="mx-4 sm:mx-6 lg:mx-8 bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-4">
-          Lessons in {module.title}
+      <div className={`mx-4 sm:mx-6 lg:mx-8 p-6 ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-white' : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700'}`}>
+        <h3 className={`text-lg font-bold mb-4 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+          {isPlayful ? `\u{1F4CB} Lessons in ${module.title}` : `Lessons in ${module.title}`}
         </h3>
         <div className="space-y-2">
           {lessons.map((lesson, index) => {
@@ -294,17 +288,25 @@ export default async function ModulePage({
               <Link
                 key={lesson.id}
                 href={`/student/subjects/${subjectId}/modules/${moduleId}?lesson=${lesson.id}`}
-                className={`flex items-center gap-4 p-3 rounded-lg transition-all ${
-                  isCurrent
-                    ? "bg-primary/10 border-2 border-primary"
-                    : "bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-primary"
+                className={`flex items-center gap-4 p-3 transition-all ${
+                  isPlayful
+                    ? isCurrent
+                      ? "rounded-xl bg-pink-100 border-2 border-pink-400"
+                      : "rounded-xl bg-purple-50/50 border-2 border-purple-100 hover:border-pink-300"
+                    : isCurrent
+                      ? "rounded-lg bg-primary/10 border-2 border-primary"
+                      : "rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-primary"
                 }`}
               >
                 <div
-                  className={`flex-none size-10 rounded-lg flex items-center justify-center font-bold ${
-                    isCurrent
-                      ? "bg-primary text-white"
-                      : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                  className={`flex-none size-10 rounded-lg flex items-center justify-center font-bold text-lg ${
+                    isPlayful
+                      ? isCurrent
+                        ? "bg-pink-500 text-white rounded-xl"
+                        : "bg-purple-100 text-purple-600 rounded-xl"
+                      : isCurrent
+                        ? "bg-primary text-white"
+                        : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
                   }`}
                 >
                   {index + 1}
@@ -312,22 +314,37 @@ export default async function ModulePage({
                 <div className="flex-1 min-w-0">
                   <h4
                     className={`font-semibold line-clamp-1 ${
-                      isCurrent
-                        ? "text-primary dark:text-msu-gold"
-                        : "text-slate-900 dark:text-white"
+                      isPlayful
+                        ? isCurrent ? "text-pink-700" : "text-purple-900"
+                        : isCurrent ? "text-primary dark:text-msu-gold" : "text-slate-900 dark:text-white"
                     }`}
                   >
                     {lesson.title}
                   </h4>
-                  <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    <span className="capitalize">{lesson.content_type}</span>
-                    {lesson.duration_minutes && <span>{lesson.duration_minutes} min</span>}
+                  <div className={`flex items-center gap-3 text-xs mt-1 ${isPlayful ? 'text-purple-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                    {isPlayful ? (
+                      <>
+                        <span>
+                          {lesson.content_type === "video" && "\u{1F3AC} Video"}
+                          {lesson.content_type === "reading" && "\u{1F4D6} Reading"}
+                          {lesson.content_type === "quiz" && "\u{1F4DD} Quiz"}
+                          {lesson.content_type === "activity" && "\u270F\uFE0F Activity"}
+                          {!["video", "reading", "quiz", "activity"].includes(lesson.content_type) && "\u{1F4CB} Content"}
+                        </span>
+                        {lesson.duration_minutes && <span>{'\u23F0'} {lesson.duration_minutes} min</span>}
+                      </>
+                    ) : (
+                      <>
+                        <span className="capitalize">{lesson.content_type}</span>
+                        {lesson.duration_minutes && <span>{lesson.duration_minutes} min</span>}
+                      </>
+                    )}
                   </div>
                 </div>
                 {isCurrent && (
                   <div className="flex-none">
-                    <span className="px-2 py-1 rounded bg-primary text-white text-xs font-bold">
-                      Current
+                    <span className={`px-2 py-1 rounded text-xs font-bold ${isPlayful ? 'bg-pink-500 text-white rounded-lg' : 'bg-primary text-white'}`}>
+                      {isPlayful ? '\u{1F449} Now' : 'Current'}
                     </span>
                   </div>
                 )}
@@ -341,9 +358,9 @@ export default async function ModulePage({
       <div className="mx-4 sm:mx-6 lg:mx-8 mb-8">
         <Link
           href={`/student/subjects/${subjectId}`}
-          className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 hover:text-primary transition-colors"
+          className={`inline-flex items-center gap-2 text-sm font-medium transition-colors ${isPlayful ? 'text-purple-400 hover:text-pink-500' : 'text-slate-500 hover:text-primary'}`}
         >
-          <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+          {isPlayful ? <span>{'\u{1F519}'}</span> : <span className="material-symbols-outlined text-[18px]">arrow_back</span>}
           Back to {subject.name}
         </Link>
       </div>

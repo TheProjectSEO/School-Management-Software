@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentProfile } from "@/lib/dal/auth";
+import { getStudentCourseIds } from "@/lib/dal/student";
 import { getClassroomTheme } from "@/lib/utils/classroom/theme";
 
 type LiveSession = {
@@ -25,10 +26,6 @@ type LiveSession = {
       grade_level: string | null;
     } | null;
   } | null;
-};
-
-type Enrollment = {
-  course_id: string;
 };
 
 const formatDateTime = (value: string | null) => {
@@ -74,47 +71,52 @@ export default async function LiveSessionsPage() {
   const theme = getClassroomTheme(student.grade_level || '12');
   const isPlayful = theme.type === 'playful';
 
-  const { data: enrollments } = await supabase
-    .from("enrollments")
-    .select(
-      `
-        course_id,
-        course:courses(id, name, subject_code, section:sections(id, name, grade_level))
-      `
-    )
-    .eq("student_id", student.id);
-
-  const courseIds = (enrollments || [])
-    .map((enrollment: Enrollment) => enrollment.course_id)
-    .filter(Boolean) as string[];
+  // Get course IDs via enrollments OR section-based assignments (handles Grade 1-6)
+  const courseIds = await getStudentCourseIds(student.id);
 
   let sessions: LiveSession[] = [];
 
   if (courseIds.length > 0) {
-    // Use service client to bypass RLS for live_sessions
-    const serviceClient = createServiceClient();
-    const { data: sessionRows } = await serviceClient
+    // Fetch courses and sections separately (no FK joins)
+    const { data: courses } = await supabase
+      .from("courses")
+      .select("id, name, subject_code, section_id")
+      .in("id", courseIds);
+
+    const sectionIds = [...new Set((courses || []).map((c) => c.section_id).filter(Boolean))];
+    let sectionsMap = new Map<string, { id: string; name: string; grade_level: string | null }>();
+    if (sectionIds.length > 0) {
+      const { data: sections } = await supabase
+        .from("sections")
+        .select("id, name, grade_level")
+        .in("id", sectionIds);
+      sectionsMap = new Map((sections || []).map((s) => [s.id, s]));
+    }
+
+    const coursesMap = new Map(
+      (courses || []).map((c) => [
+        c.id,
+        {
+          id: c.id,
+          name: c.name,
+          subject_code: c.subject_code,
+          section: c.section_id ? (sectionsMap.get(c.section_id) || null) : null,
+        },
+      ])
+    );
+
+    // Fetch live sessions (flat select, no FK joins)
+    const { data: sessionRows } = await supabase
       .from("live_sessions")
       .select(
-        `
-          id,
-          title,
-          description,
-          status,
-          scheduled_start,
-          scheduled_end,
-          daily_room_url,
-          recording_url,
-          recording_duration_seconds,
-          course:courses(id, name, subject_code, section:sections(id, name, grade_level))
-        `
+        "id, title, description, status, scheduled_start, scheduled_end, daily_room_url, recording_url, recording_duration_seconds, course_id"
       )
       .in("course_id", courseIds)
       .order("scheduled_start", { ascending: false });
 
     // Get transcript status for all sessions
-    const sessionIds = (sessionRows || []).map((s: any) => s.id);
-    let transcriptMap: Record<string, boolean> = {};
+    const sessionIds = (sessionRows || []).map((s) => s.id);
+    const transcriptMap: Record<string, boolean> = {};
 
     if (sessionIds.length > 0) {
       const { data: transcripts } = await supabase
@@ -123,14 +125,14 @@ export default async function LiveSessionsPage() {
         .in("session_id", sessionIds);
 
       if (transcripts) {
-        transcripts.forEach((t: any) => {
+        transcripts.forEach((t) => {
           transcriptMap[t.session_id] = true;
         });
       }
     }
 
     // Transform the data to match the LiveSession type
-    sessions = (sessionRows || []).map((row: any) => ({
+    sessions = (sessionRows || []).map((row) => ({
       id: row.id,
       title: row.title,
       description: row.description,
@@ -141,17 +143,7 @@ export default async function LiveSessionsPage() {
       recording_url: row.recording_url,
       recording_duration_seconds: row.recording_duration_seconds,
       has_transcript: transcriptMap[row.id] || false,
-      course: (() => {
-        const c = Array.isArray(row.course) ? row.course[0] : row.course;
-        if (!c) return null;
-        const s = Array.isArray(c.section) ? c.section[0] : c.section;
-        return {
-          id: c.id,
-          name: c.name,
-          subject_code: c.subject_code,
-          section: s ? { id: s.id, name: s.name, grade_level: s.grade_level } : null,
-        };
-      })(),
+      course: coursesMap.get(row.course_id) || null,
     })) as LiveSession[];
   }
 

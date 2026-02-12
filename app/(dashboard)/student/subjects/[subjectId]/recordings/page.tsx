@@ -6,6 +6,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { createServiceClient } from '@/lib/supabase/service';
 import { getCurrentStudent } from '@/lib/dal';
+import { studentHasCourseAccess } from '@/lib/dal/student';
 import { RecordingsClient } from './RecordingsClient';
 
 interface PageProps {
@@ -26,15 +27,10 @@ export default async function RecordingsPage({ params, searchParams }: PageProps
 
   const supabase = createServiceClient();
 
-  // Verify enrollment (also gets section_id for grade level)
-  const { data: enrollment } = await supabase
-    .from('enrollments')
-    .select('id, section_id')
-    .eq('student_id', student.id)
-    .eq('course_id', subjectId)
-    .maybeSingle();
+  // Verify access: enrollment OR section-based assignment
+  const hasAccess = await studentHasCourseAccess(student.id, subjectId);
 
-  if (!enrollment) {
+  if (!hasAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-slate-900">
         <div className="text-center">
@@ -56,14 +52,26 @@ export default async function RecordingsPage({ params, searchParams }: PageProps
     return notFound();
   }
 
-  // Get grade level from enrollment section (separate query, no FK join)
+  // Get section info from student record (works for both enrollment and section-based access)
   let gradeLevel = '10';
   let sectionInfo: { id: string; name: string; grade_level: string } | undefined;
-  if (enrollment.section_id) {
+
+  // Try enrollment first for section_id
+  const { data: enrollment } = await supabase
+    .from('enrollments')
+    .select('section_id')
+    .eq('student_id', student.id)
+    .eq('course_id', subjectId)
+    .maybeSingle();
+
+  // Fall back to student's own section_id
+  const sectionId = enrollment?.section_id || student.section_id;
+
+  if (sectionId) {
     const { data: section } = await supabase
       .from('sections')
       .select('id, name, grade_level')
-      .eq('id', enrollment.section_id)
+      .eq('id', sectionId)
       .maybeSingle();
     if (section) {
       gradeLevel = section.grade_level || '10';

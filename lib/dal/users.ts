@@ -1426,18 +1426,27 @@ export async function bulkImportTeachers(
 export async function bulkUpdateStudentSection(
   studentIds: string[],
   sectionId: string
-): Promise<{ success: boolean; updated: number; errors: string[] }> {
+): Promise<{ success: boolean; updated: number; enrollmentsCreated: number; errors: string[] }> {
   try {
     const supabase = createAdminClient();
     const errors: string[] = [];
     let updated = 0;
+    let enrollmentsCreated = 0;
 
-    // Get the section to update grade_level as well
+    // Get the section to update grade_level and school_id
     const { data: section } = await supabase
       .from('sections')
-      .select('grade_level')
+      .select('grade_level, school_id')
       .eq('id', sectionId)
       .single();
+
+    // Get all course_ids assigned to this section via teacher_assignments
+    const { data: assignments } = await supabase
+      .from('teacher_assignments')
+      .select('course_id')
+      .eq('section_id', sectionId);
+
+    const courseIds = [...new Set((assignments || []).map((a) => a.course_id))];
 
     for (const id of studentIds) {
       const updateData: Record<string, unknown> = {
@@ -1457,15 +1466,39 @@ export async function bulkUpdateStudentSection(
 
       if (error) {
         errors.push(`Failed to update student ${id}: ${error.message}`);
-      } else {
-        updated++;
+        continue;
+      }
+
+      updated++;
+
+      // Auto-enroll student in all courses assigned to this section
+      if (courseIds.length > 0 && section?.school_id) {
+        const enrollmentRows = courseIds.map((courseId) => ({
+          student_id: id,
+          course_id: courseId,
+          section_id: sectionId,
+          school_id: section.school_id,
+          status: 'active' as const,
+          enrolled_at: new Date().toISOString(),
+        }));
+
+        const { data: upserted, error: enrollError } = await supabase
+          .from('enrollments')
+          .upsert(enrollmentRows, { onConflict: 'student_id,course_id' })
+          .select('id');
+
+        if (enrollError) {
+          errors.push(`Failed to enroll student ${id}: ${enrollError.message}`);
+        } else {
+          enrollmentsCreated += upserted?.length || 0;
+        }
       }
     }
 
-    return { success: errors.length === 0, updated, errors };
+    return { success: errors.length === 0, updated, enrollmentsCreated, errors };
   } catch (error) {
     console.error('Unexpected error in bulkUpdateStudentSection:', error);
-    return { success: false, updated: 0, errors: ['An unexpected error occurred'] };
+    return { success: false, updated: 0, enrollmentsCreated: 0, errors: ['An unexpected error occurred'] };
   }
 }
 

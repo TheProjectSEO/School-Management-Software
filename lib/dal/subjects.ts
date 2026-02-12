@@ -6,7 +6,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import type { Course, Module, Lesson, Enrollment, Progress, QueryOptions } from "./types";
 
 /**
- * Get all courses/subjects for a student (enrolled)
+ * Get all courses/subjects for a student (enrolled or assigned via section)
  */
 export async function getStudentSubjects(
   studentId: string,
@@ -21,6 +21,7 @@ export async function getStudentSubjects(
 })[]> {
   const supabase = createServiceClient();
 
+  // First try enrollments table
   const { data, error } = await supabase
     .from("enrollments")
     .select(`
@@ -34,16 +35,64 @@ export async function getStudentSubjects(
 
   if (error) {
     console.error("Error fetching subjects:", error);
-    return [];
   }
 
-  if (!data || data.length === 0) {
+  // If no enrollments found, check section-based assignments as fallback
+  // This handles the case where admin assigned subjects to a section
+  // but hasn't explicitly enrolled the students yet
+  let enrollmentData = data || [];
+
+  if (enrollmentData.length === 0) {
+    // Get student's section_id
+    const { data: student } = await supabase
+      .from("students")
+      .select("section_id, school_id")
+      .eq("id", studentId)
+      .single();
+
+    if (student?.section_id) {
+      // Get courses assigned to this section via teacher_assignments
+      const { data: assignments } = await supabase
+        .from("teacher_assignments")
+        .select("id, course_id, teacher_profile_id, section_id")
+        .eq("section_id", student.section_id);
+
+      if (assignments && assignments.length > 0) {
+        const courseIds = [...new Set(assignments.map((a) => a.course_id))];
+
+        // Fetch the actual course details
+        const { data: courses } = await supabase
+          .from("courses")
+          .select("*")
+          .in("id", courseIds);
+
+        const courseMap = new Map((courses || []).map((c) => [c.id, c]));
+
+        // Build synthetic enrollment-like records so the rest of the function works
+        enrollmentData = assignments
+          .filter((a) => courseMap.has(a.course_id))
+          .map((a) => ({
+            id: a.id,
+            student_id: studentId,
+            course_id: a.course_id,
+            section_id: a.section_id,
+            school_id: student.school_id,
+            status: "active",
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            course: courseMap.get(a.course_id),
+          }));
+      }
+    }
+  }
+
+  if (enrollmentData.length === 0) {
     return [];
   }
 
   // Calculate accurate progress per course:
   // progress = (completed lessons / total published lessons) * 100
-  const courseIds = data.map((e) => e.course_id).filter(Boolean);
+  const courseIds = enrollmentData.map((e) => e.course_id).filter(Boolean);
 
   // Get published modules for enrolled courses
   const { data: modules } = await supabase
@@ -96,7 +145,7 @@ export async function getStudentSubjects(
   });
 
   // Fetch teacher names: courses.teacher_id → teacher_profiles.id → profile_id → school_profiles.full_name
-  const teacherIds = [...new Set(data.map((e) => e.course?.teacher_id).filter(Boolean))] as string[];
+  const teacherIds = [...new Set(enrollmentData.map((e: Record<string, unknown>) => (e.course as Record<string, unknown>)?.teacher_id).filter(Boolean))] as string[];
   const teacherNameMap = new Map<string, string>();
 
   if (teacherIds.length > 0) {
@@ -125,19 +174,21 @@ export async function getStudentSubjects(
     }
   }
 
-  return data.map((e) => {
-    const totalLessons = lessonsByCourse.get(e.course_id)?.size || 0;
-    const completedLessons = completedByCourse.get(e.course_id) || 0;
+  return enrollmentData.map((e: Record<string, unknown>) => {
+    const courseId = e.course_id as string;
+    const course = e.course as Record<string, unknown> | undefined;
+    const totalLessons = lessonsByCourse.get(courseId)?.size || 0;
+    const completedLessons = completedByCourse.get(courseId) || 0;
     const progress = totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0;
     return {
       ...e,
       progress_percent: progress,
       total_lessons: totalLessons,
       completed_lessons: completedLessons,
-      total_modules: modulesByCourse.get(e.course_id) || 0,
-      teacher_name: teacherNameMap.get(e.course?.teacher_id) || "",
+      total_modules: modulesByCourse.get(courseId) || 0,
+      teacher_name: teacherNameMap.get(course?.teacher_id as string) || "",
     };
-  });
+  }) as ReturnType<typeof getStudentSubjects> extends Promise<infer R> ? R : never;
 }
 
 /**

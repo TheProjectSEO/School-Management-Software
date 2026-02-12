@@ -32,13 +32,22 @@ export async function GET() {
       }
     }
 
-    // 2. Get student's enrolled course_ids
+    // 2. Get student's course_ids (enrollments OR section-based assignments)
+    let courseIds: string[] = [];
     const { data: enrollments } = await supabase
       .from("enrollments")
       .select("course_id")
       .eq("student_id", student.studentId);
 
-    const courseIds = (enrollments || []).map((e) => e.course_id);
+    courseIds = (enrollments || []).map((e) => e.course_id);
+
+    if (courseIds.length === 0 && student.sectionId) {
+      const { data: assignments } = await supabase
+        .from("teacher_assignments")
+        .select("course_id")
+        .eq("section_id", student.sectionId);
+      courseIds = [...new Set((assignments || []).map((a) => a.course_id))];
+    }
 
     if (courseIds.length > 0) {
       // 3. Get all students enrolled in same courses

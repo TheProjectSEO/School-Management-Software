@@ -4,6 +4,7 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentUser } from "@/lib/auth/session";
 import type { Student, Profile } from "./types";
 
@@ -141,6 +142,75 @@ export async function updateStudentProfile(
 }
 
 /**
+ * Resolve course IDs for a student.
+ * Checks enrollments first; if none, falls back to teacher_assignments
+ * via the student's section_id. This handles Grade 1-6 students whose
+ * subjects are assigned to a section but not explicitly enrolled.
+ */
+export async function getStudentCourseIds(studentId: string): Promise<string[]> {
+  const supabase = createServiceClient();
+
+  // 1. Check enrollments table
+  const { data: enrollments } = await supabase
+    .from("enrollments")
+    .select("course_id")
+    .eq("student_id", studentId);
+
+  const enrolledIds = (enrollments || []).map((e) => e.course_id).filter(Boolean);
+  if (enrolledIds.length > 0) return enrolledIds;
+
+  // 2. Fallback: get courses via student's section → teacher_assignments
+  const { data: student } = await supabase
+    .from("students")
+    .select("section_id")
+    .eq("id", studentId)
+    .single();
+
+  if (!student?.section_id) return [];
+
+  const { data: assignments } = await supabase
+    .from("teacher_assignments")
+    .select("course_id")
+    .eq("section_id", student.section_id);
+
+  return [...new Set((assignments || []).map((a) => a.course_id).filter(Boolean))];
+}
+
+/**
+ * Check if a student has access to a specific course.
+ * Returns true if enrolled OR if course is assigned to the student's section.
+ */
+export async function studentHasCourseAccess(studentId: string, courseId: string): Promise<boolean> {
+  const supabase = createServiceClient();
+
+  // Check enrollment
+  const { count: enrollmentCount } = await supabase
+    .from("enrollments")
+    .select("*", { count: "exact", head: true })
+    .eq("student_id", studentId)
+    .eq("course_id", courseId);
+
+  if (enrollmentCount && enrollmentCount > 0) return true;
+
+  // Fallback: check section-based assignment
+  const { data: student } = await supabase
+    .from("students")
+    .select("section_id")
+    .eq("id", studentId)
+    .single();
+
+  if (!student?.section_id) return false;
+
+  const { count: assignmentCount } = await supabase
+    .from("teacher_assignments")
+    .select("*", { count: "exact", head: true })
+    .eq("section_id", student.section_id)
+    .eq("course_id", courseId);
+
+  return (assignmentCount || 0) > 0;
+}
+
+/**
  * Get overall progress stats for a student
  * Calculates accurate per-course progress based on published lessons only,
  * then averages across all enrolled courses.
@@ -153,13 +223,8 @@ export async function getStudentProgressStats(studentId: string): Promise<{
 }> {
   const supabase = createAdminClient();
 
-  // Get enrolled course IDs
-  const { data: enrollments } = await supabase
-    .from("enrollments")
-    .select("course_id")
-    .eq("student_id", studentId);
-
-  const courseIds = (enrollments || []).map((e) => e.course_id).filter(Boolean);
+  // Get course IDs (enrollments OR section-based assignments)
+  const courseIds = await getStudentCourseIds(studentId);
   if (courseIds.length === 0) {
     return { totalCourses: 0, averageProgress: 0, completedLessons: 0, inProgressLessons: 0 };
   }
@@ -243,37 +308,35 @@ export async function getStudentSkillMastery(
 ): Promise<{ courseId: string; courseName: string; masteryPercent: number }[]> {
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase
-    .from("enrollments")
-    .select(`
-      course_id,
-      course:courses(name)
-    `)
-    .eq("student_id", studentId);
+  // Get course IDs (enrollments OR section-based assignments)
+  const courseIds = await getStudentCourseIds(studentId);
+  if (courseIds.length === 0) return [];
 
-  if (error) {
-    console.error("Error fetching skill mastery:", error);
-    return [];
-  }
+  // Fetch course names separately (no FK joins)
+  const { data: courses } = await supabase
+    .from("courses")
+    .select("id, name")
+    .in("id", courseIds);
+
+  const courseMap = new Map((courses || []).map((c) => [c.id, c.name]));
 
   // Get progress for each course
   const results = await Promise.all(
-    (data || []).map(async (enrollment) => {
+    courseIds.map(async (courseId) => {
       const { data: progressData } = await supabase
         .from("student_progress")
         .select("progress_percent")
         .eq("student_id", studentId)
-        .eq("course_id", enrollment.course_id);
+        .eq("course_id", courseId);
 
       const avgProgress =
         progressData && progressData.length > 0
           ? progressData.reduce((sum, p) => sum + p.progress_percent, 0) / progressData.length
           : 0;
 
-      const courseData = enrollment.course as unknown as { name: string };
       return {
-        courseId: enrollment.course_id,
-        courseName: courseData?.name || "Unknown",
+        courseId,
+        courseName: courseMap.get(courseId) || "Unknown",
         masteryPercent: Math.round(avgProgress),
       };
     })

@@ -4,6 +4,7 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getStudentCourseIds } from "./student";
 import type { Assessment, AssessmentSubmission, Course, QueryOptions } from "./types";
 
 /**
@@ -15,14 +16,8 @@ export async function getUpcomingAssessments(
 ): Promise<(Assessment & { course: Course; submission?: AssessmentSubmission })[]> {
   const supabase = createAdminClient();
 
-  // Get student's enrolled course IDs
-  const { data: enrollments } = await supabase
-    .from("enrollments")
-    .select("course_id")
-    .eq("student_id", studentId);
-
-  const courseIds = enrollments?.map((e) => e.course_id) || [];
-
+  // Get course IDs (enrollments OR section-based assignments)
+  const courseIds = await getStudentCourseIds(studentId);
   if (courseIds.length === 0) return [];
 
   const now = new Date().toISOString();
@@ -238,13 +233,8 @@ export async function getAssessmentStats(studentId: string): Promise<{
 }> {
   const supabase = createAdminClient();
 
-  // Get total assessments for enrolled courses
-  const { data: enrollments } = await supabase
-    .from("enrollments")
-    .select("course_id")
-    .eq("student_id", studentId);
-
-  const courseIds = enrollments?.map((e) => e.course_id) || [];
+  // Get course IDs (enrollments OR section-based assignments)
+  const courseIds = await getStudentCourseIds(studentId);
 
   const { count: total } = await supabase
     .from("assessments")

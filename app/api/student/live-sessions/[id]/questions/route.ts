@@ -69,19 +69,34 @@ export async function POST(
       );
     }
 
-    // Verify enrollment
-    const { data: enrollment, error: enrollmentError } = await supabase
+    // Verify student has access (enrolled OR section-based assignment)
+    const { count: enrollCount } = await supabase
       .from('enrollments')
-      .select('id')
+      .select('*', { count: 'exact', head: true })
       .eq('student_id', student.id)
-      .eq('course_id', session.course_id)
-      .single();
+      .eq('course_id', session.course_id);
 
-    if (enrollmentError || !enrollment) {
-      return NextResponse.json(
-        { error: 'Not enrolled in this course' },
-        { status: 403 }
-      );
+    if (!enrollCount) {
+      const { data: studentData } = await supabase
+        .from('students')
+        .select('section_id')
+        .eq('id', student.id)
+        .single();
+
+      const { count: assignCount } = studentData?.section_id
+        ? await supabase
+            .from('teacher_assignments')
+            .select('*', { count: 'exact', head: true })
+            .eq('section_id', studentData.section_id)
+            .eq('course_id', session.course_id)
+        : { count: 0 };
+
+      if (!assignCount) {
+        return NextResponse.json(
+          { error: 'Not enrolled in this course' },
+          { status: 403 }
+        );
+      }
     }
 
     // Create question

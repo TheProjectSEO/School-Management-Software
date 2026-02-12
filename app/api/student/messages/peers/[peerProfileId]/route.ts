@@ -159,15 +159,27 @@ async function validatePeerAccess(
     return true;
   }
 
-  // Check shared courses
+  // Check shared courses (enrollments OR section-based assignments)
+  let myCourseIds: string[] = [];
   const { data: myEnrollments } = await supabase
     .from("enrollments")
     .select("course_id")
     .eq("student_id", studentId);
 
-  const myCourseIds = (myEnrollments || []).map((e) => e.course_id);
+  myCourseIds = (myEnrollments || []).map((e) => e.course_id);
+
+  // Fallback: check section-based assignments
+  if (myCourseIds.length === 0 && sectionId) {
+    const { data: assignments } = await supabase
+      .from("teacher_assignments")
+      .select("course_id")
+      .eq("section_id", sectionId);
+    myCourseIds = [...new Set((assignments || []).map((a) => a.course_id))];
+  }
+
   if (myCourseIds.length === 0) return false;
 
+  // Check if peer shares any courses (via enrollment or section)
   const { data: sharedEnrollments } = await supabase
     .from("enrollments")
     .select("id")
@@ -175,5 +187,19 @@ async function validatePeerAccess(
     .in("course_id", myCourseIds)
     .limit(1);
 
-  return (sharedEnrollments || []).length > 0;
+  if ((sharedEnrollments || []).length > 0) return true;
+
+  // Also check if peer is in a section that has the same courses assigned
+  if (peerStudent.section_id) {
+    const { data: peerAssignments } = await supabase
+      .from("teacher_assignments")
+      .select("course_id")
+      .eq("section_id", peerStudent.section_id)
+      .in("course_id", myCourseIds)
+      .limit(1);
+
+    if ((peerAssignments || []).length > 0) return true;
+  }
+
+  return false;
 }

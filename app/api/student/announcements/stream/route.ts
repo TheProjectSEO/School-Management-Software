@@ -76,13 +76,23 @@ export async function GET(request: NextRequest) {
     return new Response("Student not found", { status: 404 });
   }
 
-  // Get enrolled course IDs for course-targeted announcements
+  // Get course IDs (enrollments OR section-based assignments)
+  let enrolledCourseIds: string[] = [];
   const { data: enrollments } = await supabase
     .from("enrollments")
     .select("course_id")
     .eq("student_id", student.id);
 
-  const enrolledCourseIds = enrollments?.map((e) => e.course_id) || [];
+  enrolledCourseIds = enrollments?.map((e) => e.course_id) || [];
+
+  // Fallback: if no enrollments, check section-based assignments
+  if (enrolledCourseIds.length === 0 && student.section_id) {
+    const { data: assignments } = await supabase
+      .from("teacher_assignments")
+      .select("course_id")
+      .eq("section_id", student.section_id);
+    enrolledCourseIds = [...new Set((assignments || []).map((a) => a.course_id))];
+  }
 
   const profileId = profile.id;
   const schoolId = profile.school_id;

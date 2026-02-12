@@ -64,15 +64,33 @@ export async function POST(
       studentId = student.id;
       gradeLevel = student.grade_level ?? null;
 
-      const { data: enrollment } = await supabase
+      // Check enrollment OR section-based assignment
+      const { count: enrollCount } = await supabase
         .from("enrollments")
-        .select("id")
+        .select("*", { count: "exact", head: true })
         .eq("student_id", student.id)
-        .eq("course_id", session.course_id)
-        .single();
+        .eq("course_id", session.course_id);
 
-      if (!enrollment) {
-        return NextResponse.json({ error: "Not enrolled in this course" }, { status: 403 });
+      if (!enrollCount) {
+        const { count: assignCount } = student.id
+          ? await (async () => {
+              const { data: stu } = await supabase
+                .from("students")
+                .select("section_id")
+                .eq("id", student.id)
+                .single();
+              if (!stu?.section_id) return { count: 0 };
+              return supabase
+                .from("teacher_assignments")
+                .select("*", { count: "exact", head: true })
+                .eq("section_id", stu.section_id)
+                .eq("course_id", session.course_id);
+            })()
+          : { count: 0 };
+
+        if (!assignCount) {
+          return NextResponse.json({ error: "Not enrolled in this course" }, { status: 403 });
+        }
       }
     } else if (profile.role === "teacher") {
       const { data: teacher } = await supabase

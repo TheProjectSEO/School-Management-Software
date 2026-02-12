@@ -1,4 +1,5 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { getStudentCourseIds, studentHasCourseAccess } from "./student";
 
 export type StudentLiveSession = {
   id: string;
@@ -19,16 +20,9 @@ export type StudentLiveSession = {
 export async function getUpcomingRoomSessions(studentId: string, limit = 3) {
   const supabase = createServiceClient();
 
-  const { data: enrollments, error: enrollmentError } = await supabase
-    .from("enrollments")
-    .select("course_id")
-    .eq("student_id", studentId);
-
-  if (enrollmentError || !enrollments || enrollments.length === 0) {
-    return [];
-  }
-
-  const courseIds = enrollments.map((enrollment) => enrollment.course_id);
+  // Get course IDs (enrollments OR section-based assignments)
+  const courseIds = await getStudentCourseIds(studentId);
+  if (courseIds.length === 0) return [];
 
   // Fetch sessions with flat course columns (no nested FK joins)
   const { data, error } = await supabase
@@ -74,13 +68,9 @@ export async function getUpcomingRoomSessions(studentId: string, limit = 3) {
 export async function getLiveSessionsForCourse(studentId: string, courseId: string) {
   const supabase = createServiceClient();
 
-  const { count } = await supabase
-    .from("enrollments")
-    .select("*", { count: "exact", head: true })
-    .eq("student_id", studentId)
-    .eq("course_id", courseId);
-
-  if (!count) {
+  // Check if student has access (enrolled OR section-based assignment)
+  const hasAccess = await studentHasCourseAccess(studentId, courseId);
+  if (!hasAccess) {
     return [];
   }
 
@@ -136,13 +126,9 @@ export async function getRecordingsForCourse(
 ): Promise<CourseRecording[]> {
   const supabase = createServiceClient();
 
-  const { count } = await supabase
-    .from("enrollments")
-    .select("*", { count: "exact", head: true })
-    .eq("student_id", studentId)
-    .eq("course_id", courseId);
-
-  if (!count) {
+  // Check if student has access (enrolled OR section-based assignment)
+  const hasAccess = await studentHasCourseAccess(studentId, courseId);
+  if (!hasAccess) {
     return [];
   }
 

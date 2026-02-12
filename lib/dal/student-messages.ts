@@ -5,6 +5,7 @@
  */
 
 import { createServiceClient } from "@/lib/supabase/service";
+import { getStudentCourseIds } from "./student";
 import type {
   DirectMessage,
   Conversation,
@@ -336,23 +337,9 @@ export async function getAvailableTeachers(
 ): Promise<(Teacher & { course_name?: string })[]> {
   const supabase = createServiceClient();
 
-  // Get student's enrolled course IDs
-  const { data: enrollments, error: enrollError } = await supabase
-    .from("enrollments")
-    .select("course_id")
-    .eq("student_id", studentId);
-
-  if (enrollError) {
-    console.error("Error fetching enrollments:", enrollError);
-    return [];
-  }
-
-  // No enrollments is normal for new students - just return empty array
-  if (!enrollments?.length) {
-    return [];
-  }
-
-  const courseIds = enrollments.map((e) => e.course_id);
+  // Get course IDs (enrollments OR section-based assignments)
+  const courseIds = await getStudentCourseIds(studentId);
+  if (courseIds.length === 0) return [];
 
   // Get teachers assigned to these courses via teacher_assignments
   const { data: assignments, error } = await supabase
@@ -483,12 +470,7 @@ export async function getAvailablePeers(
   }
 
   // 2. Students in shared courses
-  const { data: enrollments } = await supabase
-    .from("enrollments")
-    .select("course_id")
-    .eq("student_id", studentId);
-
-  const courseIds = (enrollments || []).map((e) => e.course_id);
+  const courseIds = await getStudentCourseIds(studentId);
 
   if (courseIds.length > 0) {
     const { data: courseEnrollments } = await supabase

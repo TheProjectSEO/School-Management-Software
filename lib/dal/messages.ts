@@ -94,7 +94,8 @@ export async function getTeacherConversations(
   }
 
   // Get conversations using database function
-  const { data: conversations, error } = await supabase.rpc(
+  let conversations: any[] | null = null
+  const { data: rpcData, error } = await supabase.rpc(
     'get_user_conversations',
     {
       p_profile_id: teacher.profile_id,
@@ -103,8 +104,67 @@ export async function getTeacherConversations(
   )
 
   if (error) {
-    console.error('Error fetching conversations:', error)
+    console.error('Error fetching conversations via RPC:', error)
+    // If RPC doesn't exist, fall back to direct query
+    if (error.code === '42883' || error.message?.includes('does not exist')) {
+      console.log('RPC get_user_conversations not found, using direct query fallback')
+      const { data: directMsgs } = await supabase
+        .from('teacher_direct_messages')
+        .select('from_profile_id, to_profile_id, body, created_at, sender_type, is_read')
+        .or(`from_profile_id.eq.${teacher.profile_id},to_profile_id.eq.${teacher.profile_id}`)
+        .order('created_at', { ascending: false })
+
+      // Build conversations from raw messages
+      if (directMsgs && directMsgs.length > 0) {
+        const partnerMap = new Map<string, any>()
+        for (const msg of directMsgs) {
+          const partnerId = msg.from_profile_id === teacher.profile_id
+            ? msg.to_profile_id
+            : msg.from_profile_id
+          if (!partnerMap.has(partnerId)) {
+            // Determine partner role
+            const isFromTeacher = msg.from_profile_id === teacher.profile_id
+            const partnerRole = isFromTeacher ? msg.sender_type === 'teacher' ? 'student' : msg.sender_type : msg.sender_type
+            partnerMap.set(partnerId, {
+              partner_profile_id: partnerId,
+              partner_name: null,
+              partner_avatar_url: null,
+              partner_role: partnerRole === 'teacher' ? 'student' : partnerRole,
+              last_message_body: msg.body,
+              last_message_at: msg.created_at,
+              last_message_sender_type: msg.sender_type,
+              unread_count: 0,
+              total_messages: 0,
+            })
+          }
+          const conv = partnerMap.get(partnerId)!
+          conv.total_messages++
+          if (!msg.is_read && msg.to_profile_id === teacher.profile_id) {
+            conv.unread_count++
+          }
+        }
+
+        // Fetch partner names
+        const partnerIds = [...partnerMap.keys()]
+        const { data: partnerProfiles } = await supabase
+          .from('school_profiles')
+          .select('id, full_name, avatar_url')
+          .in('id', partnerIds)
+
+        for (const profile of partnerProfiles || []) {
+          const conv = partnerMap.get(profile.id)
+          if (conv) {
+            conv.partner_name = profile.full_name
+            conv.partner_avatar_url = profile.avatar_url
+          }
+        }
+
+        conversations = [...partnerMap.values()]
+      }
+    }
     // Don't return early — fallback below will find admin conversations directly
+  } else {
+    conversations = rpcData
   }
 
   // Enrich with student/admin info
@@ -113,16 +173,25 @@ export async function getTeacherConversations(
 
   for (const conv of conversations || []) {
     if (conv.partner_role === 'student') {
-      // Get student details
+      // Get student details (flat select — no FK joins per CLAUDE.md)
       const { data: student } = await supabase
         .from('students')
-        .select(`
-          id,
-          grade_level,
-          section:sections(id, name, grade_level)
-        `)
+        .select('id, grade_level, section_id')
         .eq('profile_id', conv.partner_profile_id)
         .single()
+
+      // Get section info separately
+      let sectionName: string | undefined
+      let sectionGrade: string | undefined
+      if (student?.section_id) {
+        const { data: section } = await supabase
+          .from('sections')
+          .select('name, grade_level')
+          .eq('id', student.section_id)
+          .single()
+        sectionName = section?.name
+        sectionGrade = section?.grade_level
+      }
 
       seenPartnerIds.add(conv.partner_profile_id)
       allConversations.push({
@@ -136,8 +205,8 @@ export async function getTeacherConversations(
         unread_count: Number(conv.unread_count) || 0,
         total_messages: Number(conv.total_messages) || 0,
         student_id: student?.id,
-        section_name: (student?.section as any)?.name,
-        grade_level: student?.grade_level || (student?.section as any)?.grade_level,
+        section_name: sectionName,
+        grade_level: student?.grade_level || sectionGrade,
       })
     } else if (conv.partner_role === 'admin') {
       seenPartnerIds.add(conv.partner_profile_id)
@@ -257,8 +326,9 @@ export async function getConversationMessages(
 
   if (!teacher) return []
 
-  // Use database function
-  const { data: messages, error } = await supabase.rpc('get_conversation', {
+  // Use database function, with direct query fallback
+  let messages: any[] | null = null
+  const { data: rpcMessages, error } = await supabase.rpc('get_conversation', {
     p_profile_1: teacher.profile_id,
     p_profile_2: studentProfileId,
     p_limit: limit,
@@ -266,8 +336,24 @@ export async function getConversationMessages(
   })
 
   if (error) {
-    console.error('Error fetching messages:', error)
-    return []
+    console.error('Error fetching messages via RPC:', error)
+    // Fallback to direct query if RPC doesn't exist
+    if (error.code === '42883' || error.message?.includes('does not exist')) {
+      console.log('RPC get_conversation not found, using direct query fallback')
+      const { data: directMsgs } = await supabase
+        .from('teacher_direct_messages')
+        .select('*')
+        .or(
+          `and(from_profile_id.eq.${teacher.profile_id},to_profile_id.eq.${studentProfileId}),and(from_profile_id.eq.${studentProfileId},to_profile_id.eq.${teacher.profile_id})`
+        )
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1)
+      messages = directMsgs
+    } else {
+      return []
+    }
+  } else {
+    messages = rpcMessages
   }
 
   // Enrich with profile data
@@ -310,7 +396,29 @@ export async function sendMessageToStudent(
 ): Promise<SendMessageResult> {
   const supabase = createServiceClient()
 
-  // Use database function for teacher messages
+  // Get teacher's profile_id
+  const { data: teacherProfile } = await supabase
+    .from('teacher_profiles')
+    .select('profile_id')
+    .eq('id', teacherId)
+    .single()
+
+  if (!teacherProfile) {
+    return { success: false, error: 'TEACHER_NOT_FOUND', message: 'Teacher profile not found' }
+  }
+
+  // Get student's profile_id
+  const { data: studentProfile } = await supabase
+    .from('students')
+    .select('profile_id')
+    .eq('id', studentId)
+    .single()
+
+  if (!studentProfile) {
+    return { success: false, error: 'STUDENT_NOT_FOUND', message: 'Student not found' }
+  }
+
+  // Try RPC first, fall back to direct insert
   const { data, error } = await supabase.rpc('send_teacher_message', {
     p_teacher_id: teacherId,
     p_student_id: studentId,
@@ -320,7 +428,32 @@ export async function sendMessageToStudent(
   })
 
   if (error) {
-    console.error('Error sending message:', error)
+    console.error('Error sending message via RPC:', error)
+    // Fallback to direct insert if RPC doesn't exist
+    if (error.code === '42883' || error.message?.includes('does not exist')) {
+      console.log('RPC send_teacher_message not found, using direct insert fallback')
+      const { data: inserted, error: insertError } = await supabase
+        .from('teacher_direct_messages')
+        .insert({
+          school_id: schoolId,
+          from_profile_id: teacherProfile.profile_id,
+          to_profile_id: studentProfile.profile_id,
+          body,
+          sender_type: 'teacher',
+          attachments_json: attachments || null,
+          is_read: false,
+        })
+        .select('id')
+        .single()
+
+      if (insertError) {
+        console.error('Error inserting message directly:', insertError)
+        return { success: false, error: 'DATABASE_ERROR', message: 'Failed to send message. Please try again.' }
+      }
+
+      return { success: true, message_id: inserted.id }
+    }
+
     return {
       success: false,
       error: 'DATABASE_ERROR',
@@ -393,7 +526,16 @@ export async function getUnreadMessageCount(teacherId: string): Promise<number> 
   })
 
   if (error) {
-    console.error('Error getting unread count:', error)
+    console.error('Error getting unread count via RPC:', error)
+    // Fallback to direct count if RPC doesn't exist
+    if (error.code === '42883' || error.message?.includes('does not exist')) {
+      const { count } = await supabase
+        .from('teacher_direct_messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('to_profile_id', teacher.profile_id)
+        .eq('is_read', false)
+      return count || 0
+    }
     return 0
   }
 
@@ -425,44 +567,60 @@ export async function getStudentsForMessaging(
 
   const courseIds = assignments.map((a) => a.course_id)
 
-  // Get enrolled students
+  // Get enrolled student IDs (flat select — no FK joins per CLAUDE.md)
   const { data: enrollments, error } = await supabase
     .from('enrollments')
-    .select(`
-      student:students (
-        id,
-        profile_id,
-        grade_level,
-        profile:school_profiles (
-          id,
-          full_name,
-          avatar_url
-        ),
-        section:sections (
-          id,
-          name,
-          grade_level
-        )
-      )
-    `)
+    .select('student_id')
     .in('course_id', courseIds)
 
   if (error) {
-    console.error('Error fetching students:', error)
+    console.error('Error fetching enrollments:', error)
     return []
   }
 
-  // Deduplicate students
-  const studentMap = new Map<string, StudentForMessaging>()
+  const studentIds = [...new Set((enrollments || []).map((e) => e.student_id).filter(Boolean))]
+  if (studentIds.length === 0) return []
 
-  for (const enrollment of enrollments || []) {
-    const student = enrollment.student as any
-    if (student && !studentMap.has(student.id)) {
+  // Get student records
+  const { data: students } = await supabase
+    .from('students')
+    .select('id, profile_id, grade_level, section_id')
+    .in('id', studentIds)
+
+  if (!students || students.length === 0) return []
+
+  // Get profiles separately
+  const profileIds = [...new Set(students.map((s) => s.profile_id).filter(Boolean))]
+  const { data: profiles } = await supabase
+    .from('school_profiles')
+    .select('id, full_name, avatar_url')
+    .in('id', profileIds)
+
+  const profileMap = new Map((profiles || []).map((p) => [p.id, p]))
+
+  // Get sections separately
+  const sectionIds = [...new Set(students.map((s) => s.section_id).filter(Boolean))]
+  let sectionMap = new Map<string, { id: string; name: string; grade_level: string }>()
+  if (sectionIds.length > 0) {
+    const { data: sections } = await supabase
+      .from('sections')
+      .select('id, name, grade_level')
+      .in('id', sectionIds)
+
+    sectionMap = new Map((sections || []).map((s) => [s.id, s]))
+  }
+
+  // Build deduplicated student list
+  const studentMap = new Map<string, StudentForMessaging>()
+  for (const student of students) {
+    if (!studentMap.has(student.id)) {
+      const profile = profileMap.get(student.profile_id)
+      const section = student.section_id ? sectionMap.get(student.section_id) : undefined
       studentMap.set(student.id, {
         id: student.id,
         profile_id: student.profile_id,
-        profile: student.profile,
-        section: student.section,
+        profile: profile ? { id: profile.id, full_name: profile.full_name, avatar_url: profile.avatar_url } : { id: student.profile_id, full_name: 'Unknown Student' },
+        section: section ? { id: section.id, name: section.name, grade_level: section.grade_level } : undefined,
         grade_level: student.grade_level,
       })
     }

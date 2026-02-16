@@ -26,7 +26,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Lesson not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ lesson })
+    // Transform attachments to match LessonEditor interface
+    const transformedLesson = {
+      ...lesson,
+      attachments: lesson.attachments.map((att: any) => ({
+        id: att.id,
+        file_name: att.title,
+        file_url: att.file_url,
+        file_type: att.file_type,
+        file_size: att.file_size_bytes || 0,
+        order_index: att.order_index
+      }))
+    }
+
+    return NextResponse.json({ lesson: transformedLesson })
   } catch (error) {
     console.error('Error in GET /api/content/lessons/[id]:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -123,7 +136,20 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     // Fetch updated lesson with attachments
     const updatedLesson = await getLesson(auth.teacher.teacherId, lessonId)
 
-    return NextResponse.json({ lesson: updatedLesson })
+    // Transform attachments to match LessonEditor interface
+    const transformedLesson = updatedLesson ? {
+      ...updatedLesson,
+      attachments: updatedLesson.attachments.map((att: any) => ({
+        id: att.id,
+        file_name: att.title,
+        file_url: att.file_url,
+        file_type: att.file_type,
+        file_size: att.file_size_bytes || 0,
+        order_index: att.order_index
+      }))
+    } : null
+
+    return NextResponse.json({ lesson: transformedLesson })
   } catch (error) {
     console.error('Error in PATCH /api/content/lessons/[id]:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

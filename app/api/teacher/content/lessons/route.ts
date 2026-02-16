@@ -137,8 +137,18 @@ export async function POST(request: NextRequest) {
       .eq('lesson_id', lesson.id)
       .order('order_index', { ascending: true })
 
+    // Transform attachments to match LessonEditor interface
+    const transformedAttachments = (savedAttachments || []).map((att: any) => ({
+      id: att.id,
+      file_name: att.title,
+      file_url: att.file_url,
+      file_type: att.file_type,
+      file_size: att.file_size_bytes || 0,
+      order_index: att.order_index
+    }))
+
     return NextResponse.json({
-      lesson: { ...lesson, attachments: savedAttachments || [] }
+      lesson: { ...lesson, attachments: transformedAttachments }
     }, { status: 201 })
   } catch (error) {
     console.error('Error in POST /api/content/lessons:', error)
@@ -207,7 +217,15 @@ export async function GET(request: NextRequest) {
 
       ;(attachments || []).forEach((a: any) => {
         const arr = attachmentsByLesson.get(a.lesson_id) || []
-        arr.push(a)
+        // Transform attachment to match LessonEditor interface
+        arr.push({
+          id: a.id,
+          file_name: a.title,
+          file_url: a.file_url,
+          file_type: a.file_type,
+          file_size: a.file_size_bytes || 0,
+          order_index: a.order_index
+        })
         attachmentsByLesson.set(a.lesson_id, arr)
       })
     }

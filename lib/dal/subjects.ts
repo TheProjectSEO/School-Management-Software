@@ -577,7 +577,28 @@ export async function getLessonsByModule(moduleId: string): Promise<Lesson[]> {
     return [];
   }
 
-  return data || [];
+  if (!data || data.length === 0) return [];
+
+  // Fetch attachments separately for all lessons (avoid FK joins - BUG-001)
+  const lessonIds = data.map(l => l.id);
+  const { data: attachments } = await supabase
+    .from('lesson_attachments')
+    .select('*')
+    .in('lesson_id', lessonIds)
+    .order('order_index', { ascending: true });
+
+  // Map attachments to lessons
+  const attachmentsByLesson = new Map<string, any[]>();
+  (attachments || []).forEach((a: any) => {
+    const arr = attachmentsByLesson.get(a.lesson_id) || [];
+    arr.push(a);
+    attachmentsByLesson.set(a.lesson_id, arr);
+  });
+
+  return data.map(lesson => ({
+    ...lesson,
+    attachments: attachmentsByLesson.get(lesson.id) || []
+  }));
 }
 
 /**
@@ -597,7 +618,17 @@ export async function getLessonById(lessonId: string): Promise<Lesson | null> {
     return null;
   }
 
-  return data;
+  // Fetch attachments separately (avoid FK joins - BUG-001)
+  const { data: attachments } = await supabase
+    .from('lesson_attachments')
+    .select('*')
+    .eq('lesson_id', lessonId)
+    .order('order_index', { ascending: true });
+
+  return {
+    ...data,
+    attachments: attachments || []
+  };
 }
 
 /**
@@ -620,6 +651,13 @@ export async function getLessonWithProgress(
     return null;
   }
 
+  // Fetch attachments separately (avoid FK joins - BUG-001)
+  const { data: attachments } = await supabase
+    .from('lesson_attachments')
+    .select('*')
+    .eq('lesson_id', lessonId)
+    .order('order_index', { ascending: true });
+
   // Get progress
   const { data: progress } = await supabase
     .from("student_progress")
@@ -630,6 +668,7 @@ export async function getLessonWithProgress(
 
   return {
     ...lesson,
+    attachments: attachments || [],
     progress_percent: progress?.progress_percent || 0,
     completed: !!progress?.completed_at,
   };

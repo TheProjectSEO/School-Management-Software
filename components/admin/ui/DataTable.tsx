@@ -93,8 +93,16 @@ export default function DataTable<T extends object>({
       if (onSelectionChange) {
         const selectedRows = Object.keys(newSelection)
           .filter((key) => newSelection[key])
-          .map((key) => data[parseInt(key)]);
-        onSelectionChange(selectedRows);
+          .map((key) => {
+            // If rowKey is set, key is the rowKey value (e.g., student ID)
+            // Otherwise, key is the numeric index
+            if (rowKey) {
+              return data.find((row) => String(row[rowKey]) === key);
+            }
+            return data[parseInt(key)];
+          })
+          .filter((row) => row !== undefined);
+        onSelectionChange(selectedRows as T[]);
       }
     },
     getCoreRowModel: getCoreRowModel(),

@@ -948,7 +948,7 @@ export async function updateStudentStatus(
  */
 export async function bulkUpdateStudentStatus(
   ids: string[],
-  status: 'active' | 'inactive' | 'graduated' | 'transferred'
+  status: 'active' | 'inactive' | 'suspended' | 'graduated' | 'transferred'
 ): Promise<{ success: boolean; updated: number; errors: string[] }> {
   try {
     // Use admin client to bypass RLS
@@ -957,7 +957,20 @@ export async function bulkUpdateStudentStatus(
     let updated = 0;
 
     for (const id of ids) {
-      const { error } = await supabase
+      // First get the student to find their profile_id
+      const { data: student, error: fetchError } = await supabase
+        .from('students')
+        .select('profile_id')
+        .eq('id', id)
+        .single();
+
+      if (fetchError || !student) {
+        errors.push(`Failed to find student ${id}: ${fetchError?.message || 'Not found'}`);
+        continue;
+      }
+
+      // Update students table
+      const { error: studentError } = await supabase
         .from('students')
         .update({
           status,
@@ -965,11 +978,26 @@ export async function bulkUpdateStudentStatus(
         })
         .eq('id', id);
 
-      if (error) {
-        errors.push(`Failed to update student ${id}: ${error.message}`);
-      } else {
-        updated++;
+      if (studentError) {
+        errors.push(`Failed to update student ${id}: ${studentError.message}`);
+        continue;
       }
+
+      // Update school_profiles table (this is what shows in the UI)
+      const { error: profileError } = await supabase
+        .from('school_profiles')
+        .update({
+          status,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', student.profile_id);
+
+      if (profileError) {
+        errors.push(`Failed to update profile for student ${id}: ${profileError.message}`);
+        continue;
+      }
+
+      updated++;
     }
 
     return { success: errors.length === 0, updated, errors };

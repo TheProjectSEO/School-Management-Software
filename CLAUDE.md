@@ -258,8 +258,286 @@ bugs:
       - Use 'use client' directive at TOP of client component files
     status: resolved-recurring
     notes: >
-      Fixed in commits a30fb95 (PDFViewer), [current] (LessonAttachments).
+      Fixed in commits a30fb95 (PDFViewer), a9313a2 (LessonAttachments).
       This is a Next.js 15 breaking change from Next.js 13/14.
       Will recur whenever Server Components pass functions to Client Components.
       Always check: Is this a Server Component? Am I passing a function prop?
+
+  - id: BUG-006
+    date: "2026-02-16"
+    title: Missing columns in school_profiles causing failed queries and "Unknown" names
+    severity: high
+    pattern: |
+      The school_profiles table was missing critical columns (email, status) that
+      were being referenced in queries. This caused:
+      - PostgreSQL error: "column school_profiles.email does not exist"
+      - All student names displayed as "Unknown"
+      - Status filter completely non-functional
+      - Search by email impossible
+
+      The listStudents() function was querying columns that didn't exist in the
+      database schema, causing the entire query to fail silently and return 0 rows.
+    affected_files:
+      - "lib/dal/admin.ts (listStudents function)"
+      - "supabase database schema (school_profiles table)"
+    fix: |
+      1. Database Migration:
+         - Created SQL migration: supabase/fix-school-profiles-columns.sql
+         - Adds email column (TEXT) to school_profiles
+         - Adds status column (TEXT) with default 'active'
+         - Populates email from auth.users table
+         - Adds CHECK constraint for status values
+         - Safe to run multiple times (checks column existence)
+
+      2. Query Fix:
+         - Updated listStudents() to use FK join: school_profiles!students_profile_id_fkey
+         - Selects: id, full_name, email, avatar_url, status
+         - Filters search/status in code (not SQL) to avoid PostgREST OR errors
+         - Transforms data with proper fallbacks (|| 'Unknown', || 'active')
+
+      3. Search Implementation:
+         - Fetch all students with section/grade filters applied in SQL
+         - Apply search filter in JavaScript on: LRN, full_name, email
+         - Apply status filter in JavaScript
+         - Paginate after filtering
+
+      SQL Migration Contents:
+      - DO $$ blocks with IF NOT EXISTS checks for safety
+      - UPDATE school_profiles SET email from auth.users
+      - ALTER TABLE ADD CONSTRAINT for status validation
+      - Verification query at end to confirm columns exist
+
+      Run in Supabase SQL Editor to fix.
+    status: resolved
+    notes: >
+      Fixed in commit [current]. This was actually two bugs:
+      1. Missing database columns (fixed with SQL migration)
+      2. Invalid PostgREST OR query syntax (fixed by filtering in code)
+
+      The proper approach for complex filters with FK joins is:
+      - Apply simple filters in SQL (section_id, grade_level)
+      - Fetch related data via FK joins
+      - Apply complex filters (search, status) in JavaScript
+      - Paginate after all filtering
+
+  - id: BUG-005
+    date: "2025-02-16"
+    title: Student form UX issues - validation, filters, and auto-population
+    severity: medium
+    pattern: |
+      Multiple UX issues in the admin student management page:
+
+      1. FK field using text input instead of dropdown:
+         - Section field was <input type="text"> allowing invalid IDs
+         - Caused FK constraint violations and "Invalid" errors on save
+
+      2. Missing filter in filterOptions:
+         - filterOptions array missing "sectionId" filter
+         - Section dropdown filter in UI was non-functional
+         - Search and filters appeared broken to users
+
+      3. Incorrect placeholder text:
+         - LRN placeholder showed "123456789012" (12 digits)
+         - Actual format is "2026-MSU-0010" (year-institution-sequence)
+
+      4. Manual data entry for auto-generated fields:
+         - LRN should auto-increment from database, not manual entry
+         - Phone number should pre-fill with "+63 " country code
+
+    affected_files:
+      - "app/(dashboard)/admin/users/students/page.tsx"
+    fix: |
+      1. Section field - Convert to dropdown (DONE in previous fix):
+         - Change from <input type="text"> to <select>
+         - Map sections array to options
+         - Add default "Select Section (Optional)" option
+
+      2. Add missing section filter:
+         - Add sectionId to filterOptions array
+         - Map sections to filter options: {value: id, label: "Name - Grade X"}
+
+      3. LRN auto-increment:
+         - Add generateNextLRN() function
+         - Fetch all students, parse LRNs matching YYYY-MSU-#### format
+         - Find max number for current year, generate next sequential
+         - Auto-populate on modal open via useEffect
+
+      4. Phone number pre-fill:
+         - Set default formData.phone to "+63 "
+         - Add onChange handler to preserve "+63 " prefix
+         - Update reset logic to restore "+63 " default
+
+      5. Update placeholder text:
+         - Change LRN placeholder to "2026-MSU-0010"
+    status: resolved
+    notes: >
+      Fixed in commit [current]. Multiple related UX issues addressed:
+      - Section filter now works (added to filterOptions)
+      - LRN auto-generates next number (2026-MSU-0001, 0002, etc.)
+      - Phone pre-fills with +63 prefix
+      - All search/filter dropdowns now functional
+
+  - id: BUG-007
+    date: "2026-02-16"
+    title: Excel export returns disorganized JSON instead of proper .xlsx files
+    severity: medium
+    pattern: |
+      Export routes had placeholder code returning JSON for Excel format instead
+      of generating proper .xlsx files. This caused:
+      - Excel downloads contained raw JSON text instead of spreadsheet data
+      - Entries appeared disorganized and misaligned
+      - No column headers or proper formatting
+      - Data unusable in Excel, Google Sheets, etc.
+
+      All three export routes (students, teachers, enrollments) had the same issue:
+      Lines like "// For Excel and PDF, return JSON for now"
+      Followed by: return NextResponse.json(exportData);
+    affected_files:
+      - "app/api/admin/users/students/export/route.ts"
+      - "app/api/admin/users/teachers/export/route.ts"
+      - "app/api/admin/enrollments/export/route.ts"
+    fix: |
+      Implement proper Excel generation using xlsx library (already installed):
+
+      1. Import xlsx at top of file:
+         import * as XLSX from "xlsx";
+
+      2. Replace JSON return with Excel generation:
+         if (format === "excel" || format === "xlsx") {
+           const worksheet = XLSX.utils.json_to_sheet(exportData);
+           const workbook = XLSX.utils.book_new();
+           XLSX.utils.book_append_sheet(workbook, worksheet, "SheetName");
+
+           const excelBuffer = XLSX.write(workbook, {
+             type: "buffer",
+             bookType: "xlsx"
+           });
+
+           return new NextResponse(excelBuffer, {
+             status: 200,
+             headers: {
+               "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+               "Content-Disposition": `attachment; filename="export-${Date.now()}.xlsx"`
+             }
+           });
+         }
+
+      3. json_to_sheet() automatically:
+         - Uses object keys as column headers
+         - Formats data into rows
+         - Creates proper Excel structure
+
+      Pattern works for any export endpoint that returns tabular data.
+    status: resolved
+    notes: >
+      Fixed in commit [current]. The xlsx library was already installed but
+      never used. CSV exports were working correctly, but Excel was incomplete.
+      All three export endpoints now properly generate .xlsx files with columns
+      and headers. Frontend code already handled blob responses correctly,
+      so no frontend changes were needed.
+
+  - id: BUG-008
+    date: "2026-02-16"
+    title: DataTable row selection fails when using rowKey with non-numeric IDs
+    severity: high
+    pattern: |
+      When DataTable component uses rowKey prop with non-numeric values (UUIDs,
+      string IDs), row selection breaks because onRowSelectionChange treats
+      selection keys as array indices instead of rowKey values.
+
+      Symptoms:
+      - Bulk actions show "No valid [items] selected" even when items are selected
+      - selectedItems array contains undefined values
+      - Checkboxes appear selected but actions fail
+
+      Root cause:
+      - TanStack Table with getRowId uses custom IDs as selection keys
+      - Selection state: { "uuid-abc-123": true } not { "0": true }
+      - Code did: data[parseInt("uuid-abc-123")] = data[NaN] = undefined
+      - Should do: data.find(row => row.id === "uuid-abc-123")
+    affected_files:
+      - "components/admin/ui/DataTable.tsx"
+      - "Any page using DataTable with rowKey and bulk actions"
+    fix: |
+      In DataTable's onRowSelectionChange handler:
+
+      1. Check if rowKey is set
+      2. If yes, use .find() to locate row by matching rowKey value
+      3. If no, use parseInt(key) for array index
+      4. Filter out any undefined results
+
+      Code:
+      ```typescript
+      const selectedRows = Object.keys(newSelection)
+        .filter((key) => newSelection[key])
+        .map((key) => {
+          if (rowKey) {
+            return data.find((row) => String(row[rowKey]) === key);
+          }
+          return data[parseInt(key)];
+        })
+        .filter((row) => row !== undefined);
+      ```
+    status: resolved
+    notes: >
+      Fixed in commit [current]. This affected all bulk actions in admin
+      students page (Change Grade, Move to Section, Deactivate). The bug
+      only manifests when rowKey is set to a non-numeric field. Numeric
+      rowKeys would work by coincidence if they match array indices.
+
+  - id: BUG-009
+    date: "2026-02-16"
+    title: Student status updates not visible - only updating one of two tables
+    severity: high
+    pattern: |
+      Student status updates (deactivate, suspend, etc.) were not appearing
+      in the UI list view because the function only updated the students table,
+      not the school_profiles table.
+
+      The system has two places where student data is stored:
+      - students table: enrollment-specific data (status, grade, section, LRN)
+      - school_profiles table: profile data displayed in UI (full_name, email, status)
+
+      List views query school_profiles.status, so updates to students.status
+      alone won't show up. Both tables must be updated together.
+    affected_files:
+      - "lib/dal/users.ts (bulkUpdateStudentStatus)"
+      - "Any function that updates student display data"
+    fix: |
+      When updating student data that affects UI display:
+
+      1. First get the student's profile_id:
+         const { data: student } = await supabase
+           .from('students')
+           .select('profile_id')
+           .eq('id', studentId)
+           .single();
+
+      2. Update students table:
+         await supabase
+           .from('students')
+           .update({ status, updated_at: new Date().toISOString() })
+           .eq('id', studentId);
+
+      3. Update school_profiles table:
+         await supabase
+           .from('school_profiles')
+           .update({ status, updated_at: new Date().toISOString() })
+           .eq('id', student.profile_id);
+
+      This pattern applies to all fields shown in list views:
+      - status (active/inactive/suspended/graduated/transferred)
+      - full_name
+      - email
+      - phone
+      - avatar_url
+
+      The students → profile_id → school_profiles relationship must be
+      maintained for both reads and writes.
+    status: resolved
+    notes: >
+      Fixed in commit [current]. The bulkUpdateStudentStatus function now
+      updates both tables. This is a common pattern in the codebase where
+      display data (school_profiles) is separate from enrollment data
+      (students/teachers). Always update both when modifying displayed fields.
 ```

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentAdmin, hasPermission } from "@/lib/dal/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
+import * as XLSX from "xlsx";
 
 // GET /api/admin/enrollments/export - Export enrollments as CSV
 export async function GET(request: NextRequest) {
@@ -118,7 +119,89 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // For Excel and PDF, return JSON for now (would need additional libraries)
+    if (format === "excel" || format === "xlsx") {
+      // Generate Excel file with styling
+      const worksheet = XLSX.utils.json_to_sheet(filteredData);
+      const workbook = XLSX.utils.book_new();
+
+      // Get the range of the worksheet
+      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+
+      // Set column widths
+      const colWidths = [
+        { wch: 25 }, // Student Name
+        { wch: 30 }, // Course
+        { wch: 15 }, // Course Code
+        { wch: 20 }, // Section
+        { wch: 12 }, // Grade Level
+        { wch: 12 }, // Status
+        { wch: 15 }, // Enrolled At
+      ];
+      worksheet['!cols'] = colWidths;
+
+      // Style the header row (row 0)
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+        if (!worksheet[cellAddress]) continue;
+
+        worksheet[cellAddress].s = {
+          font: { bold: true, color: { rgb: "FFFFFF" }, sz: 12 },
+          fill: { fgColor: { rgb: "7B1113" } }, // MSU Maroon
+          alignment: { horizontal: "center", vertical: "center" },
+          border: {
+            top: { style: "thin", color: { rgb: "000000" } },
+            bottom: { style: "thin", color: { rgb: "000000" } },
+            left: { style: "thin", color: { rgb: "000000" } },
+            right: { style: "thin", color: { rgb: "000000" } },
+          },
+        };
+      }
+
+      // Style data rows with alternating colors
+      for (let row = range.s.r + 1; row <= range.e.r; row++) {
+        const isEvenRow = row % 2 === 0;
+        for (let col = range.s.c; col <= range.e.c; col++) {
+          const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+          if (!worksheet[cellAddress]) continue;
+
+          worksheet[cellAddress].s = {
+            fill: { fgColor: { rgb: isEvenRow ? "F9F9F9" : "FFFFFF" } },
+            alignment: {
+              horizontal: col === 2 || col === 4 || col === 5 ? "center" : "left", // Center Course Code, Grade Level, Status
+              vertical: "center"
+            },
+            border: {
+              top: { style: "thin", color: { rgb: "E0E0E0" } },
+              bottom: { style: "thin", color: { rgb: "E0E0E0" } },
+              left: { style: "thin", color: { rgb: "E0E0E0" } },
+              right: { style: "thin", color: { rgb: "E0E0E0" } },
+            },
+          };
+        }
+      }
+
+      // Freeze the header row
+      worksheet['!freeze'] = { xSplit: 0, ySplit: 1 };
+
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Enrollments");
+
+      // Generate buffer
+      const excelBuffer = XLSX.write(workbook, {
+        type: "buffer",
+        bookType: "xlsx",
+        cellStyles: true
+      });
+
+      return new NextResponse(excelBuffer, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "Content-Disposition": `attachment; filename="enrollments-export-${new Date().toISOString().split("T")[0]}.xlsx"`,
+        },
+      });
+    }
+
+    // For PDF or other formats, return JSON for now
     return NextResponse.json(filteredData);
   } catch (error) {
     console.error("Error in GET /api/admin/enrollments/export:", error);

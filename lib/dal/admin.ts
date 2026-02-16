@@ -478,26 +478,30 @@ export async function listStudents(params?: {
 }): Promise<{ data: StudentListItem[]; total: number; page: number; pageSize: number; totalPages: number }> {
   try {
     const supabase = createAdminClient();
-    const { search, sectionId, gradeLevel, page = 1, pageSize = 20 } = params || {};
+    const { search, status, sectionId, gradeLevel, page = 1, pageSize = 20 } = params || {};
 
-    // Build the query
+    // Get ALL students first with profile data via FK join
+    // We'll filter by search/status in memory since PostgREST can't handle OR on FK fields
     let query = supabase
       .from('students')
       .select(`
-        id,
-        profile_id,
-        school_id,
-        section_id,
-        lrn,
-        grade_level,
-        created_at,
-        updated_at,
-        school_profiles!inner(id, full_name, avatar_url),
-        sections(id, name, grade_level)
-      `, { count: 'exact' })
+        *,
+        school_profiles!students_profile_id_fkey(
+          id,
+          full_name,
+          email,
+          avatar_url,
+          status
+        ),
+        sections(
+          id,
+          name,
+          grade_level
+        )
+      `)
       .order('created_at', { ascending: false });
 
-    // Apply filters
+    // Apply direct filters (on students table only)
     if (sectionId) {
       query = query.eq('section_id', sectionId);
     }
@@ -506,55 +510,73 @@ export async function listStudents(params?: {
       query = query.eq('grade_level', gradeLevel);
     }
 
-    if (search) {
-      query = query.or(`lrn.ilike.%${search}%,school_profiles.full_name.ilike.%${search}%`);
-    }
-
-    // Pagination
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    const { data, count, error } = await query.range(from, to);
+    // Execute query to get all matching records
+    const { data: allStudents, error } = await query;
 
     if (error) {
       console.error('Error listing students:', error);
       return { data: [], total: 0, page, pageSize, totalPages: 0 };
     }
 
-    // Transform the data - flatten for frontend compatibility
-    const students: StudentListItem[] = (data || []).map((s: Record<string, unknown>) => {
-      const profile = s.school_profiles as Record<string, unknown> | null;
-      const section = s.sections as Record<string, unknown> | null;
+    if (!allStudents || allStudents.length === 0) {
+      return { data: [], total: 0, page, pageSize, totalPages: 0 };
+    }
+
+    // Transform to StudentListItem format
+    let students: StudentListItem[] = allStudents.map((s: any) => {
+      const profile = s.school_profiles;
+      const section = s.sections;
 
       return {
-        id: s.id as string,
-        profile_id: s.profile_id as string,
-        lrn: (s.lrn as string) || '',
-        grade_level: (s.grade_level as string) || '',
-        status: 'active',
-        // Flat fields for frontend compatibility
-        full_name: (profile?.full_name as string) || 'Unknown',
-        section_name: section ? (section.name as string) : undefined,
-        created_at: s.created_at as string,
-        // Nested structure for backwards compatibility
-        profile: {
-          id: (s.profile_id as string) || '',
-          full_name: (profile?.full_name as string) || 'Unknown',
-          avatar_url: profile?.avatar_url as string | undefined,
-        },
+        id: s.id,
+        profile_id: s.profile_id,
+        lrn: s.lrn || '',
+        grade_level: s.grade_level || '',
+        status: profile?.status || 'active',
+        full_name: profile?.full_name || 'Unknown',
+        email: profile?.email || '',
+        section_name: section?.name,
+        created_at: s.created_at,
+        profile: profile ? {
+          id: profile.id,
+          full_name: profile.full_name,
+          avatar_url: profile.avatar_url,
+        } : undefined,
         section: section ? {
-          id: (section.id as string) || '',
-          name: (section.name as string) || '',
+          id: section.id,
+          name: section.name,
         } : undefined,
       };
     });
 
+    // Apply search filter in code (after fetching)
+    if (search) {
+      const searchLower = search.toLowerCase();
+      students = students.filter(s =>
+        (s.lrn && s.lrn.toLowerCase().includes(searchLower)) ||
+        (s.full_name && s.full_name.toLowerCase().includes(searchLower)) ||
+        (s.email && s.email.toLowerCase().includes(searchLower))
+      );
+    }
+
+    // Apply status filter in code
+    if (status) {
+      students = students.filter(s => s.status === status);
+    }
+
+    // Calculate total after filtering
+    const total = students.length;
+
+    // Apply pagination
+    const from = (page - 1) * pageSize;
+    const paginatedStudents = students.slice(from, from + pageSize);
+
     return {
-      data: students,
-      total: count || 0,
+      data: paginatedStudents,
+      total,
       page,
       pageSize,
-      totalPages: Math.ceil((count || 0) / pageSize),
+      totalPages: Math.ceil(total / pageSize),
     };
   } catch (error) {
     console.error('Unexpected error in listStudents:', error);

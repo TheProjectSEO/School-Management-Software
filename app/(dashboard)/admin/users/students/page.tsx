@@ -47,6 +47,9 @@ export default function StudentsPage() {
     sectionId: searchParams.get("section") || "",
   });
 
+  // Real-time search state (updates immediately as user types)
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
+
   const [selectedStudents, setSelectedStudents] = useState<Student[]>([]);
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -64,7 +67,7 @@ export default function StudentsPage() {
     lrn: "",
     gradeLevel: "",
     sectionId: "",
-    phone: "",
+    phone: "+63 ",
     temporaryPassword: "",
   });
 
@@ -107,6 +110,41 @@ export default function StudentsPage() {
     }
   }, []);
 
+  const generateNextLRN = useCallback(async () => {
+    try {
+      // Fetch all students to get existing LRNs
+      const response = await fetch("/api/admin/users/students?pageSize=9999");
+      const result: PaginatedResult = await response.json();
+
+      // Extract LRNs that match format: YYYY-MSU-####
+      const lrnPattern = /^(\d{4})-MSU-(\d+)$/;
+      const currentYear = new Date().getFullYear();
+      let maxNumber = 0;
+
+      result.data.forEach((student) => {
+        if (student.lrn) {
+          const match = student.lrn.match(lrnPattern);
+          if (match) {
+            const year = parseInt(match[1]);
+            const number = parseInt(match[2]);
+            // Only consider LRNs from current year
+            if (year === currentYear && number > maxNumber) {
+              maxNumber = number;
+            }
+          }
+        }
+      });
+
+      // Generate next LRN
+      const nextNumber = (maxNumber + 1).toString().padStart(4, "0");
+      const nextLRN = `${currentYear}-MSU-${nextNumber}`;
+
+      setFormData((prev) => ({ ...prev, lrn: nextLRN }));
+    } catch (error) {
+      console.error("Failed to generate next LRN:", error);
+    }
+  }, []);
+
   useEffect(() => {
     fetchStudents();
   }, [fetchStudents]);
@@ -115,17 +153,37 @@ export default function StudentsPage() {
     fetchSections();
   }, [fetchSections]);
 
+  useEffect(() => {
+    if (showAddModal) {
+      generateNextLRN();
+    }
+  }, [showAddModal, generateNextLRN]);
+
+  // Debounced search - updates filters 300ms after user stops typing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (filters.search !== searchQuery) {
+        setFilters((prev) => ({ ...prev, search: searchQuery }));
+        setPagination((prev) => ({ ...prev, page: 1 }));
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, filters.search]);
+
   const handleFilterChange = (key: string, value: string) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
 
   const handleSearch = (query: string) => {
-    setFilters((prev) => ({ ...prev, search: query }));
-    setPagination((prev) => ({ ...prev, page: 1 }));
+    // Update search query immediately (real-time)
+    // The useEffect with debouncing will update filters after 300ms
+    setSearchQuery(query);
   };
 
   const handleReset = () => {
+    setSearchQuery("");
     setFilters({ search: "", status: "", gradeLevel: "", sectionId: "" });
     setPagination((prev) => ({ ...prev, page: 1 }));
   };
@@ -208,12 +266,23 @@ export default function StudentsPage() {
       return;
     }
 
+    // Debug logging
+    console.log("selectedStudents:", selectedStudents);
+    console.log("selectedStudents.length:", selectedStudents.length);
+
+    if (selectedStudents.length === 0) {
+      alert("No valid students selected");
+      return;
+    }
+
     setActionLoading(true);
     try {
-      // Filter out any undefined/null values and map to IDs
+      // Extract student IDs
       const studentIds = selectedStudents
-        .filter((s): s is Student => s != null && s.id != null)
+        .filter((s) => s && s.id)
         .map((s) => s.id);
+
+      console.log("studentIds:", studentIds);
 
       if (studentIds.length === 0) {
         alert("No valid students selected");
@@ -348,6 +417,16 @@ export default function StudentsPage() {
         { value: "12", label: "Grade 12" },
       ],
     },
+    {
+      key: "sectionId",
+      label: "Section",
+      type: "select",
+      placeholder: "All Sections",
+      options: sections.map((section) => ({
+        value: section.id,
+        label: `${section.name} - Grade ${section.grade_level}`,
+      })),
+    },
   ];
 
   const columns: ColumnDef<Student>[] = [
@@ -456,7 +535,7 @@ export default function StudentsPage() {
       {/* Filters */}
       <FilterBar
         filters={filterOptions}
-        values={filters}
+        values={{ ...filters, search: searchQuery }}
         onChange={handleFilterChange}
         onSearch={handleSearch}
         onReset={handleReset}
@@ -544,7 +623,7 @@ export default function StudentsPage() {
             lrn: "",
             gradeLevel: "",
             sectionId: "",
-            phone: "",
+            phone: "+63 ",
             temporaryPassword: "",
           });
         }}
@@ -594,7 +673,7 @@ export default function StudentsPage() {
                 value={formData.lrn}
                 onChange={(e) => setFormData({ ...formData, lrn: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="123456789012"
+                placeholder="2026-MSU-0010"
               />
             </div>
             <div>
@@ -604,7 +683,15 @@ export default function StudentsPage() {
               <input
                 type="tel"
                 value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  // Ensure +63 prefix is always present
+                  if (value.startsWith("+63")) {
+                    setFormData({ ...formData, phone: value });
+                  } else {
+                    setFormData({ ...formData, phone: "+63 " + value.replace(/^\+?63\s*/, "") });
+                  }
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="+63 9XX XXX XXXX"
               />
@@ -634,13 +721,18 @@ export default function StudentsPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Section (Optional)
               </label>
-              <input
-                type="text"
+              <select
                 value={formData.sectionId}
                 onChange={(e) => setFormData({ ...formData, sectionId: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="Leave blank to assign later"
-              />
+              >
+                <option value="">Select Section (Optional)</option>
+                {sections.map((section) => (
+                  <option key={section.id} value={section.id}>
+                    {section.name} - Grade {section.grade_level}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

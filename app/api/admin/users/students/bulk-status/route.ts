@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate status value
-    const validStatuses = ["active", "inactive", "graduated", "transferred"];
+    const validStatuses = ["active", "inactive", "suspended", "graduated", "transferred"];
     if (!validStatuses.includes(status)) {
       return NextResponse.json(
         { error: `Invalid status. Must be one of: ${validStatuses.join(", ")}` },

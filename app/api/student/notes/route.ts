@@ -17,14 +17,10 @@ export async function GET(request: NextRequest) {
     const courseId = searchParams.get("courseId");
     const lessonId = searchParams.get("lessonId");
 
-    // Build query with optional filters
+    // Build query with optional filters (flat query - BUG-001)
     let query = supabase
       .from("student_notes")
-      .select(`
-        *,
-        course:courses(id, name, subject_code),
-        lesson:lessons(id, title)
-      `)
+      .select("*")
       .eq("student_id", student.studentId);
 
     if (courseId) {
@@ -42,7 +38,47 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch notes" }, { status: 500 });
     }
 
-    return NextResponse.json({ notes });
+    // Fetch related course and lesson data separately (BUG-001)
+    if (notes && notes.length > 0) {
+      const courseIds = [...new Set(notes.map(n => n.course_id).filter(Boolean))];
+      const lessonIds = [...new Set(notes.map(n => n.lesson_id).filter(Boolean))];
+
+      let coursesMap = new Map();
+      let lessonsMap = new Map();
+
+      if (courseIds.length > 0) {
+        const { data: courses } = await supabase
+          .from("courses")
+          .select("id, name, subject_code")
+          .in("id", courseIds);
+
+        if (courses) {
+          courses.forEach(c => coursesMap.set(c.id, c));
+        }
+      }
+
+      if (lessonIds.length > 0) {
+        const { data: lessons } = await supabase
+          .from("lessons")
+          .select("id, title")
+          .in("id", lessonIds);
+
+        if (lessons) {
+          lessons.forEach(l => lessonsMap.set(l.id, l));
+        }
+      }
+
+      // Attach related data to notes
+      const notesWithRelations = notes.map(note => ({
+        ...note,
+        course: note.course_id ? coursesMap.get(note.course_id) || null : null,
+        lesson: note.lesson_id ? lessonsMap.get(note.lesson_id) || null : null
+      }));
+
+      return NextResponse.json({ notes: notesWithRelations });
+    }
+
+    return NextResponse.json({ notes: notes || [] });
   } catch (error) {
     console.error("Notes GET error:", error);
     return NextResponse.json({ error: "An error occurred" }, { status: 500 });

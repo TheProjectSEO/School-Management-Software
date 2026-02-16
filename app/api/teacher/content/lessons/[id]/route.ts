@@ -7,7 +7,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI'
-import { getLesson, updateLesson, deleteLesson, detectVideoType, getYouTubeThumbnail } from '@/lib/dal/content'
+import { getLesson, updateLesson, deleteLesson, detectVideoType, getYouTubeThumbnail, addLessonAttachment, deleteLessonAttachment } from '@/lib/dal/content'
+import { createServiceClient } from '@/lib/supabase/service'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -48,7 +49,8 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       thumbnail_url,
       duration_minutes,
       order,
-      is_published
+      is_published,
+      attachments
     } = body
 
     // Auto-detect video type if video_url changed but video_type not provided
@@ -83,7 +85,45 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    return NextResponse.json({ lesson })
+    // Handle attachment updates if provided
+    if (attachments !== undefined && Array.isArray(attachments)) {
+      const supabase = createServiceClient()
+
+      // Fetch existing attachments
+      const { data: existingAttachments } = await supabase
+        .from('lesson_attachments')
+        .select('id')
+        .eq('lesson_id', lessonId)
+
+      const existingIds = (existingAttachments || []).map((a: any) => a.id)
+      const incomingIds = attachments.filter(a => a.id).map(a => a.id)
+
+      // Delete removed attachments
+      const toDelete = existingIds.filter(id => !incomingIds.includes(id))
+      for (const id of toDelete) {
+        await deleteLessonAttachment(auth.teacher.teacherId, id)
+      }
+
+      // Add new attachments (those without an id)
+      const newAttachments = attachments.filter(a => !a.id)
+      for (let i = 0; i < newAttachments.length; i++) {
+        const att = newAttachments[i]
+        await addLessonAttachment(auth.teacher.teacherId, {
+          lesson_id: lessonId,
+          title: att.file_name || att.title || 'Attachment',
+          description: att.description || null,
+          file_url: att.file_url,
+          file_type: att.file_type || null,
+          file_size_bytes: att.file_size || att.file_size_bytes || null,
+          order_index: att.order_index !== undefined ? att.order_index : i
+        })
+      }
+    }
+
+    // Fetch updated lesson with attachments
+    const updatedLesson = await getLesson(auth.teacher.teacherId, lessonId)
+
+    return NextResponse.json({ lesson: updatedLesson })
   } catch (error) {
     console.error('Error in PATCH /api/content/lessons/[id]:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

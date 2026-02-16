@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI'
-import { detectVideoType, getYouTubeThumbnail } from '@/lib/dal/content'
+import { detectVideoType, getYouTubeThumbnail, addLessonAttachment } from '@/lib/dal/content'
 import { createServiceClient } from '@/lib/supabase/service'
 
 export async function POST(request: NextRequest) {
@@ -25,7 +25,8 @@ export async function POST(request: NextRequest) {
       thumbnail_url,
       duration_minutes,
       order,
-      is_published
+      is_published,
+      attachments
     } = body
 
     if (!module_id || !title) {
@@ -113,7 +114,32 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    return NextResponse.json({ lesson: { ...lesson, attachments: [] } }, { status: 201 })
+    // Save attachments if provided
+    if (attachments && Array.isArray(attachments) && attachments.length > 0) {
+      for (let i = 0; i < attachments.length; i++) {
+        const att = attachments[i]
+        await addLessonAttachment(auth.teacher.teacherId, {
+          lesson_id: lesson.id,
+          title: att.file_name || att.title || 'Attachment',
+          description: att.description || null,
+          file_url: att.file_url,
+          file_type: att.file_type || null,
+          file_size_bytes: att.file_size || att.file_size_bytes || null,
+          order_index: att.order_index !== undefined ? att.order_index : i
+        })
+      }
+    }
+
+    // Fetch saved attachments to return
+    const { data: savedAttachments } = await supabase
+      .from('lesson_attachments')
+      .select('*')
+      .eq('lesson_id', lesson.id)
+      .order('order_index', { ascending: true })
+
+    return NextResponse.json({
+      lesson: { ...lesson, attachments: savedAttachments || [] }
+    }, { status: 201 })
   } catch (error) {
     console.error('Error in POST /api/content/lessons:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

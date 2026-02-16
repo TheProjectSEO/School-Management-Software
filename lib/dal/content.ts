@@ -397,12 +397,10 @@ export async function getLessonsForModule(
   const hasAccess = await verifyTeacherCourseAccess(teacherId, courseId)
   if (!hasAccess) return []
 
+  // Fetch lessons with flat query (no FK joins - BUG-001)
   const { data, error } = await supabase
     .from('lessons')
-    .select(`
-      *,
-      attachments:lesson_attachments(*)
-    `)
+    .select('*')
     .eq('module_id', moduleId)
     .order('order', { ascending: true })
 
@@ -411,7 +409,28 @@ export async function getLessonsForModule(
     return []
   }
 
-  return data as Lesson[]
+  if (!data || data.length === 0) return []
+
+  // Fetch all attachments for these lessons separately
+  const lessonIds = data.map(l => l.id)
+  const { data: attachments } = await supabase
+    .from('lesson_attachments')
+    .select('*')
+    .in('lesson_id', lessonIds)
+    .order('order_index', { ascending: true })
+
+  // Map attachments to lessons
+  const attachmentsByLesson = new Map<string, any[]>()
+  ;(attachments || []).forEach(a => {
+    const arr = attachmentsByLesson.get(a.lesson_id) || []
+    arr.push(a)
+    attachmentsByLesson.set(a.lesson_id, arr)
+  })
+
+  return data.map(lesson => ({
+    ...lesson,
+    attachments: attachmentsByLesson.get(lesson.id) || []
+  })) as Lesson[]
 }
 
 /**
@@ -430,12 +449,10 @@ export async function getLesson(
   const hasAccess = await verifyTeacherCourseAccess(teacherId, courseId)
   if (!hasAccess) return null
 
+  // Fetch lesson with flat query (no FK joins - BUG-001)
   const { data, error } = await supabase
     .from('lessons')
-    .select(`
-      *,
-      attachments:lesson_attachments(*)
-    `)
+    .select('*')
     .eq('id', lessonId)
     .single()
 
@@ -444,7 +461,17 @@ export async function getLesson(
     return null
   }
 
-  return data as Lesson
+  // Fetch attachments separately
+  const { data: attachments } = await supabase
+    .from('lesson_attachments')
+    .select('*')
+    .eq('lesson_id', lessonId)
+    .order('order_index', { ascending: true })
+
+  return {
+    ...data,
+    attachments: attachments || []
+  } as Lesson
 }
 
 /**

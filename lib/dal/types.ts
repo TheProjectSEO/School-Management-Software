@@ -97,6 +97,20 @@ export interface Lesson {
   order: number;
   is_published: boolean;
   source_session_id?: string;
+  attachments?: Array<{
+    id: string;
+    lesson_id: string;
+    title: string;
+    description?: string | null;
+    file_url: string;
+    file_type?: string | null;
+    file_size_bytes?: number | null;
+    download_count: number;
+    order_index: number;
+    created_by?: string | null;
+    created_at: string;
+    updated_at: string;
+  }>;
   created_at: string;
   updated_at: string;
 }

@@ -99,7 +99,7 @@ export default function AskAIPanel({
     if (!question.trim() || isLoading) return;
 
     const userMessage: Message = {
-      id: crypto.randomUUID(),
+      id: self.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       role: "user",
       content: question,
       timestamp: new Date(),
@@ -136,7 +136,7 @@ export default function AskAIPanel({
         if (data.intent) setCurrentIntent(data.intent);
 
         const assistantMessage: Message = {
-          id: crypto.randomUUID(),
+          id: self.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           role: "assistant",
           content: data.answer,
           timestamp: new Date(),
@@ -148,7 +148,7 @@ export default function AskAIPanel({
         setMessages((prev) => [...prev, assistantMessage]);
       } else {
         const errorMessage: Message = {
-          id: crypto.randomUUID(),
+          id: self.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           role: "assistant",
           content: data.error || "Sorry, I encountered an error. Please try again.",
           timestamp: new Date(),
@@ -158,7 +158,7 @@ export default function AskAIPanel({
     } catch (error) {
       console.error("Error asking AI:", error);
       const errorMessage: Message = {
-        id: crypto.randomUUID(),
+        id: self.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         role: "assistant",
         content: "Sorry, I couldn't connect to the AI service. Please try again later.",
         timestamp: new Date(),

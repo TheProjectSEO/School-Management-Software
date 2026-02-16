@@ -1,11 +1,27 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { authFetch } from '@/lib/utils/authFetch'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import Badge from '@/components/ui/Badge'
+import RichTextEditor from '@/components/ui/RichTextEditor'
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+  arrayMove
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 
 type VideoType = 'youtube' | 'vimeo' | 'upload' | 'embed' | 'external' | null
 type ContentType = 'video' | 'reading' | 'quiz' | 'activity'
@@ -16,6 +32,7 @@ interface Attachment {
   file_url: string
   file_type: string
   file_size: number
+  order_index?: number
 }
 
 interface LessonData {
@@ -107,6 +124,86 @@ function getEmbedUrl(url: string, videoType: VideoType): string | null {
 function getYouTubeThumbnail(url: string): string | null {
   const videoId = extractYouTubeVideoId(url)
   return videoId ? `https://img.youtube.com/vi/${videoId}/hqdefault.jpg` : null
+}
+
+// Sortable Attachment Item Component
+function SortableAttachmentItem({
+  attachment,
+  index,
+  onDelete,
+  formatFileSize
+}: {
+  attachment: Attachment
+  index: number
+  onDelete: () => void
+  formatFileSize: (bytes: number) => string
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: attachment.id || `temp-${index}` })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
+    >
+      {/* Drag handle */}
+      <button
+        type="button"
+        {...attributes}
+        {...listeners}
+        className="cursor-grab active:cursor-grabbing text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+      >
+        <span className="material-symbols-outlined">drag_indicator</span>
+      </button>
+
+      {/* Image preview or icon */}
+      {attachment.file_type?.includes('image') ? (
+        <img
+          src={attachment.file_url}
+          alt={attachment.file_name}
+          className="w-16 h-16 object-cover rounded border border-slate-200 dark:border-slate-600"
+        />
+      ) : (
+        <span className="material-symbols-outlined text-slate-400">
+          {attachment.file_type?.includes('pdf') ? 'picture_as_pdf' :
+           attachment.file_type?.includes('video') ? 'movie' :
+           'description'}
+        </span>
+      )}
+
+      {/* File info */}
+      <div className="flex-1">
+        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+          {attachment.file_name}
+        </p>
+        <p className="text-xs text-slate-500">
+          {formatFileSize(attachment.file_size)}
+        </p>
+      </div>
+
+      {/* Delete button */}
+      <button
+        type="button"
+        onClick={onDelete}
+        className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors text-red-500"
+      >
+        <span className="material-symbols-outlined text-lg">delete</span>
+      </button>
+    </div>
+  )
 }
 
 export default function LessonEditor({
@@ -252,10 +349,17 @@ export default function LessonEditor({
         })
       }
 
-      setFormData(prev => ({
-        ...prev,
-        attachments: [...prev.attachments, ...newAttachments],
-      }))
+      setFormData(prev => {
+        const currentLength = prev.attachments.length
+        const withOrder = newAttachments.map((att, idx) => ({
+          ...att,
+          order_index: currentLength + idx
+        }))
+        return {
+          ...prev,
+          attachments: [...prev.attachments, ...withOrder],
+        }
+      })
 
       setSuccess('Attachments uploaded successfully!')
       setTimeout(() => setSuccess(null), 3000)
@@ -297,6 +401,11 @@ export default function LessonEditor({
         is_published: publish,
       }
 
+      console.log('[LessonEditor] Saving lesson:')
+      console.log('- Content length:', formData.content?.length || 0)
+      console.log('- Content preview:', formData.content?.substring(0, 200))
+      console.log('- Attachments count:', formData.attachments?.length || 0)
+
       const response = await authFetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
@@ -334,6 +443,32 @@ export default function LessonEditor({
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+
+    setFormData(prev => {
+      const oldIndex = prev.attachments.findIndex(
+        (a, i) => (a.id || `temp-${i}`) === active.id
+      )
+      const newIndex = prev.attachments.findIndex(
+        (a, i) => (a.id || `temp-${i}`) === over.id
+      )
+
+      const reordered = arrayMove(prev.attachments, oldIndex, newIndex)
+
+      // Update order_index to match new positions
+      const withOrder = reordered.map((att, idx) => ({
+        ...att,
+        order_index: idx
+      }))
+
+      return { ...prev, attachments: withOrder }
+    })
+  }
+
+  const sensors = useSensors(useSensor(PointerSensor))
 
   const containerClass = isModal
     ? 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4'
@@ -582,12 +717,11 @@ export default function LessonEditor({
             <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-2">
               Lesson Content / Description
             </label>
-            <textarea
+            <RichTextEditor
               value={formData.content}
-              onChange={(e) => setFormData(prev => ({ ...prev, content: e.target.value }))}
-              placeholder="Enter lesson content, instructions, or reading material..."
-              rows={6}
-              className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary resize-y"
+              onChange={(html) => setFormData(prev => ({ ...prev, content: html }))}
+              placeholder="Add detailed lesson instructions, objectives, or context. You can format text, add images, and create lists."
+              className="min-h-[200px]"
             />
           </div>
 
@@ -626,37 +760,28 @@ export default function LessonEditor({
                 </p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {formData.attachments.map((attachment, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-lg"
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="material-symbols-outlined text-slate-400">
-                        {attachment.file_type.includes('pdf') ? 'picture_as_pdf' :
-                         attachment.file_type.includes('image') ? 'image' :
-                         attachment.file_type.includes('video') ? 'movie' :
-                         'description'}
-                      </span>
-                      <div>
-                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                          {attachment.file_name}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {formatFileSize(attachment.file_size)}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => removeAttachment(index)}
-                      className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors text-red-500"
-                    >
-                      <span className="material-symbols-outlined text-lg">delete</span>
-                    </button>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={formData.attachments.map((a, i) => a.id || `temp-${i}`)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <div className="space-y-2">
+                    {formData.attachments.map((attachment, index) => (
+                      <SortableAttachmentItem
+                        key={attachment.id || `temp-${index}`}
+                        attachment={attachment}
+                        index={index}
+                        onDelete={() => removeAttachment(index)}
+                        formatFileSize={formatFileSize}
+                      />
+                    ))}
                   </div>
-                ))}
-              </div>
+                </SortableContext>
+              </DndContext>
             )}
           </Card>
         </div>

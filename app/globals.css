@@ -41,3 +41,72 @@ select:focus {
   outline: 2px solid #7B1113;
   outline-offset: 1px;
 }
+
+/* ===== CHECKBOX STYLING - MSU MAROON ===== */
+/* Make checkboxes visible with maroon theme */
+input[type="checkbox"] {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+  border: 2px solid #7B1113 !important;
+  border-radius: 0.25rem !important;
+  cursor: pointer !important;
+  position: relative !important;
+  vertical-align: middle !important;
+  flex-shrink: 0 !important;
+  background-color: white !important;
+  transition: all 0.15s ease-in-out !important;
+  display: inline-block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+input[type="checkbox"]:hover {
+  border-color: #5a0c0e !important;
+}
+
+input[type="checkbox"]:checked {
+  background-color: white !important;
+  border-color: #7B1113 !important;
+}
+
+input[type="checkbox"]:checked::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 6px !important;
+  top: 2px !important;
+  width: 5px !important;
+  height: 10px !important;
+  border: solid #7B1113 !important;
+  border-width: 0 2px 2px 0 !important;
+  transform: rotate(45deg) !important;
+  display: block !important;
+}
+
+input[type="checkbox"]:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+/* Checkboxes in prose (rich text content) */
+.prose input[type="checkbox"] {
+  margin-right: 0.5rem;
+}
+
+/* List markers in maroon for prose content */
+.prose ul > li::marker,
+.prose ol > li::marker {
+  color: #7B1113;
+  font-weight: 600;
+}
+
+/* Task list items */
+.prose ul[data-type="taskList"] li {
+  list-style: none;
+}
+
+.prose ul[data-type="taskList"] li input[type="checkbox"] {
+  margin-left: -1.5rem;
+}

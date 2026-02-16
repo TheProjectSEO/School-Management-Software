@@ -354,15 +354,15 @@ export default async function ModulePage({
           <LessonAttachments
             attachments={
               // Filter out the first PDF/Presentation (already shown in Reading Material section above)
-              currentLesson.attachments.filter((a, i) => {
+              (currentLesson.attachments || []).filter((a, i) => {
                 if (a.file_type?.includes('pdf') || a.file_type?.includes('presentation') || a.file_type?.includes('powerpoint')) {
                   // Skip the first PDF or presentation only
-                  const docIndex = currentLesson.attachments.findIndex(att =>
+                  const docIndex = (currentLesson.attachments || []).findIndex(att =>
                     att.file_type?.includes('pdf') ||
                     att.file_type?.includes('presentation') ||
                     att.file_type?.includes('powerpoint')
                   )
-                  return currentLesson.attachments.indexOf(a) !== docIndex
+                  return (currentLesson.attachments || []).indexOf(a) !== docIndex
                 }
                 return true
               })

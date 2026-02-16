@@ -450,8 +450,9 @@ export interface StudentListItem {
   full_name?: string;
   section_name?: string;
   created_at?: string;
+  email?: string;
   // Nested structure
-  profile: {
+  profile?: {
     id: string;
     full_name: string;
     email?: string;

@@ -69,6 +69,13 @@ test-results/
 tmp/
 temp/
 
+# Claude Code local settings
+.claude/settings.local.json
+.claude/plans/
+
+# Supabase temporary files
+supabase/.temp/
+
 # Lock files (optional - some teams commit these)
 # Uncomment if you don't want to track lock files
 # package-lock.json

@@ -13,6 +13,9 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
+// Force dynamic rendering (uses cookies for authentication)
+export const dynamic = 'force-dynamic';
+
 export default async function LiveSessionPage({ params }: PageProps) {
   const { id: sessionId } = await params;
   const supabase = createServiceClient();

@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { getCurrentStudent } from "@/lib/dal/student";
 import { getAssessmentForQuiz, getAssessmentSubmission, getQuizResult } from "@/lib/dal";
 
+// Force dynamic rendering (uses cookies for authentication)
+export const dynamic = 'force-dynamic';
+
 export default async function SubmissionPage({
   params,
 }: {

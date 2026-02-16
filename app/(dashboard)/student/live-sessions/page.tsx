@@ -40,6 +40,9 @@ const statusStyles: Record<LiveSession["status"], string> = {
   cancelled: "bg-red-100 text-red-800",
 };
 
+// Force dynamic rendering (uses cookies for authentication)
+export const dynamic = 'force-dynamic';
+
 export default async function LiveSessionsPage() {
   const supabase = createServiceClient();
   const profile = await getCurrentProfile();

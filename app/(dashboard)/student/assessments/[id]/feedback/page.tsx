@@ -7,6 +7,9 @@ import {
   getQuizResult,
 } from "@/lib/dal";
 
+// Force dynamic rendering (uses cookies for authentication)
+export const dynamic = 'force-dynamic';
+
 export default async function FeedbackPage({
   params,
 }: {

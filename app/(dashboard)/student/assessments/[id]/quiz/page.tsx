@@ -3,6 +3,9 @@ import { getCurrentStudent } from "@/lib/dal/student";
 import { getAssessmentForQuiz, canTakeAssessment } from "@/lib/dal";
 import QuizClient from "./QuizClient";
 
+// Force dynamic rendering (uses cookies for authentication)
+export const dynamic = 'force-dynamic';
+
 export default async function QuizPage({
   params,
 }: {

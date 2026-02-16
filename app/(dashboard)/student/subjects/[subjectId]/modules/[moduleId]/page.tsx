@@ -16,6 +16,7 @@ import NotesPanel from "./NotesPanel";
 import AskAIPanel from "./AskAIPanel";
 import { LessonReactions } from "@/components/student/lesson/LessonReactions";
 import LessonAttachments from "@/components/student/lesson/LessonAttachments";
+import PDFViewer from "./PDFViewer";
 
 export const revalidate = 600; // 10 minutes - lesson content
 
@@ -148,101 +149,16 @@ export default async function ModulePage({
         ) : currentLesson.attachments?.find(a => a.file_type?.includes('pdf') || a.file_type?.includes('presentation') || a.file_type?.includes('powerpoint')) ? (
           // Show PDF/Presentation preview for lessons with document attachments
           (() => {
-            const pdfAttachment = currentLesson.attachments.find(a => a.file_type?.includes('pdf') || a.file_type?.includes('presentation') || a.file_type?.includes('powerpoint'))
+            const docAttachment = currentLesson.attachments.find(a => a.file_type?.includes('pdf') || a.file_type?.includes('presentation') || a.file_type?.includes('powerpoint'))
+            if (!docAttachment) return null
             return (
-              <div className={`w-full rounded-xl overflow-hidden shadow-lg ${isPlayful ? 'bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200' : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700'}`}>
-                {/* PDF Viewer Header */}
-                <div className={`p-4 border-b flex items-center justify-between ${isPlayful ? 'bg-purple-100 border-purple-200' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700'}`}>
-                  <div className="flex items-center gap-2">
-                    <span className={`material-symbols-outlined text-2xl ${isPlayful ? 'text-purple-600' : 'text-[#7B1113]'}`}>
-                      menu_book
-                    </span>
-                    <div>
-                      <h3 className={`font-bold ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
-                        {isPlayful ? '📚 Reading Material' : 'Reading Material'}
-                      </h3>
-                      <p className={`text-xs ${isPlayful ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}`}>
-                        {pdfAttachment?.title || (pdfAttachment?.file_type?.includes('pdf') ? 'PDF Document' : 'Presentation')}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        const iframe = document.getElementById('pdf-viewer-iframe') as HTMLIFrameElement
-                        if (iframe) {
-                          iframe.requestFullscreen?.() || (iframe as any).webkitRequestFullscreen?.()
-                        }
-                      }}
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${isPlayful ? 'bg-purple-500 text-white hover:bg-purple-600' : 'bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600'}`}
-                    >
-                      <span className="material-symbols-outlined inline-block align-middle">
-                        fullscreen
-                      </span>
-                      <span className="ml-2 hidden sm:inline">Fullscreen</span>
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (pdfAttachment) {
-                          // Track download
-                          fetch(`/api/student/attachments/${pdfAttachment.id}/download`, {
-                            method: 'POST'
-                          }).catch(err => console.error('Failed to track download:', err))
-                          // Open PDF in new tab for download
-                          window.open(pdfAttachment.file_url, '_blank')
-                        }
-                      }}
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${isPlayful ? 'bg-pink-500 text-white hover:bg-pink-600' : 'bg-[#7B1113] text-white hover:bg-[#5a0c0e]'}`}
-                    >
-                      <span className="material-symbols-outlined inline-block align-middle">
-                        download
-                      </span>
-                      <span className="ml-2 hidden sm:inline">Download</span>
-                    </button>
-                  </div>
-                </div>
-                {/* Document Viewer */}
-                <div className="relative bg-slate-100 dark:bg-slate-900">
-                  {pdfAttachment?.file_type?.includes('pdf') ? (
-                    <iframe
-                      id="pdf-viewer-iframe"
-                      src={pdfAttachment.file_url}
-                      className="w-full h-[700px]"
-                      title="Reading Material PDF"
-                    />
-                  ) : (pdfAttachment?.file_type?.includes('presentation') || pdfAttachment?.file_type?.includes('powerpoint')) ? (
-                    <iframe
-                      id="presentation-viewer-iframe"
-                      src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(pdfAttachment.file_url)}`}
-                      className="w-full h-[700px]"
-                      title="Reading Material Presentation"
-                    />
-                  ) : (
-                    <div className="w-full h-[700px] flex items-center justify-center">
-                      <div className="text-center p-8">
-                        <span className="material-symbols-outlined text-6xl text-slate-400 mb-4 block">
-                          description
-                        </span>
-                        <p className="text-slate-600 dark:text-slate-400 mb-4">
-                          Preview not available for this file type
-                        </p>
-                        <button
-                          onClick={() => window.open(pdfAttachment?.file_url, '_blank')}
-                          className="px-4 py-2 bg-[#7B1113] text-white rounded-lg hover:bg-[#5a0c0e]"
-                        >
-                          Download to View
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {/* PDF Viewer Footer */}
-                <div className={`p-3 border-t text-center ${isPlayful ? 'bg-purple-50 border-purple-200' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700'}`}>
-                  <p className={`text-sm ${isPlayful ? 'text-purple-600' : 'text-slate-600 dark:text-slate-400'}`}>
-                    {isPlayful ? '💡 Tip: Use fullscreen mode for better reading experience!' : 'Use the fullscreen button for a better reading experience'}
-                  </p>
-                </div>
-              </div>
+              <PDFViewer
+                fileUrl={docAttachment.file_url}
+                fileTitle={docAttachment.title}
+                fileType={docAttachment.file_type || ''}
+                fileId={docAttachment.id}
+                isPlayful={isPlayful}
+              />
             )
           })()
         ) : (

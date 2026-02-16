@@ -1,0 +1,796 @@
+{
+  "generated_at": "2026-02-16",
+  "total_migrations": 40,
+  "migrations": [
+    {
+      "file": "001_auth_tables.sql",
+      "purpose": "JWT + RBAC authentication foundation tables for custom auth system",
+      "category": "auth",
+      "tables_created": [
+        {
+          "name": "refresh_tokens",
+          "columns": ["id UUID PK", "user_id UUID FK(auth.users)", "token_hash TEXT UNIQUE", "expires_at TIMESTAMPTZ", "revoked_at TIMESTAMPTZ", "created_at TIMESTAMPTZ", "user_agent TEXT", "ip_address TEXT"],
+          "indexes": ["idx_refresh_tokens_user_id", "idx_refresh_tokens_expires_at"],
+          "rls": true
+        },
+        {
+          "name": "role_permissions",
+          "columns": ["id UUID PK", "role TEXT (super_admin|admin|teacher|student)", "permission TEXT", "school_id UUID", "created_at TIMESTAMPTZ"],
+          "indexes": ["idx_role_permissions_role"],
+          "rls": true
+        },
+        {
+          "name": "user_permissions",
+          "columns": ["id UUID PK", "user_id UUID FK(auth.users)", "permission TEXT", "granted BOOLEAN", "created_at TIMESTAMPTZ", "granted_by UUID FK(auth.users)"],
+          "indexes": ["idx_user_permissions_user_id"],
+          "rls": true
+        },
+        {
+          "name": "auth_audit_log",
+          "columns": ["id UUID PK", "user_id UUID FK(auth.users)", "event_type TEXT (login|logout|token_refresh|permission_denied|login_failed|password_reset|password_changed)", "ip_address TEXT", "user_agent TEXT", "metadata JSONB", "created_at TIMESTAMPTZ"],
+          "indexes": ["idx_auth_audit_log_user_id", "idx_auth_audit_log_event_type", "idx_auth_audit_log_created_at"],
+          "rls": true
+        }
+      ],
+      "functions_created": ["cleanup_expired_refresh_tokens()"],
+      "rls_policies": [
+        "Users can view own refresh tokens",
+        "Service role manages refresh tokens",
+        "Service role manages role permissions",
+        "Authenticated users can view role permissions",
+        "Users can view own permissions",
+        "Service role manages user permissions",
+        "Users can view own audit logs",
+        "Service role manages audit logs"
+      ]
+    },
+    {
+      "file": "20260122000001_create_session_recordings_bucket.sql",
+      "purpose": "Create Supabase storage bucket for live session video recordings",
+      "category": "storage",
+      "tables_modified": [],
+      "storage_buckets": [
+        {
+          "name": "session-recordings",
+          "public": true,
+          "max_file_size": "500MB",
+          "allowed_mime_types": ["video/mp4", "video/webm", "video/quicktime"]
+        }
+      ],
+      "rls_policies": [
+        "Allow public read access to session recordings",
+        "Allow authenticated users to upload session recordings",
+        "Allow authenticated users to update session recordings",
+        "Allow authenticated users to delete session recordings"
+      ]
+    },
+    {
+      "file": "20260122000002_create_session_transcripts.sql",
+      "purpose": "Session transcripts with AI vector embeddings for 'Ask AI about recording' feature",
+      "category": "ai-transcripts",
+      "extensions_enabled": ["vector (pgvector)"],
+      "tables_created": [
+        {
+          "name": "session_transcripts",
+          "columns": ["id UUID PK", "session_id UUID FK(live_sessions) UNIQUE", "provider TEXT", "language TEXT", "transcript_text TEXT", "transcript_json JSONB", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "indexes": ["session_transcripts_session_idx"],
+          "rls": true
+        },
+        {
+          "name": "session_transcript_chunks",
+          "columns": ["id UUID PK", "session_id UUID FK(live_sessions)", "chunk_index INTEGER", "content TEXT", "embedding vector(1536)", "model TEXT", "created_at TIMESTAMPTZ"],
+          "indexes": ["session_transcript_chunks_embedding_idx (ivfflat cosine)", "session_transcript_chunks_session_idx"],
+          "rls": true
+        }
+      ],
+      "functions_created": ["update_session_transcripts_updated_at() TRIGGER"],
+      "rls_policies": [
+        "Students can view transcripts for enrolled courses",
+        "Teachers can view transcripts for their sessions",
+        "Service role can manage transcripts",
+        "Students can view chunks for enrolled courses",
+        "Teachers can view chunks for their sessions",
+        "Service role can manage chunks"
+      ]
+    },
+    {
+      "file": "20260122000003_unified_announcements_messaging.sql",
+      "purpose": "Unified announcements and direct messaging system for all roles",
+      "category": "messaging",
+      "tables_created": [
+        {
+          "name": "teacher_announcements",
+          "columns": ["id UUID PK", "school_id UUID FK(schools)", "teacher_id UUID FK(teacher_profiles)", "title TEXT", "content TEXT", "target_type TEXT (section|grade|course|school)", "target_section_ids UUID[]", "target_grade_levels TEXT[]", "target_course_ids UUID[]", "priority TEXT (low|normal|high|urgent)", "is_published BOOLEAN", "published_at TIMESTAMPTZ", "expires_at TIMESTAMPTZ", "attachments JSONB", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "indexes": ["idx_teacher_announcements_school", "idx_teacher_announcements_teacher", "idx_teacher_announcements_target_type", "idx_teacher_announcements_published", "idx_teacher_announcements_priority", "idx_teacher_announcements_active (partial)"],
+          "rls": true
+        },
+        {
+          "name": "announcement_reads",
+          "columns": ["id UUID PK", "announcement_id UUID FK(teacher_announcements)", "student_id UUID FK(students)", "read_at TIMESTAMPTZ"],
+          "unique_constraint": "announcement_id + student_id",
+          "indexes": ["idx_announcement_reads_announcement", "idx_announcement_reads_student"],
+          "rls": true
+        },
+        {
+          "name": "teacher_direct_messages",
+          "columns": ["id UUID PK", "school_id UUID FK(schools)", "from_profile_id UUID FK(school_profiles)", "to_profile_id UUID FK(school_profiles)", "sender_type TEXT (teacher|student)", "body TEXT", "attachments JSONB", "is_read BOOLEAN", "read_at TIMESTAMPTZ", "created_at TIMESTAMPTZ"],
+          "indexes": ["idx_teacher_dm_school", "idx_teacher_dm_from", "idx_teacher_dm_to", "idx_teacher_dm_conversation (LEAST/GREATEST)", "idx_teacher_dm_unread (partial)", "idx_teacher_dm_sender_type"],
+          "rls": true
+        },
+        {
+          "name": "student_message_quotas",
+          "columns": ["id UUID PK", "student_id UUID FK(students)", "teacher_id UUID FK(teacher_profiles)", "school_id UUID FK(schools)", "quota_date DATE", "messages_sent INTEGER", "max_messages INTEGER"],
+          "unique_constraint": "student_id + teacher_id + quota_date",
+          "indexes": ["idx_student_quotas_lookup"],
+          "rls": true
+        }
+      ],
+      "functions_created": [
+        "get_announcement_target_count(school_id, target_type, section_ids, grade_levels, course_ids) → INTEGER",
+        "publish_announcement(announcement_id) → BOOLEAN",
+        "check_student_message_quota(student_id, teacher_id) → JSONB",
+        "send_student_message(student_id, teacher_id, school_id, body, attachments) → JSONB",
+        "send_teacher_message(teacher_id, student_id, school_id, body, attachments) → JSONB",
+        "get_user_conversations(profile_id, limit) → TABLE",
+        "get_conversation(profile_1, profile_2, limit, offset) → SETOF teacher_direct_messages",
+        "get_unread_count(profile_id) → INTEGER",
+        "get_student_profile_by_id(student_id) → TABLE",
+        "update_updated_at_column() TRIGGER",
+        "mark_message_as_read() TRIGGER"
+      ]
+    },
+    {
+      "file": "20260124155238_add_missing_schema_columns.sql",
+      "purpose": "Add missing columns to school_profiles, fee_categories, enrollments, payment_plans; create school_years table",
+      "category": "schema-fix",
+      "tables_modified": [
+        {
+          "name": "school_profiles",
+          "columns_added": ["role TEXT DEFAULT 'student'"]
+        },
+        {
+          "name": "fee_categories",
+          "columns_added": ["sort_order INTEGER DEFAULT 0", "category TEXT DEFAULT 'other_fee'"],
+          "note": "Only if table exists"
+        },
+        {
+          "name": "enrollments",
+          "columns_added": ["section_id UUID FK(sections)"],
+          "indexes_added": ["idx_enrollments_section_id"]
+        },
+        {
+          "name": "payment_plans",
+          "columns_added": ["school_year_id UUID FK(school_years)"]
+        }
+      ],
+      "tables_created": [
+        {
+          "name": "school_years",
+          "columns": ["id UUID PK", "school_id UUID FK(schools)", "year_name TEXT", "start_date DATE", "end_date DATE", "status TEXT", "is_current BOOLEAN", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "indexes": ["idx_school_years_school_id", "idx_school_years_is_current"]
+        }
+      ]
+    },
+    {
+      "file": "20260125_create_section_advisers.sql",
+      "purpose": "Create section_advisers table (duplicate of 20260125062314 migration)",
+      "category": "sections",
+      "tables_created": [
+        {
+          "name": "section_advisers",
+          "columns": ["id UUID PK", "teacher_profile_id UUID FK(teacher_profiles)", "section_id UUID FK(sections) UNIQUE", "school_id UUID FK(schools)", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "indexes": ["idx_section_advisers_teacher", "idx_section_advisers_section", "idx_section_advisers_school"],
+          "rls": true
+        }
+      ],
+      "rls_policies": [
+        "Allow read access to section_advisers (authenticated)",
+        "Allow service role full access to section_advisers"
+      ]
+    },
+    {
+      "file": "20260125_fix_live_sessions_rls.sql",
+      "purpose": "Fix RLS policies for live_sessions — correct column name teacher_profile_id instead of teacher_id",
+      "category": "rls-fix",
+      "tables_modified": ["live_sessions"],
+      "rls_policies_replaced": [
+        "Teachers can manage their sessions (using teacher_profile_id)",
+        "Students can view sessions for enrolled courses",
+        "Service role has full access"
+      ]
+    },
+    {
+      "file": "20260125062314_add_section_advisers_table.sql",
+      "purpose": "Create section_advisers table with RLS (duplicate of 20260125_create_section_advisers.sql)",
+      "category": "sections",
+      "tables_created": [
+        {
+          "name": "section_advisers",
+          "columns": ["id UUID PK", "teacher_profile_id UUID FK(teacher_profiles)", "section_id UUID FK(sections) UNIQUE", "school_id UUID FK(schools)", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "indexes": ["idx_section_advisers_teacher", "idx_section_advisers_section", "idx_section_advisers_school"],
+          "rls": true
+        }
+      ]
+    },
+    {
+      "file": "20260126_remove_student_message_limit.sql",
+      "purpose": "Remove 3 messages/day limit for students — override quota functions to allow unlimited",
+      "category": "messaging-fix",
+      "functions_replaced": [
+        "check_student_message_quota → always returns can_send:true, remaining:999999",
+        "send_student_message → sends directly without quota check"
+      ]
+    },
+    {
+      "file": "20260126_enable_realtime_messages.sql",
+      "purpose": "Add messaging tables to Supabase Realtime publication",
+      "category": "realtime",
+      "realtime_tables_added": ["teacher_direct_messages", "teacher_announcements", "student_notifications", "applications"]
+    },
+    {
+      "file": "20260126_fix_realtime_read_receipts.sql",
+      "purpose": "Fix realtime for read receipts — REPLICA IDENTITY FULL, updated_at column, mark_messages_read RPC",
+      "category": "realtime-fix",
+      "tables_modified": [
+        {
+          "name": "teacher_direct_messages",
+          "changes": ["Set REPLICA IDENTITY FULL", "Add updated_at TIMESTAMPTZ column"],
+          "rls_policies_replaced": ["Users can view their messages", "Users can update their received messages", "Service role full access"]
+        }
+      ],
+      "functions_created": [
+        "mark_messages_read(profile_id, partner_profile_id) → INTEGER",
+        "update_teacher_direct_messages_updated_at() TRIGGER"
+      ]
+    },
+    {
+      "file": "20260126_fix_realtime_permissive.sql",
+      "purpose": "Replace restrictive RLS with permissive policies for realtime to work with custom JWT auth",
+      "category": "rls-fix",
+      "tables_modified": ["teacher_direct_messages"],
+      "rls_policies_replaced": [
+        "Allow select for authenticated users (USING true)",
+        "Allow insert for authenticated users (WITH CHECK true)",
+        "Allow update for authenticated users (USING true)",
+        "Service role full access"
+      ],
+      "note": "Permissive RLS because custom JWT auth means auth.uid() doesn't work. Client-side filtering handles security."
+    },
+    {
+      "file": "20260126_enroll_students_stem_a.sql",
+      "purpose": "One-time data migration: enroll all students into Grade 12 STEM-A section and assign teachers",
+      "category": "data-migration",
+      "tables_modified": ["students (set section_id, grade_level=12, status=active)", "sections (create STEM-A if missing)", "teacher_assignments (assign all teachers to STEM-A section)"],
+      "note": "Environment-specific seed data, not schema change"
+    },
+    {
+      "file": "20260126_fix_all_rls_announcements.sql",
+      "purpose": "Replace all RLS policies with permissive 'allow all' for announcements and core tables",
+      "category": "rls-fix",
+      "tables_modified": [
+        "teacher_announcements",
+        "announcement_reads",
+        "students",
+        "sections",
+        "teacher_assignments",
+        "teacher_profiles",
+        "school_profiles",
+        "courses",
+        "student_notifications"
+      ],
+      "note": "All policies set to USING(true) WITH CHECK(true) for anon+authenticated+service_role. Also includes hardcoded teacher_assignments INSERT and student UPDATE for STEM-A section UUID."
+    },
+    {
+      "file": "20260126_fix_all_rls_for_custom_jwt.sql",
+      "purpose": "Fix all RLS policies system-wide for custom JWT auth — permissive policies on 15 tables",
+      "category": "rls-fix",
+      "tables_modified": [
+        "teacher_live_sessions",
+        "live_sessions",
+        "session_transcripts",
+        "enrollments",
+        "assessments",
+        "submissions",
+        "modules",
+        "lessons",
+        "direct_messages",
+        "notifications",
+        "grading_periods",
+        "grades",
+        "teacher_daily_attendance",
+        "lesson_progress",
+        "session_attendance"
+      ],
+      "note": "All set to 'Allow all on [table]' USING(true) for anon+authenticated+service_role"
+    },
+    {
+      "file": "20260127_comprehensive_schema_fixes.sql",
+      "purpose": "Fix live_sessions column rename, add assessments columns, attendance columns, create notification_preferences table",
+      "category": "schema-fix",
+      "tables_modified": [
+        {
+          "name": "live_sessions",
+          "changes": ["Rename teacher_id → teacher_profile_id", "Recreate RLS policies with correct column", "New index idx_live_sessions_teacher_profile"]
+        },
+        {
+          "name": "assessments",
+          "columns_added": ["section_id UUID FK(sections)", "status TEXT (draft|published|archived|closed)", "created_by UUID FK(teacher_profiles)"],
+          "indexes_added": ["idx_assessments_section", "idx_assessments_status", "idx_assessments_created_by"]
+        },
+        {
+          "name": "teacher_daily_attendance",
+          "columns_added": ["notes TEXT", "updated_by UUID"]
+        }
+      ],
+      "tables_created": [
+        {
+          "name": "notification_preferences",
+          "columns": ["id UUID PK", "user_id UUID", "user_type TEXT (teacher|student|admin)", "email_* BOOLEAN (5 types)", "push_* BOOLEAN (5 types)", "in_app_* BOOLEAN (5 types)", "quiet_hours_enabled BOOLEAN", "quiet_hours_start TIME", "quiet_hours_end TIME", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "unique_constraint": "user_id + user_type",
+          "rls": true
+        }
+      ],
+      "rls_policies_updated": ["session_reactions", "session_questions", "session_participants"]
+    },
+    {
+      "file": "20260127_fix_assessments_complete.sql",
+      "purpose": "Complete assessment system fix — create missing tables, add columns, fix constraints",
+      "category": "assessments",
+      "tables_modified": [
+        {
+          "name": "assessments",
+          "columns_added": ["max_attempts INTEGER DEFAULT 1", "time_limit_minutes INTEGER", "instructions TEXT"],
+          "constraints_fixed": ["assessments_type_check → quiz|exam|assignment|project|midterm|final"]
+        },
+        {
+          "name": "submissions",
+          "columns_added": ["ai_score INTEGER", "ai_feedback TEXT", "ai_graded_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "constraints_fixed": ["submissions_status_check → pending|submitted|graded|returned|released", "graded_by column type changed TEXT → UUID"]
+        },
+        {
+          "name": "student_answers",
+          "columns_added": ["updated_at TIMESTAMPTZ"],
+          "constraints_added": ["fk_student_answers_option FK(answer_options)"]
+        }
+      ],
+      "tables_created": [
+        {
+          "name": "questions",
+          "columns": ["id UUID PK", "assessment_id UUID FK(assessments)", "question_text TEXT", "question_type VARCHAR(20) (multiple_choice|true_false|short_answer|essay)", "points INTEGER", "correct_answer TEXT", "explanation TEXT", "order_index INTEGER", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "indexes": ["idx_questions_assessment", "idx_questions_order", "idx_questions_type"],
+          "rls": true
+        },
+        {
+          "name": "answer_options",
+          "columns": ["id UUID PK", "question_id UUID FK(questions)", "option_text TEXT", "is_correct BOOLEAN", "order_index INTEGER"],
+          "indexes": ["idx_answer_options_question"],
+          "rls": true
+        },
+        {
+          "name": "teacher_assessment_questions",
+          "columns": ["id UUID PK", "assessment_id UUID FK(assessments)", "question_text TEXT", "question_type TEXT (multiple_choice|true_false|short_answer|essay)", "choices_json JSONB", "answer_key_json JSONB", "points INTEGER", "difficulty TEXT (easy|medium|hard)", "tags TEXT[]", "explanation TEXT", "order_index INTEGER", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "indexes": ["idx_teacher_assessment_questions_assessment", "idx_teacher_assessment_questions_type", "idx_teacher_assessment_questions_order"],
+          "rls": true
+        }
+      ],
+      "indexes_added": ["idx_submissions_status", "idx_submissions_graded_at", "idx_submissions_ai_graded_at", "idx_student_answers_is_correct"],
+      "functions_created": [
+        "update_questions_timestamp() TRIGGER",
+        "update_teacher_assessment_questions_updated_at() TRIGGER",
+        "update_questions_updated_at() TRIGGER",
+        "update_student_answers_updated_at() TRIGGER",
+        "update_submissions_updated_at() TRIGGER"
+      ]
+    },
+    {
+      "file": "20260127_fix_question_type_constraint.sql",
+      "purpose": "Expand teacher_assessment_questions question_type constraint to include fill_in_blank and matching",
+      "category": "assessments-fix",
+      "tables_modified": [
+        {
+          "name": "teacher_assessment_questions",
+          "constraints_fixed": ["question_type CHECK → multiple_choice|true_false|short_answer|essay|fill_in_blank|matching"]
+        }
+      ]
+    },
+    {
+      "file": "20260127_add_assessment_available_from.sql",
+      "purpose": "Add available_from scheduling column to assessments table",
+      "category": "assessments",
+      "tables_modified": [
+        {
+          "name": "assessments",
+          "columns_added": ["available_from TIMESTAMPTZ DEFAULT NULL"],
+          "indexes_added": ["idx_assessments_available_from (partial, WHERE NOT NULL)"]
+        }
+      ]
+    },
+    {
+      "file": "20260128_section_group_chats.sql",
+      "purpose": "Section-based group chat system with auto-sync of members",
+      "category": "messaging",
+      "tables_created": [
+        {
+          "name": "section_group_chats",
+          "columns": ["id UUID PK", "section_id UUID FK(sections) UNIQUE", "school_id UUID FK(schools)", "name TEXT", "description TEXT", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "indexes": ["idx_section_group_chats_section", "idx_section_group_chats_school"],
+          "rls": true
+        },
+        {
+          "name": "section_group_chat_members",
+          "columns": ["id UUID PK", "group_chat_id UUID FK(section_group_chats)", "profile_id UUID FK(school_profiles)", "member_role TEXT (teacher|student)", "joined_at TIMESTAMPTZ"],
+          "unique_constraint": "group_chat_id + profile_id",
+          "indexes": ["idx_section_group_chat_members_group", "idx_section_group_chat_members_profile"],
+          "rls": true
+        },
+        {
+          "name": "section_group_chat_messages",
+          "columns": ["id UUID PK", "group_chat_id UUID FK(section_group_chats)", "sender_profile_id UUID FK(school_profiles)", "sender_role TEXT (teacher|student)", "body TEXT", "created_at TIMESTAMPTZ"],
+          "indexes": ["idx_section_group_chat_messages_group", "idx_section_group_chat_messages_created"],
+          "rls": true
+        }
+      ],
+      "realtime_tables_added": ["section_group_chat_messages"],
+      "functions_created": [
+        "create_or_update_section_group_chat(section_id, school_id) → UUID",
+        "get_user_group_chats(profile_id) → TABLE",
+        "get_group_chat_messages(group_chat_id, profile_id, limit) → TABLE"
+      ]
+    },
+    {
+      "file": "20260209_create_teacher_feedback_templates.sql",
+      "purpose": "Reusable grading feedback templates for teachers",
+      "category": "grading",
+      "tables_created": [
+        {
+          "name": "teacher_feedback_templates",
+          "columns": ["id UUID PK", "teacher_profile_id UUID FK(teacher_profiles)", "name TEXT", "category TEXT", "content TEXT", "variables TEXT[]", "is_default BOOLEAN", "usage_count INTEGER", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "indexes": ["idx_feedback_templates_teacher", "idx_feedback_templates_category"],
+          "rls": true
+        }
+      ]
+    },
+    {
+      "file": "20260210_add_lesson_source_session.sql",
+      "purpose": "Link auto-created lessons to their source live session",
+      "category": "lessons",
+      "tables_modified": [
+        {
+          "name": "lessons",
+          "columns_added": ["source_session_id UUID FK(live_sessions) ON DELETE SET NULL"],
+          "indexes_added": ["idx_lessons_source_session"]
+        }
+      ]
+    },
+    {
+      "file": "20260210_add_lesson_thumbnail_url.sql",
+      "purpose": "Add thumbnail URL to lessons table",
+      "category": "lessons",
+      "tables_modified": [
+        {
+          "name": "lessons",
+          "columns_added": ["thumbnail_url TEXT"]
+        }
+      ]
+    },
+    {
+      "file": "20260210_fix_lessons_published.sql",
+      "purpose": "Bug fix: set all existing lessons to published (bug had hardcoded is_published=false)",
+      "category": "data-fix",
+      "tables_modified": ["lessons"],
+      "data_changes": "UPDATE lessons SET is_published = true WHERE is_published = false"
+    },
+    {
+      "file": "20260210_create_lesson_reactions.sql",
+      "purpose": "Student reactions on lessons (like, helpful, confused, love, celebrate)",
+      "category": "lessons",
+      "tables_created": [
+        {
+          "name": "lesson_reactions",
+          "columns": ["id UUID PK", "lesson_id UUID FK(lessons)", "student_id UUID FK(students)", "reaction_type TEXT (like|helpful|confused|love|celebrate)", "created_at TIMESTAMPTZ"],
+          "unique_constraint": "lesson_id + student_id",
+          "indexes": ["idx_lesson_reactions_lesson", "idx_lesson_reactions_student"],
+          "rls": true
+        }
+      ]
+    },
+    {
+      "file": "20260210_fix_student_progress_constraint.sql",
+      "purpose": "Add UNIQUE constraint on student_progress(student_id, lesson_id) for upsert operations",
+      "category": "schema-fix",
+      "tables_modified": [
+        {
+          "name": "student_progress",
+          "constraints_added": ["student_progress_student_id_lesson_id_key UNIQUE(student_id, lesson_id)"]
+        }
+      ],
+      "data_changes": "Deletes duplicate rows keeping highest progress"
+    },
+    {
+      "file": "20260210_add_lesson_video_type.sql",
+      "purpose": "Add video_type column to lessons for video player type detection",
+      "category": "lessons",
+      "tables_modified": [
+        {
+          "name": "lessons",
+          "columns_added": ["video_type TEXT"]
+        }
+      ]
+    },
+    {
+      "file": "20260210_create_student_notes.sql",
+      "purpose": "Student note-taking for lessons",
+      "category": "student-features",
+      "tables_created": [
+        {
+          "name": "student_notes",
+          "columns": ["id UUID PK", "student_id UUID FK(students)", "title TEXT", "content TEXT", "type TEXT DEFAULT 'note'", "course_id UUID FK(courses)", "lesson_id UUID FK(lessons)", "tags TEXT[]", "is_favorite BOOLEAN", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "indexes": ["idx_student_notes_student", "idx_student_notes_course", "idx_student_notes_lesson", "idx_student_notes_tags (GIN)"]
+        }
+      ]
+    },
+    {
+      "file": "20260210_add_modules_objectives_and_assessment_lesson.sql",
+      "purpose": "Add learning_objectives to modules and lesson_id FK to assessments for AI planner",
+      "category": "ai-planner",
+      "tables_modified": [
+        {
+          "name": "modules",
+          "columns_added": ["learning_objectives TEXT[] DEFAULT '{}'"]
+        },
+        {
+          "name": "assessments",
+          "columns_added": ["lesson_id UUID FK(lessons) ON DELETE SET NULL"],
+          "indexes_added": ["idx_assessments_lesson"]
+        }
+      ]
+    },
+    {
+      "file": "20260210_all_in_one.sql",
+      "purpose": "Combined migration: consolidation of all 20260210 changes into a single script",
+      "category": "combined",
+      "note": "Duplicate of 20260210_add_lesson_video_type + 20260210_add_lesson_thumbnail_url + 20260210_add_lesson_source_session + 20260210_fix_lessons_published + 20260210_fix_student_progress_constraint + 20260210_create_lesson_reactions + 20260210_create_student_notes + 20260210_add_modules_objectives_and_assessment_lesson",
+      "tables_created": ["lesson_reactions", "student_notes"],
+      "tables_modified": ["lessons (video_type, thumbnail_url, source_session_id)", "student_progress (UNIQUE constraint)", "modules (learning_objectives)", "assessments (lesson_id)"]
+    },
+    {
+      "file": "20260211_add_section_id_to_live_sessions.sql",
+      "purpose": "Add section_id to live_sessions for multi-section course support",
+      "category": "live-sessions",
+      "tables_modified": [
+        {
+          "name": "live_sessions",
+          "columns_added": ["section_id UUID FK(sections)"],
+          "data_changes": "Backfill section_id from teacher_assignments"
+        }
+      ]
+    },
+    {
+      "file": "20260211_add_explanation_to_teacher_assessment_questions.sql",
+      "purpose": "Add explanation column to teacher_assessment_questions if missing",
+      "category": "assessments-fix",
+      "tables_modified": [
+        {
+          "name": "teacher_assessment_questions",
+          "columns_added": ["explanation TEXT"]
+        }
+      ]
+    },
+    {
+      "file": "20260211_create_student_answers_table.sql",
+      "purpose": "Create student_answers and teacher_grading_queue tables for assessment submission grading",
+      "category": "assessments",
+      "tables_created": [
+        {
+          "name": "student_answers",
+          "columns": ["id UUID PK", "submission_id UUID FK(submissions)", "question_id UUID", "selected_option_id UUID", "text_answer TEXT", "is_correct BOOLEAN", "points_earned INTEGER", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "unique_constraint": "submission_id + question_id",
+          "indexes": ["idx_student_answers_submission", "idx_student_answers_question"],
+          "rls": true
+        },
+        {
+          "name": "teacher_grading_queue",
+          "columns": ["id UUID PK", "submission_id UUID FK(submissions)", "question_id UUID", "question_type VARCHAR(20)", "question_text TEXT", "student_response TEXT", "max_points INTEGER", "status VARCHAR(20) DEFAULT 'pending'", "priority INTEGER DEFAULT 0", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "indexes": ["idx_teacher_grading_queue_submission", "idx_teacher_grading_queue_status"],
+          "rls": true
+        }
+      ]
+    },
+    {
+      "file": "20260211_fix_grading_queue_columns.sql",
+      "purpose": "Add missing columns to teacher_grading_queue and fix graded_by FK to reference teacher_profiles",
+      "category": "assessments-fix",
+      "tables_modified": [
+        {
+          "name": "teacher_grading_queue",
+          "columns_added": ["points_awarded INTEGER", "feedback TEXT", "rubric_json JSONB", "graded_at TIMESTAMPTZ", "graded_by UUID FK(teacher_profiles)"],
+          "constraints_fixed": ["graded_by FK changed from school_profiles → teacher_profiles"]
+        }
+      ]
+    },
+    {
+      "file": "20260211_messaging_admin_support.sql",
+      "purpose": "Add admin role support to messaging system — update RPCs and constraints",
+      "category": "messaging-fix",
+      "tables_modified": [
+        {
+          "name": "teacher_direct_messages",
+          "constraints_fixed": ["sender_type CHECK → teacher|student|admin"]
+        }
+      ],
+      "functions_replaced": ["get_user_conversations → now detects admin partners via admins table"]
+    },
+    {
+      "file": "20260211_messaging_enhancements.sql",
+      "purpose": "Add delivery receipts and re-ensure mark_messages_read RPC",
+      "category": "messaging",
+      "tables_modified": [
+        {
+          "name": "teacher_direct_messages",
+          "columns_added": ["delivered_at TIMESTAMPTZ"]
+        }
+      ],
+      "functions_created": [
+        "mark_messages_delivered(profile_id, partner_profile_id) → INTEGER",
+        "mark_messages_read(profile_id, partner_profile_id) → INTEGER (recreated)"
+      ]
+    },
+    {
+      "file": "20260211_fix_group_chat_student_sync.sql",
+      "purpose": "Fix group chat member sync to include students linked via enrollments (not just students.section_id)",
+      "category": "messaging-fix",
+      "functions_replaced": ["create_or_update_section_group_chat → now includes students from enrollments table"]
+    },
+    {
+      "file": "20260211_admin_fixes.sql",
+      "purpose": "Create enrollment QR codes, student applications, section advisers (admin), audit logs tables; update messaging RPCs",
+      "category": "admin",
+      "tables_created": [
+        {
+          "name": "enrollment_qr_codes",
+          "columns": ["id UUID PK", "school_id UUID FK(schools)", "code TEXT UNIQUE", "name TEXT", "description TEXT", "target_grade_levels TEXT[]", "available_tracks TEXT[]", "max_applications INTEGER", "expires_at TIMESTAMPTZ", "is_active BOOLEAN", "scan_count INTEGER", "application_count INTEGER", "enrollment_url TEXT", "qr_image_url TEXT", "created_by UUID FK(school_profiles)", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "rls": true
+        },
+        {
+          "name": "student_applications",
+          "columns": ["id UUID PK", "school_id UUID FK(schools)", "qr_code_id UUID FK(enrollment_qr_codes)", "first_name TEXT", "last_name TEXT", "middle_name TEXT", "email TEXT", "phone TEXT", "address TEXT", "birth_date DATE", "gender TEXT (male|female|other)", "guardian_name TEXT", "guardian_phone TEXT", "guardian_email TEXT", "guardian_relation TEXT", "previous_school TEXT", "last_grade_completed TEXT", "applying_for_grade TEXT", "preferred_track TEXT", "gpa NUMERIC(3,2)", "birth_certificate_path TEXT", "report_card_path TEXT", "good_moral_path TEXT", "photo_id_path TEXT", "other_documents JSONB", "status TEXT (draft|submitted|under_review|pending_info|approved|rejected)", "submitted_at TIMESTAMPTZ", "reviewed_at TIMESTAMPTZ", "reviewed_by UUID FK(school_profiles)", "rejection_reason TEXT", "requested_documents TEXT[]", "admin_notes TEXT", "how_did_you_hear TEXT", "ip_address TEXT", "user_agent TEXT", "student_id UUID FK(students)", "created_at TIMESTAMPTZ", "updated_at TIMESTAMPTZ"],
+          "rls": true
+        },
+        {
+          "name": "section_advisers",
+          "columns": ["id UUID PK", "section_id UUID FK(sections) UNIQUE", "teacher_profile_id UUID FK(teacher_profiles)", "school_id UUID FK(schools)", "created_at TIMESTAMPTZ"],
+          "rls": true,
+          "note": "Third creation of section_advisers (duplicate)"
+        },
+        {
+          "name": "audit_logs",
+          "columns": ["id UUID PK", "school_id UUID FK(schools)", "actor_id UUID", "actor_name TEXT", "action TEXT", "resource_type TEXT", "resource_id UUID", "details JSONB", "ip_address TEXT", "user_agent TEXT", "created_at TIMESTAMPTZ"],
+          "rls": true
+        }
+      ],
+      "functions_replaced": ["get_user_conversations → admin partner detection (duplicate of 20260211_messaging_admin_support)"],
+      "constraints_fixed": ["teacher_direct_messages sender_type → teacher|student|admin (duplicate)"]
+    },
+    {
+      "file": "20260212_fix_student_applications.sql",
+      "purpose": "Fix student_applications table — add missing how_did_you_hear column, fix ip_address type INET → TEXT",
+      "category": "admin-fix",
+      "tables_modified": [
+        {
+          "name": "student_applications",
+          "columns_added": ["how_did_you_hear TEXT"],
+          "columns_fixed": ["ip_address INET → TEXT"]
+        }
+      ],
+      "tables_created": [
+        {
+          "name": "enrollment_qr_codes",
+          "note": "Recreated IF NOT EXISTS (safety net)"
+        }
+      ]
+    },
+    {
+      "file": "20260212_courses_grade_level.sql",
+      "purpose": "Add grade_level, is_active, credits columns to courses; make section_id nullable",
+      "category": "courses",
+      "tables_modified": [
+        {
+          "name": "courses",
+          "columns_added": ["grade_level TEXT", "is_active BOOLEAN DEFAULT true", "credits INTEGER"],
+          "constraints_changed": ["section_id DROP NOT NULL"],
+          "indexes_added": ["idx_courses_grade_level", "idx_courses_school_grade"]
+        }
+      ]
+    }
+  ],
+  "summary": {
+    "all_tables_created": [
+      "refresh_tokens",
+      "role_permissions",
+      "user_permissions",
+      "auth_audit_log",
+      "session_transcripts",
+      "session_transcript_chunks",
+      "teacher_announcements",
+      "announcement_reads",
+      "teacher_direct_messages",
+      "student_message_quotas",
+      "school_years",
+      "section_advisers",
+      "notification_preferences",
+      "questions",
+      "answer_options",
+      "teacher_assessment_questions",
+      "section_group_chats",
+      "section_group_chat_members",
+      "section_group_chat_messages",
+      "teacher_feedback_templates",
+      "lesson_reactions",
+      "student_notes",
+      "student_answers",
+      "teacher_grading_queue",
+      "enrollment_qr_codes",
+      "student_applications",
+      "audit_logs"
+    ],
+    "all_tables_modified": [
+      "school_profiles (added: role)",
+      "fee_categories (added: sort_order, category)",
+      "enrollments (added: section_id)",
+      "payment_plans (added: school_year_id)",
+      "live_sessions (renamed: teacher_id→teacher_profile_id, added: section_id)",
+      "assessments (added: section_id, status, created_by, max_attempts, time_limit_minutes, instructions, available_from, lesson_id)",
+      "teacher_daily_attendance (added: notes, updated_by)",
+      "submissions (added: ai_score, ai_feedback, ai_graded_at, updated_at; fixed: graded_by TEXT→UUID, status constraint)",
+      "student_answers (added: updated_at, FK selected_option_id→answer_options)",
+      "teacher_assessment_questions (fixed: question_type constraint expanded, added: explanation)",
+      "lessons (added: source_session_id, thumbnail_url, video_type; data: set all is_published=true)",
+      "student_progress (added: UNIQUE constraint student_id+lesson_id)",
+      "modules (added: learning_objectives TEXT[])",
+      "courses (added: grade_level, is_active, credits; section_id made nullable)",
+      "teacher_direct_messages (added: updated_at, delivered_at; sender_type expanded to include admin; REPLICA IDENTITY FULL; permissive RLS)",
+      "teacher_grading_queue (added: points_awarded, feedback, rubric_json, graded_at, graded_by; fixed: graded_by FK)"
+    ],
+    "all_rpc_functions": [
+      "cleanup_expired_refresh_tokens()",
+      "get_announcement_target_count(school_id, target_type, section_ids, grade_levels, course_ids)",
+      "publish_announcement(announcement_id)",
+      "check_student_message_quota(student_id, teacher_id) — overridden to unlimited",
+      "send_student_message(student_id, teacher_id, school_id, body, attachments) — no quota",
+      "send_teacher_message(teacher_id, student_id, school_id, body, attachments)",
+      "get_user_conversations(profile_id, limit) — supports admin partners",
+      "get_conversation(profile_1, profile_2, limit, offset)",
+      "get_unread_count(profile_id)",
+      "get_student_profile_by_id(student_id)",
+      "mark_messages_read(profile_id, partner_profile_id)",
+      "mark_messages_delivered(profile_id, partner_profile_id)",
+      "create_or_update_section_group_chat(section_id, school_id) — includes enrollment sync",
+      "get_user_group_chats(profile_id)",
+      "get_group_chat_messages(group_chat_id, profile_id, limit)"
+    ],
+    "storage_buckets": [
+      "session-recordings (public, 500MB, video/mp4|webm|quicktime)"
+    ],
+    "realtime_publications": [
+      "teacher_direct_messages",
+      "teacher_announcements",
+      "student_notifications",
+      "applications",
+      "section_group_chat_messages"
+    ],
+    "extensions": ["vector (pgvector)"],
+    "known_duplicates": [
+      "section_advisers table created in 3 files: 20260125_create_section_advisers.sql, 20260125062314_add_section_advisers_table.sql, 20260211_admin_fixes.sql",
+      "20260210_all_in_one.sql duplicates all individual 20260210_* migrations",
+      "get_user_conversations RPC recreated in: 20260122000003, 20260211_messaging_admin_support, 20260211_admin_fixes",
+      "sender_type constraint updated in both 20260211_messaging_admin_support and 20260211_admin_fixes",
+      "enrollment_qr_codes created in both 20260211_admin_fixes and 20260212_fix_student_applications",
+      "student_applications created in both 20260211_admin_fixes and 20260212_fix_student_applications"
+    ],
+    "data_migrations": [
+      "20260126_enroll_students_stem_a.sql — assigns all students to Grade 12 STEM-A",
+      "20260126_fix_all_rls_announcements.sql — hardcoded STEM-A section UUID inserts",
+      "20260210_fix_lessons_published.sql — sets all lessons to published"
+    ]
+  }
+}

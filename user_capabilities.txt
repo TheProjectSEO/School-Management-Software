@@ -1,0 +1,429 @@
+================================================================================
+              MSU SCHOOL MANAGEMENT SYSTEM - USER CAPABILITIES
+================================================================================
+
+================================================================================
+  ADMIN CAPABILITIES
+================================================================================
+
+  DASHBOARD & ANALYTICS
+  ---------------------
+  - View KPI cards (total students, teachers, courses, enrollments, attendance)
+  - Enrollment trends chart (monthly)
+  - Grade distribution chart (A-F breakdown)
+  - Attendance overview (present/late/absent/excused)
+  - Recent activity audit log
+  - Churn prediction analytics (at-risk students)
+  - Quick actions (import students, add teacher, bulk enroll)
+
+  USER MANAGEMENT - STUDENTS
+  --------------------------
+  - View all students (paginated, search, filter by status/grade/section)
+  - View student details (profile, enrollment history, attendance, grades)
+  - Create student account
+  - Edit student info (name, email, LRN, grade level, section)
+  - Change student status (active/inactive/suspended)
+  - Reset student password
+  - Bulk import students (CSV upload)
+  - Bulk update student status
+  - Bulk assign students to section (auto-enrolls to section courses)
+  - Export student list (CSV/Excel)
+
+  USER MANAGEMENT - TEACHERS
+  --------------------------
+  - View all teachers (paginated, search, filters)
+  - View teacher details (profile, assigned courses, sections, students)
+  - Create teacher account
+  - Edit teacher info (name, email, specialization)
+  - Assign teacher to courses
+  - Assign advisory section
+  - Change teacher status (active/inactive/suspended)
+  - Reset teacher password
+  - Bulk import teachers (CSV upload)
+  - Bulk update teacher status
+  - Export teacher list (CSV/Excel)
+
+  ENROLLMENT MANAGEMENT
+  ---------------------
+  - View all enrollments (filtered list)
+  - Create enrollment (manually enroll student in course)
+  - Bulk enroll students to courses
+  - Approve pending enrollment requests
+  - Drop enrollment (remove student from course)
+  - Transfer enrollment (move student to different section/course)
+  - Edit enrollment details
+  - Delete enrollment record
+  - Export enrollments (CSV)
+  - Sync section enrollments (backfill missing records)
+  - QR code enrollment check-in
+
+  COURSES & SECTIONS
+  ------------------
+  - View/create/edit courses (name, code, description, grade level)
+  - Bulk add subjects from template
+  - View/create/edit sections (grade/class groupings)
+  - Assign courses to sections
+  - View section-course assignments
+
+  REPORTS & ANALYTICS
+  -------------------
+  - Attendance report (by student, date range, status)
+  - Grades report (distribution, per-student, per-assessment)
+  - Progress report (module completion rates, learning progress)
+  - Churn analysis (dropout predictions, at-risk identification)
+  - Export reports
+
+  FINANCE
+  -------
+  - Create/edit/delete fee categories (tuition, books, uniforms, etc.)
+  - Create/edit/delete fee structures (per grade level/section)
+  - Assess fees to students (bulk assign for period)
+  - View/edit student financial accounts
+  - Create/edit/delete payment plans
+  - Record manual payments
+  - Process online payments (PayMongo)
+  - View overdue accounts and collection status
+
+  APPLICATIONS & ADMISSIONS
+  -------------------------
+  - View all applications
+  - View application details and documents
+  - AI-screen applications (single or bulk)
+  - Approve/reject applications
+  - Request additional info from applicants
+
+  SETTINGS & CONFIGURATION
+  ------------------------
+  - School settings (name, logo, contact info, calendar)
+  - Academic settings (academic year, grading scale, grade levels)
+  - Grading periods (create/edit quarters)
+  - Academic years (create, mark active)
+
+  MESSAGING
+  ---------
+  - View all conversations
+  - Send direct messages to any user
+  - Search message history
+
+  AUDIT & COMPLIANCE
+  ------------------
+  - View audit logs (all system actions)
+  - Filter logs by action, user, entity, date
+  - View log details (who did what, when)
+
+  INQUIRIES
+  ---------
+  - View and respond to chatbot inquiries from applicants
+
+
+================================================================================
+  TEACHER CAPABILITIES
+================================================================================
+
+  DASHBOARD
+  ---------
+  - View personalized stats (active classes, pending submissions, draft modules)
+  - Today's live sessions list
+  - Recent pending submissions queue
+  - Graded-not-released items count
+  - Draft modules count
+  - Attendance alerts (today's absences)
+  - Upcoming deadlines (next 7 days)
+  - Recent activity feed
+
+  CLASSES & STUDENTS
+  ------------------
+  - View assigned classes/sections
+  - View class roster (enrolled students)
+  - View individual student profiles
+  - View student assessment performance
+  - View student attendance history
+
+  SUBJECTS & CONTENT
+  ------------------
+  - View assigned subjects/courses
+  - Create/edit/publish/unpublish modules (title, description, objectives)
+  - Reorder modules (drag-and-drop)
+  - Create/edit/delete lessons (content, video, documents)
+  - Upload content files (video, PDF, images)
+  - Preview lessons as teacher
+
+  AI CONTENT GENERATION
+  ---------------------
+  - AI-generate entire module from description
+  - AI-generate quiz from lesson content
+  - AI-generate student progress reports
+  - AI lesson planner
+  - AI student alerts (identify at-risk students)
+  - AI grade response suggestions (essay grading)
+
+  ASSESSMENTS
+  -----------
+  - View all created assessments
+  - Create assessments (quiz, exam, assignment, project)
+  - Assessment builder (drag-and-drop interface)
+  - Question types: multiple choice, short answer, essay, matching
+  - Set due dates and point values
+  - Publish/unpublish assessments
+  - Edit/delete assessments
+  - View submission stats and analytics
+
+  GRADING & FEEDBACK
+  ------------------
+  - View submission queue
+  - Grade individual submissions
+  - Auto-grade objective questions
+  - Add written feedback to submissions
+  - Create/apply reusable feedback templates
+  - Release grades to students
+  - Flag submissions for review
+  - Bulk grade entry
+
+  GRADEBOOK
+  ---------
+  - View master grade sheet per course
+  - Enter/edit scores
+  - Set grade category weights (assessments, participation, etc.)
+  - Release grades
+  - Auto-calculate final grades from weighted categories
+
+  ATTENDANCE
+  ----------
+  - Record daily class attendance
+  - Record live session attendance
+  - View historical attendance records
+  - Export attendance data (CSV)
+  - View absent student alerts
+
+  REPORT CARDS
+  ------------
+  - Generate student report cards
+  - Edit grades and remarks
+  - Add teacher comments
+  - Export as PDF
+  - View finalized report cards
+
+  LIVE SESSIONS (VIDEO)
+  ---------------------
+  - Schedule live sessions (title, course, date/time, duration)
+  - View scheduled sessions
+  - Edit/delete sessions
+  - Start/end live video session (Daily.co WebRTC)
+  - Record sessions
+  - Trigger session transcription (OpenAI Whisper)
+  - Access recordings and transcripts
+
+  ANNOUNCEMENTS
+  -------------
+  - Create/edit/delete announcements
+  - Publish announcements
+  - Target specific classes/students
+  - Schedule announcement visibility
+  - Real-time announcement broadcast
+
+  MESSAGING
+  ---------
+  - Message students (direct and group)
+  - Message other teachers
+  - Message admins
+  - Search message history
+  - Send files in messages
+  - Real-time message updates
+
+  CALENDAR
+  --------
+  - View all scheduled classes, sessions, deadlines
+  - Month/week/day views
+
+  PROFILE & SETTINGS
+  ------------------
+  - View/edit own profile
+  - Upload avatar
+  - Change preferences
+
+
+================================================================================
+  STUDENT CAPABILITIES
+================================================================================
+
+  DASHBOARD
+  ---------
+  - Personalized welcome with notification count
+  - Continue learning card (resume last subject with progress bar)
+  - Progress stats (courses enrolled, completed/in-progress lessons, avg %)
+  - Upcoming assessments (due dates, points)
+  - Live sessions sidebar (scheduled classes)
+  - Latest score card
+  - Quick action links (subjects, assessments, progress)
+
+  SUBJECTS & LEARNING
+  -------------------
+  - View enrolled subjects with progress percentage
+  - Search/filter subjects (by status, keyword)
+  - Browse course modules and lessons
+  - View lesson content (text, video, documents)
+  - Video playback with player controls
+  - Navigate lessons (next/previous, chapter nav)
+  - Track lesson completion
+  - Download lesson materials/PDFs
+  - React to lessons (like, helpful, confused, love, celebrate)
+
+  ASSESSMENTS
+  -----------
+  - View all assessments (active, pending, completed)
+  - Search assessments by keyword
+  - View assessment details (type, points, due date, status)
+  - Due date urgency indicators (due today, overdue)
+  - Start and take quizzes/exams
+  - Answer question types: multiple choice, short answer, essay
+  - Navigate between questions
+  - Auto-save/manual save answers
+  - Submit assessment
+  - Countdown timer for timed assessments
+  - Review answers before submitting
+  - View score and feedback after grading
+  - Resubmit if allowed by teacher
+
+  GRADES & REPORT CARDS
+  ---------------------
+  - View all grades by subject
+  - View assessment grade breakdown per subject
+  - View grade history over time
+  - View GPA calculation
+  - View grading scale/criteria
+  - View official report card
+  - View past report cards
+  - Download report card as PDF
+  - Progress analytics charts (grade trends)
+
+  LIVE SESSIONS
+  -------------
+  - View scheduled live sessions
+  - View session details (time, teacher, course, status)
+  - Join live video session (Daily.co WebRTC)
+  - Ask questions during session (Q&A)
+  - React with emoji during class
+  - View session recordings after class
+  - Start/end peer study group sessions
+
+  ANNOUNCEMENTS
+  -------------
+  - View class announcements
+  - Read full announcement details
+  - Filter by course
+  - Real-time announcement updates
+
+  MESSAGING
+  ---------
+  - Message teachers (direct)
+  - Message peers (direct)
+  - Group messaging with classmates
+  - Create message groups
+  - Search messages
+  - Send files in messages
+  - Real-time message updates
+
+  ATTENDANCE
+  ----------
+  - View personal attendance record
+  - Attendance calendar view
+  - Monthly/yearly attendance history
+  - Attendance rate percentage
+  - Status breakdown (present, absent, late, excused)
+
+  NOTES
+  -----
+  - Create personal study notes on lessons
+  - Edit/delete notes
+  - View all notes
+  - Organize notes by subject/module
+
+  AI TUTORING
+  -----------
+  - Ask AI questions about any content
+  - Get AI explanations on specific lessons
+  - Ask AI about live session recordings
+  - Standalone AI chat interface
+
+  SESSION RECORDINGS
+  ------------------
+  - View recorded sessions list
+  - Watch recordings with playback controls
+  - View auto-generated transcript
+  - Ask AI about recording content
+
+  DOWNLOADS
+  ---------
+  - View available course materials
+  - Download lesson files/resources
+  - Batch download multiple files
+
+  NOTIFICATIONS
+  -------------
+  - View all notifications
+  - Mark as read / mark all read
+  - Filter by type/course
+
+  APPLICATIONS (ADMISSIONS)
+  -------------------------
+  - Submit school application
+  - Track application status
+  - Upload required documents
+  - Edit application before approval
+
+  PROGRESS TRACKING
+  -----------------
+  - View overall learning progress
+  - Course-level progress per subject
+  - Module completion tracking (lessons completed/remaining)
+  - Learning analytics charts
+  - Mastery tracking toward objectives
+
+  PROFILE & ACCOUNT
+  -----------------
+  - View/edit personal profile
+  - Upload/change avatar
+  - Account preferences
+  - Help center access
+
+
+================================================================================
+  FEATURE ACCESS MATRIX (CRUD SUMMARY)
+================================================================================
+
+  Feature               | Admin              | Teacher            | Student
+  ----------------------|--------------------|--------------------|------------------
+  Students              | CRUD + Bulk Ops    | Read Only          | Read Own
+  Teachers              | CRUD + Bulk Ops    | Read Own           | --
+  Courses               | CRUD               | Read               | Read Only
+  Sections              | CRUD               | Read               | --
+  Enrollments           | CRUD + Bulk Ops    | --                 | View Own
+  Modules               | View               | CRUD + Publish     | Read + Progress
+  Lessons               | View               | CRUD               | Read + React
+  Assessments           | View               | CRUD + Publish     | Take + Submit
+  Grades                | View + Export      | Create + Release   | View Own
+  Attendance            | View + Export      | Record + View      | View Own
+  Messages              | Send + View        | Send + View        | Send + View
+  Announcements         | View               | CRUD + Publish     | View
+  Report Cards          | View + Export      | Generate + Edit    | View + Download
+  Live Sessions         | View               | CRUD + Host        | Join + Watch
+  Finance               | Full Management    | --                 | --
+  Applications          | Review + Approve   | --                 | Submit + Track
+  Settings              | Full Management    | Profile Only       | Profile Only
+  AI Features           | --                 | Generate + Analyze | Ask + Learn
+  Audit Logs            | View + Search      | --                 | --
+  Notes                 | --                 | --                 | CRUD
+  Notifications         | --                 | --                 | View + Manage
+  Downloads             | --                 | --                 | Download
+  Progress Tracking     | View Reports       | View Students      | View Own
+
+
+================================================================================
+  TOTAL CAPABILITIES
+================================================================================
+
+  Admin   : ~100 capabilities across 11 feature areas
+  Teacher : ~90 capabilities across 14 feature areas
+  Student : ~75 capabilities across 17 feature areas
+
+================================================================================

@@ -217,4 +217,49 @@ bugs:
     notes: >
       Fixed in commit 4cd27ed. For existing data, call
       POST /api/admin/enrollments/sync-section (no body = all sections).
+
+  - id: BUG-004
+    date: "2025-02-16"
+    title: Event handlers cannot be passed to Client Components (Next.js 15)
+    severity: critical
+    pattern: |
+      Next.js 15 App Router error: "Event handlers cannot be passed to Client Component props"
+
+      Server Components cannot pass onClick, onSubmit, onChange, or any event
+      handlers as props to Client Components. This also includes passing functions
+      that contain browser APIs (window, document, fetch, etc.) as props.
+
+      Common error messages:
+      - "Event handlers cannot be passed to Client Component props"
+      - Shows the handler name in error: {onClick: function, onDownload: function}
+      - Includes a digest number for tracking
+    affected_files:
+      - "app/(dashboard)/student/subjects/[subjectId]/modules/[moduleId]/page.tsx"
+      - "components/student/lesson/LessonAttachments.tsx"
+      - "Any Server Component passing event handlers to Client Components"
+    fix: |
+      Two solutions:
+
+      1. Move event handler INTO the Client Component:
+         - Remove the handler prop from component interface
+         - Implement the handler directly inside the Client Component
+         - Example: LessonAttachments now handles download tracking internally
+
+      2. Extract interactive section to NEW Client Component:
+         - Create new file with 'use client' directive
+         - Move all interactive elements (buttons with onClick) to new component
+         - Pass only data props (strings, numbers, objects) from Server Component
+         - Example: PDFViewer.tsx extracted from module page.tsx
+
+      General rules:
+      - Server Components: Use for data fetching, layout, static content
+      - Client Components: Use for interactivity (onClick, useState, useEffect)
+      - Props from Server → Client: Only serializable data (no functions!)
+      - Use 'use client' directive at TOP of client component files
+    status: resolved-recurring
+    notes: >
+      Fixed in commits a30fb95 (PDFViewer), [current] (LessonAttachments).
+      This is a Next.js 15 breaking change from Next.js 13/14.
+      Will recur whenever Server Components pass functions to Client Components.
+      Always check: Is this a Server Component? Am I passing a function prop?
 ```

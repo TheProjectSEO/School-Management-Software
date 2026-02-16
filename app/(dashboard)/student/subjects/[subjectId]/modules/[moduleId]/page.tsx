@@ -284,11 +284,6 @@ export default async function ModulePage({
               })
             }
             isPlayful={isPlayful}
-            onDownload={(attachmentId) => {
-              fetch(`/api/student/attachments/${attachmentId}/download`, {
-                method: 'POST'
-              }).catch(err => console.error('Failed to track download:', err))
-            }}
           />
         </div>
       )}

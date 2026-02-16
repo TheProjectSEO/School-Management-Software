@@ -16,7 +16,6 @@ interface LessonAttachment {
 interface LessonAttachmentsProps {
   attachments: LessonAttachment[]
   isPlayful: boolean
-  onDownload?: (attachmentId: string) => void
 }
 
 function formatFileSize(bytes: number | null | undefined): string {
@@ -29,18 +28,19 @@ function formatFileSize(bytes: number | null | undefined): string {
 
 function ImagePreview({
   attachment,
-  isPlayful,
-  onDownload
+  isPlayful
 }: {
   attachment: LessonAttachment
   isPlayful: boolean
-  onDownload?: (id: string) => void
 }) {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false)
 
   const handleClick = () => {
     setIsLightboxOpen(true)
-    if (onDownload) onDownload(attachment.id)
+    // Track download
+    fetch(`/api/student/attachments/${attachment.id}/download`, {
+      method: 'POST'
+    }).catch(err => console.error('Failed to track download:', err))
   }
 
   return (
@@ -112,17 +112,18 @@ function ImagePreview({
 
 function PDFPreview({
   attachment,
-  isPlayful,
-  onDownload
+  isPlayful
 }: {
   attachment: LessonAttachment
   isPlayful: boolean
-  onDownload?: (id: string) => void
 }) {
   const [isFullscreen, setIsFullscreen] = useState(false)
 
   const handleDownload = () => {
-    if (onDownload) onDownload(attachment.id)
+    // Track download
+    fetch(`/api/student/attachments/${attachment.id}/download`, {
+      method: 'POST'
+    }).catch(err => console.error('Failed to track download:', err))
     window.open(attachment.file_url, '_blank')
   }
 
@@ -234,15 +235,16 @@ function PDFPreview({
 
 function DownloadLink({
   attachment,
-  isPlayful,
-  onDownload
+  isPlayful
 }: {
   attachment: LessonAttachment
   isPlayful: boolean
-  onDownload?: (id: string) => void
 }) {
   const handleDownload = () => {
-    if (onDownload) onDownload(attachment.id)
+    // Track download
+    fetch(`/api/student/attachments/${attachment.id}/download`, {
+      method: 'POST'
+    }).catch(err => console.error('Failed to track download:', err))
     window.open(attachment.file_url, '_blank')
   }
 
@@ -321,8 +323,7 @@ function DownloadLink({
 
 export default function LessonAttachments({
   attachments,
-  isPlayful,
-  onDownload
+  isPlayful
 }: LessonAttachmentsProps) {
   if (!attachments || attachments.length === 0) return null
 
@@ -352,7 +353,6 @@ export default function LessonAttachments({
                 key={att.id}
                 attachment={att}
                 isPlayful={isPlayful}
-                onDownload={onDownload}
               />
             )
           }
@@ -362,7 +362,6 @@ export default function LessonAttachments({
                 key={att.id}
                 attachment={att}
                 isPlayful={isPlayful}
-                onDownload={onDownload}
               />
             )
           }
@@ -371,7 +370,6 @@ export default function LessonAttachments({
               key={att.id}
               attachment={att}
               isPlayful={isPlayful}
-              onDownload={onDownload}
             />
           )
         })}

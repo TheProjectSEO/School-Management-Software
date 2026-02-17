@@ -37,8 +37,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(result);
     }
 
+    // Handle grade and section update together
+    if (action === "update_grade_and_section" && gradeLevel && sectionId) {
+      // First update grade, then update section
+      const gradeResult = await bulkUpdateStudentGrade(studentIds, gradeLevel);
+      if (!gradeResult.success) {
+        return NextResponse.json(gradeResult);
+      }
+
+      const sectionResult = await bulkUpdateStudentSection(studentIds, sectionId);
+      return NextResponse.json(sectionResult);
+    }
+
     return NextResponse.json(
-      { error: "Invalid action. Use 'update_section' with sectionId or 'update_grade' with gradeLevel" },
+      { error: "Invalid action. Use 'update_section', 'update_grade', or 'update_grade_and_section'" },
       { status: 400 }
     );
   } catch (error) {

@@ -540,4 +540,402 @@ bugs:
       updates both tables. This is a common pattern in the codebase where
       display data (school_profiles) is separate from enrollment data
       (students/teachers). Always update both when modifying displayed fields.
+
+  - id: BUG-010
+    date: "2026-02-17"
+    title: LRN field accepts invalid formats with letters and wrong digit counts
+    severity: medium
+    pattern: |
+      The LRN (Learner Reference Number) input field had no validation,
+      allowing users to enter invalid formats like:
+      - "2026-MSU-0013a" (contains letter at end)
+      - "2026-MSU-999" (only 3 digits instead of 4+)
+      - "2026-msu-0013" (lowercase instead of uppercase)
+      - "26-MSU-0013" (2-digit year instead of 4)
+
+      This caused data inconsistency, search issues, and invalid student records.
+
+      Standard LRN format: YYYY-MSU-#### where:
+      - YYYY = 4-digit year (e.g., 2026)
+      - MSU = literal uppercase text
+      - #### = 4 or more digits (allows scaling beyond 9999)
+    affected_files:
+      - "app/(dashboard)/admin/users/students/page.tsx"
+    fix: |
+      Add real-time validation with visual feedback:
+
+      1. Add validation state:
+         const [lrnError, setLrnError] = useState("");
+
+      2. Create validation function:
+         const validateLRN = (lrn: string): boolean => {
+           if (!lrn) {
+             setLrnError("");
+             return true; // Empty is OK (auto-generated)
+           }
+
+           const lrnPattern = /^\d{4}-MSU-\d{4,}$/;
+           if (!lrnPattern.test(lrn)) {
+             setLrnError("Invalid format. Must be YYYY-MSU-#### (e.g., 2026-MSU-0010, 2026-MSU-10000)");
+             return false;
+           }
+
+           setLrnError("");
+           return true;
+         };
+
+      3. Add real-time validation to input:
+         <input
+           value={formData.lrn}
+           onChange={(e) => {
+             const value = e.target.value;
+             setFormData({ ...formData, lrn: value });
+             validateLRN(value);
+           }}
+           className={lrnError ? "border-red-500" : "border-gray-300"}
+         />
+         {lrnError && <p className="text-red-500">{lrnError}</p>}
+
+      4. Block submission if invalid:
+         if (formData.lrn && !validateLRN(formData.lrn)) {
+           alert("Please correct the LRN format before submitting");
+           return;
+         }
+
+      Regex pattern: /^\d{4}-MSU-\d{4,}$/
+      - \d{4}: Exactly 4 digits (year)
+      - -MSU-: Literal uppercase text
+      - \d{4,}: 4 or more digits (allows 10000+)
+    status: resolved
+    notes: >
+      Fixed in commit [current]. The validation pattern uses {4,} (4 or more)
+      instead of {4} (exactly 4) to allow the system to scale beyond 9999
+      students per year. Real-time validation provides instant feedback with
+      red border and error message. Form submission is blocked if format is
+      invalid.
+
+  - id: BUG-011
+    date: "2026-02-17"
+    title: Change Grade Level only updates grade, leaving invalid grade-section combinations
+    severity: high
+    pattern: |
+      When changing a student's grade level using the "Change Grade Level"
+      bulk action, the system only updated the grade_level field and left
+      the student's section unchanged. This caused invalid data states:
+
+      Example:
+      - Student in "Grade 5 - Section A"
+      - Admin changes grade to 6
+      - Student now has grade_level=6 but section_id still points to Grade 5 Section A
+      - Result: Invalid grade-section combination
+
+      The modal warned "This will only change the grade level. Students will
+      keep their current sections" which was the bug, not a feature.
+
+      Root causes:
+      - Modal only had grade selector, no section selector
+      - No validation that section matches grade
+      - API action "update_grade" only changed grade_level field
+      - No enforcement of grade-section consistency
+    affected_files:
+      - "app/(dashboard)/admin/users/students/page.tsx (Change Grade modal)"
+      - "app/api/admin/users/students/bulk-section/route.ts"
+    fix: |
+      Require section selection when changing grade:
+
+      1. Add section selector to modal (filtered by grade):
+         <select
+           value={selectedSection}
+           onChange={(e) => setSelectedSection(e.target.value)}
+           disabled={!selectedGrade}
+         >
+           <option value="">
+             {!selectedGrade ? "Select grade first..." : "Choose a section..."}
+           </option>
+           {sections
+             .filter((section) => section.grade_level === selectedGrade)
+             .map((section) => (
+               <option key={section.id} value={section.id}>
+                 {section.name} - Grade {section.grade_level}
+               </option>
+             ))}
+         </select>
+
+      2. Clear section when grade changes:
+         onChange={(e) => {
+           setSelectedGrade(e.target.value);
+           setSelectedSection(""); // Reset section
+         }}
+
+      3. Require both fields for submission:
+         disabled={!selectedGrade || !selectedSection}
+
+      4. Add new API action to update both:
+         if (action === "update_grade_and_section" && gradeLevel && sectionId) {
+           const gradeResult = await bulkUpdateStudentGrade(studentIds, gradeLevel);
+           if (!gradeResult.success) return NextResponse.json(gradeResult);
+
+           const sectionResult = await bulkUpdateStudentSection(studentIds, sectionId);
+           return NextResponse.json(sectionResult);
+         }
+
+      5. Update warning message:
+         "Both grade level and section will be updated. Section must match the selected grade."
+
+      Key principles:
+      - Always update related fields together atomically
+      - Filter dependent dropdowns by parent selection
+      - Clear dependent field when parent changes
+      - Validate consistency before submission
+      - Use sequential updates with proper error handling
+    status: resolved
+    notes: >
+      Fixed in commit [current]. The new implementation ensures grade and
+      section are always consistent. The section dropdown is disabled until
+      grade is selected, then shows only sections for that grade. Both fields
+      are required and updated together. This prevents orphaned section
+      assignments and maintains referential integrity.
+
+  - id: BUG-012
+    date: "2026-02-17"
+    title: Bulk reactivation missing - inefficient workflow for reactivating multiple students
+    severity: medium
+    pattern: |
+      The admin students list page had "Deactivate" bulk action but no
+      corresponding "Reactivate" bulk action. Students could only be reactivated
+      individually by opening each student's edit page and changing the status
+      dropdown from "Inactive" to "Active".
+
+      Individual reactivation existed but was inefficient:
+      - Edit page: Status dropdown (Active/Inactive/Suspended/Graduated/Transferred)
+      - To reactivate 10 students: open 10 edit pages, change 10 dropdowns, save 10 times
+      - Time: ~2 minutes for 10 students
+
+      Missing bulk functionality:
+      - No "Reactivate" button in bulk actions (only "Deactivate" existed)
+      - No bulk reactivate handler function
+      - No bulk reactivate confirmation modal
+      - Asymmetric UX: bulk deactivate exists but not bulk reactivate
+
+      This is a common UX anti-pattern: implementing bulk operations for only
+      one direction of a reversible action (deactivate) without the reverse.
+    affected_files:
+      - "app/(dashboard)/admin/users/students/page.tsx"
+    fix: |
+      Add complete reactivation feature mirroring deactivation:
+
+      1. Add state for reactivate modal:
+         const [showReactivateModal, setShowReactivateModal] = useState(false);
+
+      2. Add reactivate handler (mirrors deactivate handler):
+         const handleBulkReactivate = async () => {
+           setActionLoading(true);
+           try {
+             const response = await fetch("/api/admin/users/students/bulk-status", {
+               method: "POST",
+               headers: { "Content-Type": "application/json" },
+               body: JSON.stringify({
+                 studentIds: selectedStudents.map((s) => s.id),
+                 status: "active", // ← Key difference
+               }),
+             });
+
+             const result = await response.json();
+             if (response.ok && result.success) {
+               setShowReactivateModal(false);
+               setSelectedStudents([]);
+               fetchStudents();
+             }
+           } catch (error) {
+             console.error("Failed to reactivate students:", error);
+             alert("Failed to reactivate students. Please try again.");
+           } finally {
+             setActionLoading(false);
+           }
+         };
+
+      3. Add Reactivate button to bulk actions:
+         <button
+           onClick={() => setShowReactivateModal(true)}
+           className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+         >
+           <span className="material-symbols-outlined text-base">check_circle</span>
+           Reactivate
+         </button>
+
+      4. Add confirmation modal:
+         <ConfirmModal
+           isOpen={showReactivateModal}
+           onClose={() => setShowReactivateModal(false)}
+           onConfirm={handleBulkReactivate}
+           title="Reactivate Students"
+           message="Reactivated students will be able to log in and access the system again."
+           confirmText="Reactivate"
+           variant="info"
+         />
+
+      Design patterns:
+      - Use green color for positive action (vs red for negative)
+      - Use "check_circle" icon for activation (vs "block" for deactivation)
+      - Same API endpoint, different status value
+      - Consistent confirmation flow
+    status: resolved
+    notes: >
+      Fixed in commit [current]. The reactivate feature uses the same API
+      endpoint (/api/admin/users/students/bulk-status) as deactivation,
+      just with status="active" instead of status="inactive". This ensures
+      both operations update both the students and school_profiles tables
+      correctly. Always implement both directions of reversible actions.
+
+  - id: BUG-013
+    date: "2026-02-17"
+    title: Bulk action selection auto-clears after save - inefficient workflow
+    severity: medium
+    pattern: |
+      After performing bulk actions (Change Grade, Move to Section, Deactivate,
+      Reactivate), the student selection was automatically cleared, making the
+      bulk action bar disappear. This forced users to re-select the same students
+      for each subsequent action.
+
+      All bulk action handlers followed this anti-pattern:
+      ```typescript
+      if (response.ok) {
+        setShowModal(false);
+        setSelectedStudents([]); // ❌ Auto-clear selection
+        fetchStudents();
+      }
+      ```
+
+      User impact:
+      - Select 10 students
+      - Perform action 1 (e.g., Change Grade) → Save
+      - Selection clears automatically
+      - Must re-select same 10 students for action 2
+      - Perform action 2 (e.g., Move to Section) → Save
+      - Selection clears again
+      - Inefficient workflow for chained operations
+
+      This violates the principle of user control - the system was making
+      decisions about selection state instead of letting the user control it.
+    affected_files:
+      - "app/(dashboard)/admin/users/students/page.tsx (all bulk action handlers)"
+    fix: |
+      Remove automatic selection clearing from all bulk action success handlers.
+      Let users explicitly control selection via "Clear Selection" button.
+
+      Pattern for all handlers:
+      ```typescript
+      // Before (BAD):
+      if (response.ok && result.success) {
+        setShowModal(false);
+        setSelectedStudents([]); // ❌ Auto-clear
+        setSelectedGrade("");
+        fetchStudents();
+      }
+
+      // After (GOOD):
+      if (response.ok && result.success) {
+        setShowModal(false);
+        // Keep students selected so user can perform additional actions
+        setSelectedGrade("");
+        fetchStudents();
+      }
+      ```
+
+      Apply to all bulk action handlers:
+      - handleBulkDeactivate
+      - handleBulkReactivate
+      - handleBulkSectionUpdate
+      - handleBulkGradeChange
+
+      Only clear modal-specific state (selectedGrade, selectedSection).
+      Never clear selectedStudents automatically.
+
+      Benefits:
+      - Selection persists after operations
+      - Can chain multiple actions on same students
+      - "Clear Selection" button provides explicit control
+      - Fewer clicks, faster workflow
+      - User controls selection state, not the system
+    status: resolved
+    notes: >
+      Fixed in commit [current]. Selection now persists across bulk operations
+      until the user explicitly clicks "Clear Selection". This enables efficient
+      workflows like: select students → change grade → move section → deactivate,
+      all without re-selecting. The "Clear Selection" button remains visible as
+      long as students are selected, giving users explicit control.
+
+  - id: BUG-014
+    date: "2026-02-17"
+    title: Add Student modal section dropdown not filtered by grade - shows all sections
+    severity: high
+    pattern: |
+      In the "Add New Student" modal, when selecting a grade level (e.g., Grade 12),
+      the Section dropdown displayed sections from ALL grade levels instead of
+      filtering to show only sections for the selected grade.
+
+      Example:
+      - User selects "Grade 12"
+      - Section dropdown shows:
+        - Grade 10 sections (Section C, 10-A, 10-B, 10-C)
+        - Grade 11 sections (ABM A, ABM B, GA A, HUMSS A, STEM A)
+        - Grade 12 sections
+      - User could accidentally select Grade 10 section for Grade 12 student
+      - Results in invalid grade-section combination
+
+      Root cause:
+      - Section dropdown mapped all sections without filtering:
+        {sections.map((section) => <option>...)}
+      - No .filter() by grade_level
+      - No dependency between grade dropdown and section dropdown
+      - Change Grade modal already had correct filtering (BUG-011)
+      - Inconsistent behavior between modals
+    affected_files:
+      - "app/(dashboard)/admin/users/students/page.tsx (Add Student modal)"
+    fix: |
+      Apply same filtering pattern as Change Grade modal (BUG-011):
+
+      1. Clear section when grade changes:
+         onChange={(e) => {
+           setFormData({ ...formData, gradeLevel: e.target.value, sectionId: "" });
+         }}
+
+      2. Filter sections by selected grade:
+         {sections
+           .filter((section) => section.grade_level === formData.gradeLevel)
+           .map((section) => (
+             <option key={section.id} value={section.id}>
+               {section.name} - Grade {section.grade_level}
+             </option>
+           ))}
+
+      3. Disable section dropdown until grade selected:
+         <select disabled={!formData.gradeLevel} ...>
+
+      4. Show contextual placeholder:
+         <option value="">
+           {!formData.gradeLevel ? "Select grade first..." : "Select Section (Optional)"}
+         </option>
+
+      5. Warn if no sections available:
+         {formData.gradeLevel &&
+          sections.filter((s) => s.grade_level === formData.gradeLevel).length === 0 && (
+           <p className="text-sm text-orange-500 mt-1">
+             No sections available for Grade {formData.gradeLevel}
+           </p>
+         )}
+
+      This ensures:
+      - Section dropdown shows only relevant sections
+      - Impossible to select wrong grade section
+      - Clear user guidance through disabled state and placeholders
+      - Consistent behavior across all grade-section pickers
+    status: resolved
+    notes: >
+      Fixed in commit [current]. The Add Student modal now has the same
+      grade-section filtering logic as the Change Grade modal. This prevents
+      data integrity issues where students could be assigned to sections from
+      different grade levels. The pattern should be applied to ALL forms where
+      grade and section are both inputs: always filter section by grade, always
+      clear section when grade changes, always disable section until grade selected.
 ```

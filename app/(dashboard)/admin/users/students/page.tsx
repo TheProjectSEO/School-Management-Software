@@ -52,6 +52,7 @@ export default function StudentsPage() {
 
   const [selectedStudents, setSelectedStudents] = useState<Student[]>([]);
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [showReactivateModal, setShowReactivateModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showCredentialsModal, setShowCredentialsModal] = useState(false);
   const [showSectionModal, setShowSectionModal] = useState(false);
@@ -70,6 +71,25 @@ export default function StudentsPage() {
     phone: "+63 ",
     temporaryPassword: "",
   });
+
+  const [lrnError, setLrnError] = useState("");
+
+  // Validate LRN format: YYYY-MSU-#### (4 or more digits, no letters)
+  const validateLRN = (lrn: string): boolean => {
+    if (!lrn) {
+      setLrnError("");
+      return true; // Empty is OK (will be auto-generated)
+    }
+
+    const lrnPattern = /^\d{4}-MSU-\d{4,}$/;
+    if (!lrnPattern.test(lrn)) {
+      setLrnError("Invalid format. Must be YYYY-MSU-#### (e.g., 2026-MSU-0010, 2026-MSU-10000)");
+      return false;
+    }
+
+    setLrnError("");
+    return true;
+  };
 
   const fetchStudents = useCallback(async () => {
     setLoading(true);
@@ -202,11 +222,40 @@ export default function StudentsPage() {
 
       if (response.ok) {
         setShowDeactivateModal(false);
-        setSelectedStudents([]);
+        // Keep students selected so user can perform additional actions
         fetchStudents();
       }
     } catch (error) {
       console.error("Failed to deactivate students:", error);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleBulkReactivate = async () => {
+    setActionLoading(true);
+    try {
+      const response = await fetch("/api/admin/users/students/bulk-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentIds: selectedStudents.map((s) => s.id),
+          status: "active",
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        setShowReactivateModal(false);
+        // Keep students selected so user can perform additional actions
+        fetchStudents();
+      } else {
+        alert(result.error || "Failed to reactivate students");
+      }
+    } catch (error) {
+      console.error("Failed to reactivate students:", error);
+      alert("Failed to reactivate students. Please try again.");
     } finally {
       setActionLoading(false);
     }
@@ -245,7 +294,7 @@ export default function StudentsPage() {
 
       if (response.ok && result.success) {
         setShowSectionModal(false);
-        setSelectedStudents([]);
+        // Keep students selected so user can perform additional actions
         setSelectedSection("");
         fetchStudents();
         fetchSections();
@@ -263,6 +312,11 @@ export default function StudentsPage() {
   const handleBulkGradeChange = async () => {
     if (!selectedGrade) {
       alert("Please select a grade level");
+      return;
+    }
+
+    if (!selectedSection) {
+      alert("Please select a section");
       return;
     }
 
@@ -295,8 +349,9 @@ export default function StudentsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           studentIds,
+          sectionId: selectedSection,
           gradeLevel: selectedGrade,
-          action: "update_grade",
+          action: "update_grade_and_section",
         }),
       });
 
@@ -304,11 +359,12 @@ export default function StudentsPage() {
 
       if (response.ok && result.success) {
         setShowGradeModal(false);
-        setSelectedStudents([]);
+        // Keep students selected so user can perform additional actions
         setSelectedGrade("");
+        setSelectedSection("");
         fetchStudents();
       } else {
-        alert(result.error || "Failed to update grades");
+        alert(result.error || "Failed to update grades and section");
       }
     } catch (error) {
       console.error("Failed to update grades:", error);
@@ -341,6 +397,12 @@ export default function StudentsPage() {
   const handleAddStudent = async () => {
     if (!formData.fullName || !formData.email || !formData.gradeLevel) {
       alert("Please fill in all required fields");
+      return;
+    }
+
+    // Validate LRN format if provided
+    if (formData.lrn && !validateLRN(formData.lrn)) {
+      alert("Please correct the LRN format before submitting");
       return;
     }
 
@@ -570,6 +632,13 @@ export default function StudentsPage() {
               Deactivate
             </button>
             <button
+              onClick={() => setShowReactivateModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+            >
+              <span className="material-symbols-outlined text-base">check_circle</span>
+              Reactivate
+            </button>
+            <button
               onClick={() => setSelectedStudents([])}
               className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             >
@@ -612,11 +681,31 @@ export default function StudentsPage() {
         loading={actionLoading}
       />
 
+      {/* Reactivate Modal */}
+      <ConfirmModal
+        isOpen={showReactivateModal}
+        onClose={() => setShowReactivateModal(false)}
+        onConfirm={handleBulkReactivate}
+        title="Reactivate Students"
+        message={
+          <div>
+            <p>Are you sure you want to reactivate {selectedStudents.length} student(s)?</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Reactivated students will be able to log in and access the system again.
+            </p>
+          </div>
+        }
+        confirmText="Reactivate"
+        variant="info"
+        loading={actionLoading}
+      />
+
       {/* Add Student Modal */}
       <FormModal
         isOpen={showAddModal}
         onClose={() => {
           setShowAddModal(false);
+          setLrnError("");
           setFormData({
             fullName: "",
             email: "",
@@ -671,10 +760,19 @@ export default function StudentsPage() {
               <input
                 type="text"
                 value={formData.lrn}
-                onChange={(e) => setFormData({ ...formData, lrn: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData({ ...formData, lrn: value });
+                  validateLRN(value);
+                }}
+                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
+                  lrnError ? "border-red-500" : "border-gray-300"
+                }`}
                 placeholder="2026-MSU-0010"
               />
+              {lrnError && (
+                <p className="text-sm text-red-500 mt-1">{lrnError}</p>
+              )}
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -706,7 +804,9 @@ export default function StudentsPage() {
               <select
                 required
                 value={formData.gradeLevel}
-                onChange={(e) => setFormData({ ...formData, gradeLevel: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, gradeLevel: e.target.value, sectionId: "" });
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option value="">Select Grade Level</option>
@@ -725,14 +825,24 @@ export default function StudentsPage() {
                 value={formData.sectionId}
                 onChange={(e) => setFormData({ ...formData, sectionId: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                disabled={!formData.gradeLevel}
               >
-                <option value="">Select Section (Optional)</option>
-                {sections.map((section) => (
-                  <option key={section.id} value={section.id}>
-                    {section.name} - Grade {section.grade_level}
-                  </option>
-                ))}
+                <option value="">
+                  {!formData.gradeLevel ? "Select grade first..." : "Select Section (Optional)"}
+                </option>
+                {sections
+                  .filter((section) => section.grade_level === formData.gradeLevel)
+                  .map((section) => (
+                    <option key={section.id} value={section.id}>
+                      {section.name} - Grade {section.grade_level}
+                    </option>
+                  ))}
               </select>
+              {formData.gradeLevel && sections.filter((s) => s.grade_level === formData.gradeLevel).length === 0 && (
+                <p className="text-sm text-orange-500 mt-1">
+                  No sections available for Grade {formData.gradeLevel}
+                </p>
+              )}
             </div>
           </div>
 
@@ -901,13 +1011,16 @@ export default function StudentsPage() {
                 </p>
               </div>
 
-              <div className="mb-6">
+              <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Select Grade Level
+                  Select Grade Level <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={selectedGrade}
-                  onChange={(e) => setSelectedGrade(e.target.value)}
+                  onChange={(e) => {
+                    setSelectedGrade(e.target.value);
+                    setSelectedSection(""); // Clear section when grade changes
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                   disabled={actionLoading}
                 >
@@ -920,10 +1033,38 @@ export default function StudentsPage() {
                 </select>
               </div>
 
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-6">
-                <p className="text-sm text-purple-800">
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select Section <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedSection}
+                  onChange={(e) => setSelectedSection(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  disabled={actionLoading || !selectedGrade}
+                >
+                  <option value="">
+                    {!selectedGrade ? "Select grade first..." : "Choose a section..."}
+                  </option>
+                  {sections
+                    .filter((section) => section.grade_level === selectedGrade)
+                    .map((section) => (
+                      <option key={section.id} value={section.id}>
+                        {section.name} - Grade {section.grade_level}
+                      </option>
+                    ))}
+                </select>
+                {selectedGrade && sections.filter((s) => s.grade_level === selectedGrade).length === 0 && (
+                  <p className="text-sm text-red-500 mt-1">
+                    No sections available for Grade {selectedGrade}
+                  </p>
+                )}
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-6">
+                <p className="text-sm text-blue-800">
                   <span className="material-symbols-outlined text-sm align-middle mr-1">info</span>
-                  This will only change the grade level. Students will keep their current sections.
+                  Both grade level and section will be updated. Section must match the selected grade.
                 </p>
               </div>
 
@@ -932,6 +1073,7 @@ export default function StudentsPage() {
                   onClick={() => {
                     setShowGradeModal(false);
                     setSelectedGrade("");
+                    setSelectedSection("");
                   }}
                   disabled={actionLoading}
                   className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
@@ -940,7 +1082,7 @@ export default function StudentsPage() {
                 </button>
                 <button
                   onClick={handleBulkGradeChange}
-                  disabled={actionLoading || !selectedGrade}
+                  disabled={actionLoading || !selectedGrade || !selectedSection}
                   className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-hover disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {actionLoading ? (

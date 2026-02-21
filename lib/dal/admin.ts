@@ -659,17 +659,12 @@ export async function listTeachers(params?: {
         specialization,
         is_active,
         created_at,
-        school_profiles!inner(id, full_name)
-      `,
-        { count: 'exact' }
+        school_profiles!teacher_profiles_profile_id_fkey(id, full_name, email)
+      `
       )
       .order('created_at', { ascending: false });
 
-    // Search by employee_id only (nested table search doesn't work with .or())
-    if (search) {
-      query = query.ilike('employee_id', `%${search}%`);
-    }
-
+    // Apply simple filters in SQL
     if (status === 'active') {
       query = query.eq('is_active', true);
     } else if (status === 'inactive') {
@@ -680,10 +675,8 @@ export async function listTeachers(params?: {
       query = query.eq('department', params.department);
     }
 
-    const from = (page - 1) * pageSize;
-    const to = from + pageSize - 1;
-
-    const { data, count, error } = await query.range(from, to);
+    // Fetch ALL teachers (no pagination in SQL - we'll filter and paginate in JS)
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error listing teachers:', error);
@@ -691,7 +684,7 @@ export async function listTeachers(params?: {
     }
 
     // Transform the data - flatten for frontend compatibility
-    const teachers: TeacherListItem[] = (data || []).map((t: Record<string, unknown>) => {
+    let teachers: TeacherListItem[] = (data || []).map((t: Record<string, unknown>) => {
       const profile = t.school_profiles as Record<string, unknown> | null;
       return {
         id: t.id as string,
@@ -704,20 +697,41 @@ export async function listTeachers(params?: {
         created_at: t.created_at as string,
         // Flat fields for frontend compatibility
         full_name: (profile?.full_name as string) || 'Unknown',
+        email: (profile?.email as string) || '',
         // Nested structure for backwards compatibility
         profile: {
           id: (t.profile_id as string) || '',
           full_name: (profile?.full_name as string) || 'Unknown',
+          email: (profile?.email as string) || '',
         },
       };
     });
 
+    // Apply search filter in JavaScript (PostgREST can't OR with FK joins)
+    if (search) {
+      const searchLower = search.toLowerCase();
+      teachers = teachers.filter((t) => {
+        return (
+          (t.employee_id && t.employee_id.toLowerCase().includes(searchLower)) ||
+          (t.full_name && t.full_name.toLowerCase().includes(searchLower)) ||
+          (t.email && t.email.toLowerCase().includes(searchLower))
+        );
+      });
+    }
+
+    // Paginate after filtering
+    const total = teachers.length;
+    const totalPages = Math.ceil(total / pageSize);
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize;
+    const paginatedTeachers = teachers.slice(from, to);
+
     return {
-      data: teachers,
-      total: count || 0,
+      data: paginatedTeachers,
+      total,
       page,
       pageSize,
-      totalPages: Math.ceil((count || 0) / pageSize),
+      totalPages,
     };
   } catch (error) {
     console.error('Unexpected error in listTeachers:', error);

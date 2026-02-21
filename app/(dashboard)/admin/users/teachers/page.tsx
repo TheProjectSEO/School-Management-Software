@@ -356,6 +356,7 @@ function AddTeacherModal({
 }) {
   const [loading, setLoading] = useState(false);
   const [createdCredentials, setCreatedCredentials] = useState<{ email: string; password: string } | null>(null);
+  const [employeeIdError, setEmployeeIdError] = useState("");
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -365,8 +366,74 @@ function AddTeacherModal({
     temporaryPassword: "",
   });
 
+  // Validate employee ID format
+  const validateEmployeeId = (id: string): boolean => {
+    if (!id) {
+      setEmployeeIdError("");
+      return true; // Empty is OK (will be auto-generated)
+    }
+
+    const employeeIdPattern = /^T-\d{4}-\d{4,}$/;
+    if (!employeeIdPattern.test(id)) {
+      setEmployeeIdError("Invalid format. Must be T-YYYY-#### (e.g., T-2026-0001, T-2026-10000)");
+      return false;
+    }
+
+    setEmployeeIdError("");
+    return true;
+  };
+
+  // Auto-generate next employee ID on modal open
+  useEffect(() => {
+    const generateNextEmployeeId = async () => {
+      try {
+        const response = await fetch("/api/admin/users/teachers?pageSize=1000");
+        if (!response.ok) return;
+
+        const result = await response.json();
+        const teachers = result.data || [];
+
+        // Get current year
+        const currentYear = new Date().getFullYear();
+
+        // Parse existing employee IDs matching format: T-YYYY-####
+        const employeeIdPattern = /^T-(\d{4})-(\d{4,})$/;
+        const currentYearIds = teachers
+          .map((t: Teacher) => t.employee_id)
+          .filter((id: string) => {
+            const match = id?.match(employeeIdPattern);
+            return match && match[1] === currentYear.toString();
+          })
+          .map((id: string) => {
+            const match = id.match(employeeIdPattern);
+            return match ? parseInt(match[2], 10) : 0;
+          });
+
+        // Find max number for current year, default to 0 if none exist
+        const maxNumber = currentYearIds.length > 0 ? Math.max(...currentYearIds) : 0;
+        const nextNumber = maxNumber + 1;
+
+        // Format: T-YYYY-0001, T-YYYY-0002, etc.
+        const nextEmployeeId = `T-${currentYear}-${String(nextNumber).padStart(4, "0")}`;
+
+        setFormData((prev) => ({ ...prev, employeeId: nextEmployeeId }));
+      } catch (error) {
+        console.error("Failed to generate employee ID:", error);
+      }
+    };
+
+    generateNextEmployeeId();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Validate employee ID format before submission
+    if (formData.employeeId && !validateEmployeeId(formData.employeeId)) {
+      alert("Please correct the Employee ID format before submitting");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -510,9 +577,21 @@ function AddTeacherModal({
                 type="text"
                 required
                 value={formData.employeeId}
-                onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData({ ...formData, employeeId: value });
+                  validateEmployeeId(value);
+                }}
+                placeholder="T-2026-0001"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 ${
+                  employeeIdError ? "border-red-500 focus:border-red-500" : "border-gray-200 focus:border-primary"
+                }`}
               />
+              {employeeIdError ? (
+                <p className="text-xs text-red-500 mt-1">{employeeIdError}</p>
+              ) : (
+                <p className="text-xs text-gray-500 mt-1">Auto-generated. Format: T-YYYY-#### (editable)</p>
+              )}
             </div>
 
             <div>

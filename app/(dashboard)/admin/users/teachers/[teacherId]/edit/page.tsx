@@ -11,13 +11,14 @@ interface TeacherEditPageProps {
 interface TeacherData {
   id: string;
   profile_id: string;
-  employee_id: string;
-  department: string;
-  specialization: string;
+  employee_id?: string;
+  department?: string;
+  specialization?: string;
   is_active: boolean;
   full_name: string;
-  phone: string;
+  phone?: string;
   email?: string;
+  hire_date?: string;
 }
 
 interface CourseAssignment {
@@ -89,6 +90,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
     full_name: "",
     phone: "",
     email: "",
+    hire_date: "",
   });
 
   // Assignment states
@@ -137,6 +139,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
         full_name: data.full_name || "",
         phone: data.phone || "",
         email: teacherEmail,
+        hire_date: data.hire_date || "",
       });
       setOriginalEmail(teacherEmail);
     } catch (err) {
@@ -267,13 +270,17 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
 
     try {
       const payload: Record<string, unknown> = {
-        employeeId: formData.employee_id,
         department: formData.department,
         specialization: formData.specialization,
         fullName: formData.full_name,
         phone: formData.phone,
         isActive: formData.is_active,
       };
+
+      // Add hire_date if provided
+      if (formData.hire_date) {
+        payload.hireDate = formData.hire_date;
+      }
 
       // Include email and admin password if email is being changed
       if (includeEmail && formData.email !== originalEmail) {
@@ -588,9 +595,34 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
                 </label>
                 <input
                   type="text"
-                  required
+                  disabled
                   value={formData.employee_id}
-                  onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
+                />
+                <p className="text-xs text-gray-500 mt-1">Auto-generated and cannot be changed</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="+63 XXX XXX XXXX"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Hire Date
+                </label>
+                <input
+                  type="date"
+                  value={formData.hire_date}
+                  onChange={(e) => setFormData({ ...formData, hire_date: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 />
               </div>
@@ -625,40 +657,26 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
                   value={formData.specialization}
                   onChange={(e) => setFormData({ ...formData, specialization: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  placeholder="e.g., Algebra, Physics, etc."
+                  placeholder="e.g., Algebra, Physics"
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Phone Number
+              <div className="space-y-3 pt-3">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_active}
+                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                    className="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm font-medium text-gray-700">Active Teacher</span>
                 </label>
-                <input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Status
-                </label>
-                <select
-                  value={formData.is_active ? "active" : "inactive"}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.value === "active" })}
-                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
               </div>
 
               <button
                 type="submit"
                 disabled={saving}
-                className="w-full px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-hover disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-hover disabled:opacity-50 flex items-center justify-center gap-2 mt-4"
               >
                 {saving && (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

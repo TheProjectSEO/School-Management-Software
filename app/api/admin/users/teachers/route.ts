@@ -23,12 +23,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || undefined;
     const status = searchParams.get("status") || undefined;
+    const department = searchParams.get("department") || undefined;
     const page = parseInt(searchParams.get("page") || "1");
     const pageSize = parseInt(searchParams.get("pageSize") || "20");
 
     const result = await listTeachers({
       search,
       status,
+      department,
       page,
       pageSize,
     });

@@ -938,4 +938,79 @@ bugs:
       different grade levels. The pattern should be applied to ALL forms where
       grade and section are both inputs: always filter section by grade, always
       clear section when grade changes, always disable section until grade selected.
+
+  - id: BUG-015
+    date: "2026-02-21"
+    title: Search limited to single field, ignoring FK-joined data
+    severity: critical
+    pattern: |
+      List views with FK joins that search only the primary table field
+      (employee_id, LRN, etc.) ignore user-facing fields like full_name
+      and email from the joined school_profiles table. This makes search
+      unusable for end users who search by name, not ID.
+
+      PostgREST .or() queries fail with FK-joined fields, so all searches
+      must be moved to JavaScript after fetching.
+
+      Example (Teachers):
+      - User searches "Aditya Aman" (teacher's name)
+      - SQL search only checks employee_id field: .ilike('employee_id', '%Aditya Aman%')
+      - Employee ID is "T-2024-001", not "Aditya Aman"
+      - Query returns 0 rows → "No teachers found"
+      - But full_name in school_profiles is "Aditya Aman"
+
+      Root cause:
+      - PostgREST .or() fails with FK-joined fields
+      - Developer limited search to single primary table field
+      - Comment admitted limitation: "nested table search doesn't work with .or()"
+      - Query never searches joined table fields (full_name, email)
+    affected_files:
+      - "lib/dal/admin.ts (listTeachers - FIXED Feb 21)"
+      - "lib/dal/admin.ts (listStudents - FIXED Feb 16, same pattern as BUG-006)"
+      - "Any future list views with search + FK joins"
+    fix: |
+      Apply JavaScript filtering pattern (same as BUG-006 student fix):
+
+      1. Add all searchable fields to FK join select:
+         school_profiles!fkey_name(id, full_name, email)
+
+      2. Remove SQL .ilike() or .or() search filters:
+         // DELETE: if (search) query = query.ilike('field', `%${search}%`);
+
+      3. Fetch ALL records with simple filters (status, department):
+         const { data, error } = await query;  // No .range(), no count
+
+      4. Map data and add email to returned objects:
+         full_name: (profile?.full_name as string) || 'Unknown',
+         email: (profile?.email as string) || '',
+
+      5. Filter in JavaScript across all user-facing fields:
+         if (search) {
+           const searchLower = search.toLowerCase();
+           items = items.filter((item) => {
+             return (
+               item.primary_id.toLowerCase().includes(searchLower) ||
+               item.full_name.toLowerCase().includes(searchLower) ||
+               (item.email && item.email.toLowerCase().includes(searchLower))
+             );
+           });
+         }
+
+      6. Paginate after filtering in JavaScript:
+         const total = items.length;
+         const totalPages = Math.ceil(total / pageSize);
+         const from = (page - 1) * pageSize;
+         const to = from + pageSize;
+         const paginatedItems = items.slice(from, to);
+
+      Performance: Acceptable for < 10,000 records. For larger datasets,
+      consider PostgreSQL full-text search (tsvector).
+    status: resolved-recurring
+    notes: >
+      Fixed for teachers (Feb 21) and students (Feb 16). This is a systemic
+      pattern. The pattern appears in both students and teachers. Future list
+      views (enrollments, courses, sections, etc.) must use JS filtering from
+      the start to avoid this bug. Related to BUG-001 (FK joins) and BUG-006
+      (student search). Always search user-facing fields (name, email), not
+      internal IDs (LRN, employee_id).
 ```

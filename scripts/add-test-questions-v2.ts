@@ -17,7 +17,7 @@ async function addQuestions() {
     .delete()
     .eq('assessment_id', assessmentId);
 
-  // Add test questions - using only multiple_choice which should be valid
+
   const questions = [
     {
       assessment_id: assessmentId,

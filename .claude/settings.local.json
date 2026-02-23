@@ -24,7 +24,8 @@
       "Bash(python3:*)",
       "Bash(tree:*)",
       "Bash(find:*)",
-      "Bash(xcopy /E /I /Y \"apps\\\\admin\\\\app\\\\\\(admin\\)\\\\*\" \"apps\\\\web\\\\app\\\\\\(dashboard\\)\\\\admin\"\")"
+      "Bash(xcopy /E /I /Y \"apps\\\\admin\\\\app\\\\\\(admin\\)\\\\*\" \"apps\\\\web\\\\app\\\\\\(dashboard\\)\\\\admin\"\")",
+      "Bash(edit \")"
     ]
   }
 }

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { playMessageSound, playAlertSound } from "@/lib/utils/notificationSound";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface AdminNotificationContextType {
   /** Total unread message count */
@@ -42,7 +43,7 @@ interface AdminNotificationProviderProps {
 
 /**
  * Global provider for admin notifications
- * Subscribes to messages and applications in real-time
+ * Subscribes to messages in real-time and fetches counts via API route
  */
 export function AdminNotificationProvider({
   children,
@@ -57,30 +58,20 @@ export function AdminNotificationProvider({
   const channelRef = useRef<RealtimeChannel | null>(null);
   const supabaseRef = useRef(createClient());
 
-  // Fetch initial counts
+  // Fetch counts via API route (avoids RLS issues with browser anon client)
   const fetchCounts = useCallback(async () => {
-    if (!profileId || !schoolId) return;
-
-    const supabase = supabaseRef.current;
+    if (!profileId) return;
 
     try {
-      // Fetch unread message count
-      const { data: msgData } = await supabase.rpc("get_unread_count", {
-        p_profile_id: profileId,
-      });
-      setUnreadMessageCount(msgData || 0);
-
-      // Fetch pending applications count
-      const { count: appCount } = await supabase
-        .from("applications")
-        .select("*", { count: "exact", head: true })
-        .eq("school_id", schoolId)
-        .eq("status", "pending");
-      setPendingApplicationsCount(appCount || 0);
-    } catch (error) {
-      console.error("Error fetching admin notification counts:", error);
+      const response = await authFetch("/api/admin/notifications/counts");
+      if (!response.ok) return;
+      const data = await response.json();
+      setUnreadMessageCount(data.unreadMessages || 0);
+      setPendingApplicationsCount(data.pendingApplications || 0);
+    } catch {
+      // Silently fail — counts remain at 0
     }
-  }, [profileId, schoolId]);
+  }, [profileId]);
 
   // Show toast for new message
   const showMessageToast = useCallback((senderName: string, preview: string) => {
@@ -122,7 +113,7 @@ export function AdminNotificationProvider({
 
   // Subscribe to real-time updates
   useEffect(() => {
-    if (!profileId || !schoolId) {
+    if (!profileId) {
       setUnreadMessageCount(0);
       setPendingApplicationsCount(0);
       return;
@@ -133,10 +124,9 @@ export function AdminNotificationProvider({
     // Fetch initial counts
     fetchCounts();
 
-    // Subscribe to new messages and applications
+    // Subscribe to new messages
     const channel = supabase
       .channel(`admin-notifications:${profileId}`)
-      // Listen for new messages
       .on(
         "postgres_changes",
         {
@@ -180,68 +170,6 @@ export function AdminNotificationProvider({
           }
         }
       )
-      // Listen for new applications
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "applications",
-          filter: `school_id=eq.${schoolId}`,
-        },
-        async (payload) => {
-          const application = payload.new as {
-            id: string;
-            applicant_name: string;
-            status: string;
-          };
-
-          if (application.status === "pending") {
-            // Increment pending count
-            setPendingApplicationsCount((prev) => prev + 1);
-
-            // Play alert sound for new applications
-            playAlertSound();
-
-            // Show toast
-            showApplicationToast(application.applicant_name);
-
-            // Browser notification if tab hidden
-            if (typeof window !== "undefined" && document.hidden && "Notification" in window) {
-              if (Notification.permission === "granted") {
-                new Notification("New Application", {
-                  body: `${application.applicant_name} submitted an application`,
-                  icon: "/brand/logo.png",
-                  tag: `admin-application-${application.id}`,
-                });
-              }
-            }
-          }
-        }
-      )
-      // Listen for application status updates
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "applications",
-          filter: `school_id=eq.${schoolId}`,
-        },
-        (payload) => {
-          const oldApp = payload.old as { status: string };
-          const newApp = payload.new as { status: string };
-
-          // If status changed from pending to something else, decrement count
-          if (oldApp.status === "pending" && newApp.status !== "pending") {
-            setPendingApplicationsCount((prev) => Math.max(0, prev - 1));
-          }
-          // If status changed to pending from something else, increment count
-          else if (oldApp.status !== "pending" && newApp.status === "pending") {
-            setPendingApplicationsCount((prev) => prev + 1);
-          }
-        }
-      )
       .subscribe((status) => {
         setIsConnected(status === "SUBSCRIBED");
       });
@@ -254,7 +182,7 @@ export function AdminNotificationProvider({
         channelRef.current = null;
       }
     };
-  }, [profileId, schoolId, fetchCounts, showMessageToast, showApplicationToast]);
+  }, [profileId, fetchCounts, showMessageToast, showApplicationToast]);
 
   return (
     <AdminNotificationContext.Provider

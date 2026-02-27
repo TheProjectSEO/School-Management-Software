@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { authFetch } from "@/lib/utils/authFetch";
 import { ColumnDef } from "@tanstack/react-table";
 import DataTable from "@/components/admin/ui/DataTable";
 import FilterBar from "@/components/admin/ui/FilterBar";
@@ -76,8 +77,12 @@ export default function CoursesPage() {
       if (filters.search) params.set("search", filters.search);
       if (filters.grade_level) params.set("grade_level", filters.grade_level);
 
-      const response = await fetch(`/api/admin/courses?${params}`);
+      const response = await authFetch(`/api/admin/courses?${params}`);
       if (!response.ok) {
+        if (response.status === 401) {
+          window.location.href = `/login?redirect=${encodeURIComponent(window.location.pathname)}`;
+          return;
+        }
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to fetch courses");
       }
@@ -111,7 +116,7 @@ export default function CoursesPage() {
 
     setActionLoading(true);
     try {
-      const response = await fetch("/api/admin/courses", {
+      const response = await authFetch("/api/admin/courses", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -147,7 +152,7 @@ export default function CoursesPage() {
 
     setActionLoading(true);
     try {
-      const response = await fetch(`/api/admin/courses/${selectedCourse.id}`, {
+      const response = await authFetch(`/api/admin/courses/${selectedCourse.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -181,7 +186,7 @@ export default function CoursesPage() {
 
     setActionLoading(true);
     try {
-      const response = await fetch(`/api/admin/courses/${selectedCourse.id}`, {
+      const response = await authFetch(`/api/admin/courses/${selectedCourse.id}`, {
         method: "DELETE",
       });
 
@@ -210,7 +215,7 @@ export default function CoursesPage() {
     setActionLoading(true);
     setBulkResult(null);
     try {
-      const response = await fetch("/api/admin/courses/bulk-subjects", {
+      const response = await authFetch("/api/admin/courses/bulk-subjects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ grade_levels: bulkGrades }),

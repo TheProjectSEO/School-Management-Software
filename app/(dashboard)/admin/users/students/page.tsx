@@ -552,16 +552,29 @@ export default function StudentsPage() {
           >
             <span className="material-symbols-outlined text-lg">edit</span>
           </Link>
-          <button
-            onClick={() => {
-              setSelectedStudents([row.original]);
-              setShowDeactivateModal(true);
-            }}
-            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            title="Deactivate"
-          >
-            <span className="material-symbols-outlined text-lg">block</span>
-          </button>
+          {row.original.status === "active" ? (
+            <button
+              onClick={() => {
+                setSelectedStudents([row.original]);
+                setShowDeactivateModal(true);
+              }}
+              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="Deactivate"
+            >
+              <span className="material-symbols-outlined text-lg">block</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setSelectedStudents([row.original]);
+                setShowReactivateModal(true);
+              }}
+              className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+              title="Activate"
+            >
+              <span className="material-symbols-outlined text-lg">check_circle</span>
+            </button>
+          )}
         </div>
       ),
     },
@@ -624,20 +637,24 @@ export default function StudentsPage() {
               <span className="material-symbols-outlined text-base">school</span>
               Change Grade
             </button>
-            <button
-              onClick={() => setShowDeactivateModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-            >
-              <span className="material-symbols-outlined text-base">block</span>
-              Deactivate
-            </button>
-            <button
-              onClick={() => setShowReactivateModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
-            >
-              <span className="material-symbols-outlined text-base">check_circle</span>
-              Reactivate
-            </button>
+            {selectedStudents.some((s) => s.status === "active") && (
+              <button
+                onClick={() => setShowDeactivateModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+              >
+                <span className="material-symbols-outlined text-base">block</span>
+                Deactivate
+              </button>
+            )}
+            {selectedStudents.some((s) => s.status !== "active") && (
+              <button
+                onClick={() => setShowReactivateModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+              >
+                <span className="material-symbols-outlined text-base">check_circle</span>
+                Reactivate
+              </button>
+            )}
             <button
               onClick={() => setSelectedStudents([])}
               className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -656,6 +673,7 @@ export default function StudentsPage() {
         onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
         selectable
         onSelectionChange={setSelectedStudents}
+        selectedItems={selectedStudents}
         loading={loading}
         emptyMessage="No students found"
         emptyIcon="school"

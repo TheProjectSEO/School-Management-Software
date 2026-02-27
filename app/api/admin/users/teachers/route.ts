@@ -109,7 +109,8 @@ export async function POST(request: NextRequest) {
     });
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
+      const isEmailConflict = result.error?.includes('Email already exists');
+      return NextResponse.json({ error: result.error }, { status: isEmailConflict ? 409 : 400 });
     }
 
     return NextResponse.json({

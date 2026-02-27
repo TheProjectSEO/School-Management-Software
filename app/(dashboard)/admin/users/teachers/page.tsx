@@ -46,6 +46,7 @@ export default function TeachersPage() {
 
   const [selectedTeachers, setSelectedTeachers] = useState<Teacher[]>([]);
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+  const [showActivateModal, setShowActivateModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -118,11 +119,33 @@ export default function TeachersPage() {
 
       if (response.ok) {
         setShowDeactivateModal(false);
-        setSelectedTeachers([]);
         fetchTeachers();
       }
     } catch (error) {
       console.error("Failed to deactivate teachers:", error);
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleBulkActivate = async () => {
+    setActionLoading(true);
+    try {
+      const response = await fetch("/api/admin/users/teachers/bulk-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          teacherIds: selectedTeachers.map((t) => t.id),
+          isActive: true,
+        }),
+      });
+
+      if (response.ok) {
+        setShowActivateModal(false);
+        fetchTeachers();
+      }
+    } catch (error) {
+      console.error("Failed to activate teachers:", error);
     } finally {
       setActionLoading(false);
     }
@@ -233,16 +256,29 @@ export default function TeachersPage() {
           >
             <span className="material-symbols-outlined text-lg">edit</span>
           </Link>
-          <button
-            onClick={() => {
-              setSelectedTeachers([row.original]);
-              setShowDeactivateModal(true);
-            }}
-            className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-            title="Deactivate"
-          >
-            <span className="material-symbols-outlined text-lg">block</span>
-          </button>
+          {row.original.is_active ? (
+            <button
+              onClick={() => {
+                setSelectedTeachers([row.original]);
+                setShowDeactivateModal(true);
+              }}
+              className="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="Deactivate"
+            >
+              <span className="material-symbols-outlined text-lg">block</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setSelectedTeachers([row.original]);
+                setShowActivateModal(true);
+              }}
+              className="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+              title="Activate"
+            >
+              <span className="material-symbols-outlined text-lg">check_circle</span>
+            </button>
+          )}
         </div>
       ),
     },
@@ -284,12 +320,24 @@ export default function TeachersPage() {
             {selectedTeachers.length} teacher(s) selected
           </span>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowDeactivateModal(true)}
-              className="px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
-            >
-              Deactivate Selected
-            </button>
+            {selectedTeachers.some((t) => t.is_active) && (
+              <button
+                onClick={() => setShowDeactivateModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+              >
+                <span className="material-symbols-outlined text-base">block</span>
+                Deactivate
+              </button>
+            )}
+            {selectedTeachers.some((t) => !t.is_active) && (
+              <button
+                onClick={() => setShowActivateModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+              >
+                <span className="material-symbols-outlined text-base">check_circle</span>
+                Activate
+              </button>
+            )}
             <button
               onClick={() => setSelectedTeachers([])}
               className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
@@ -308,6 +356,7 @@ export default function TeachersPage() {
         onPageChange={(page) => setPagination((prev) => ({ ...prev, page }))}
         selectable
         onSelectionChange={setSelectedTeachers}
+        selectedItems={selectedTeachers}
         loading={loading}
         emptyMessage="No teachers found"
         emptyIcon="person"
@@ -330,6 +379,25 @@ export default function TeachersPage() {
         }
         confirmText="Deactivate"
         variant="danger"
+        loading={actionLoading}
+      />
+
+      {/* Activate Modal */}
+      <ConfirmModal
+        isOpen={showActivateModal}
+        onClose={() => setShowActivateModal(false)}
+        onConfirm={handleBulkActivate}
+        title="Activate Teachers"
+        message={
+          <div>
+            <p>Are you sure you want to activate {selectedTeachers.length} teacher(s)?</p>
+            <p className="text-sm text-gray-500 mt-2">
+              Activated teachers will be able to log in and access the system again.
+            </p>
+          </div>
+        }
+        confirmText="Activate"
+        variant="info"
         loading={actionLoading}
       />
 

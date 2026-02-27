@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -27,6 +27,7 @@ interface DataTableProps<T extends object> {
   onPageChange?: (page: number) => void;
   selectable?: boolean;
   onSelectionChange?: (selected: T[]) => void;
+  selectedItems?: T[];
   loading?: boolean;
   emptyMessage?: string;
   emptyIcon?: string;
@@ -40,6 +41,7 @@ export default function DataTable<T extends object>({
   onPageChange,
   selectable = false,
   onSelectionChange,
+  selectedItems,
   loading = false,
   emptyMessage = "No data found",
   emptyIcon = "inbox",
@@ -47,6 +49,13 @@ export default function DataTable<T extends object>({
 }: DataTableProps<T>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+
+  // Sync internal checkbox state when parent clears the selection externally
+  useEffect(() => {
+    if (selectedItems?.length === 0) {
+      setRowSelection({});
+    }
+  }, [selectedItems]);
 
   // Add selection column if selectable
   const tableColumns = useMemo(() => {

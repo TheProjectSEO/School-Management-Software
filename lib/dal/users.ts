@@ -840,6 +840,16 @@ export async function createStudent(
 
         if (authError) {
           console.error('Error creating auth user:', authError);
+          const isEmailExists =
+            authError.code === 'email_exists' ||
+            authError.message?.includes('already registered') ||
+            authError.message?.includes('already exists');
+          if (isEmailExists) {
+            return {
+              success: false,
+              error: 'Email already exists. This email address is already registered to another account in the system (student, teacher, or admin). Each person must use a unique email address.',
+            };
+          }
           return { success: false, error: authError.message };
         }
 
@@ -1075,6 +1085,16 @@ export async function createTeacher(
 
         if (authError) {
           console.error('Error creating auth user:', authError);
+          const isEmailExists =
+            authError.code === 'email_exists' ||
+            authError.message?.includes('already registered') ||
+            authError.message?.includes('already exists');
+          if (isEmailExists) {
+            return {
+              success: false,
+              error: 'Email already exists. This email address is already registered to another account in the system (student, teacher, or admin). Each person must use a unique email address.',
+            };
+          }
           return { success: false, error: authError.message };
         }
 

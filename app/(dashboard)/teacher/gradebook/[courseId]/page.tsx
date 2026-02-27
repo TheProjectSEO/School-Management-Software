@@ -3,6 +3,8 @@ import { Suspense } from 'react'
 import { getCurrentUser } from '@/lib/auth/session'
 import { getGradebookData, getGradingPeriods, getCurrentGradingPeriod } from '@/lib/dal/teacher/gradebook'
 import { getTeacherProfile } from '@/lib/dal/teacher'
+import { getClassQuarterlyGrades } from '@/lib/dal/deped-grades'
+import { createServiceClient } from '@/lib/supabase/service'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import GradebookClient from '@/components/teacher/gradebook/GradebookClient'
 import type { GradebookRow, AssessmentScore } from '@/lib/dal/types/gradebook'
@@ -87,10 +89,45 @@ async function GradebookContent({
     notFound()
   }
 
+  // Get course subject_type
+  const supabase = createServiceClient()
+  const { data: course } = await supabase
+    .from('courses')
+    .select('subject_type')
+    .eq('id', courseId)
+    .single()
+
+  // Get DepEd quarterly grades for the current period
+  const depedReport = await getClassQuarterlyGrades(courseId, currentPeriod.id)
+
   // Serialize the gradebook data for client component (Maps to objects)
   const serializedData = {
     ...gradebookData,
-    rows: serializeGradebookRows(gradebookData.rows)
+    rows: serializeGradebookRows(gradebookData.rows),
+    subject_type: (course?.subject_type ?? 'academic') as 'academic' | 'mapeh' | 'tle',
+    school_id: teacherProfile.school_id,
+    depedRows: (depedReport?.students ?? []).map((s) => ({
+      student_id:          s.student_id,
+      student_name:        s.student_name,
+      lrn:                 s.lrn,
+      ww_total_score:      s.breakdown?.ww.totalScore ?? null,
+      ww_highest_score:    s.breakdown?.ww.highestPossibleScore ?? null,
+      ww_percentage_score: s.breakdown?.ww.percentageScore ?? null,
+      ww_weighted_score:   s.breakdown?.ww.weightedScore ?? null,
+      pt_total_score:      s.breakdown?.pt.totalScore ?? null,
+      pt_highest_score:    s.breakdown?.pt.highestPossibleScore ?? null,
+      pt_percentage_score: s.breakdown?.pt.percentageScore ?? null,
+      pt_weighted_score:   s.breakdown?.pt.weightedScore ?? null,
+      qa_total_score:      s.breakdown?.qa.totalScore ?? null,
+      qa_highest_score:    s.breakdown?.qa.highestPossibleScore ?? null,
+      qa_percentage_score: s.breakdown?.qa.percentageScore ?? null,
+      qa_weighted_score:   s.breakdown?.qa.weightedScore ?? null,
+      initial_grade:       s.breakdown?.initialGrade ?? null,
+      transmuted_grade:    s.breakdown?.transmutedGrade ?? null,
+      quarterly_grade:     s.quarterly_grade,
+      is_locked:           s.is_locked,
+      is_released:         s.is_released,
+    })),
   }
 
   return (

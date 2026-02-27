@@ -60,9 +60,11 @@ export async function POST(request: NextRequest) {
     const {
       title,
       type,
+      deped_component,
       course_id,
       lesson_id,
       section_id,
+      grading_period_id,
       instructions,
       due_date,
       time_limit_minutes,
@@ -72,10 +74,19 @@ export async function POST(request: NextRequest) {
       questions
     } = body
 
+    // Derive deped_component from type if not explicitly provided
+    const resolvedDepedComponent = deped_component ?? (
+      ['quiz', 'assignment', 'exam'].includes(type)     ? 'written_work' :
+      ['project', 'participation'].includes(type)        ? 'performance_task' :
+      ['midterm', 'final'].includes(type)                ? 'quarterly_assessment' :
+      'written_work'
+    )
+
     // Create assessment
     const insertData: Record<string, unknown> = {
       title,
       type,
+      deped_component: resolvedDepedComponent,
       course_id,
       section_id,
       school_id: schoolId,
@@ -88,6 +99,7 @@ export async function POST(request: NextRequest) {
       created_by: teacherId
     }
     if (lesson_id) insertData.lesson_id = lesson_id
+    if (grading_period_id) insertData.grading_period_id = grading_period_id
 
     const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')

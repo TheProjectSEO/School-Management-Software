@@ -6,15 +6,15 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import GradebookTable from './GradebookTable'
-import GradeWeightModal from './GradeWeightModal'
 import BulkGradeModal from './BulkGradeModal'
-import GradeReleaseModal from './GradeReleaseModal'
+import DepEdGradebookView from './DepEdGradebookView'
 import type {
   GradingPeriod,
   GradebookAssessment,
   GradeWeightConfig,
   AssessmentScore,
 } from '@/lib/dal/types/gradebook'
+import type { DepEdSubjectType } from '@/lib/grading/deped-engine'
 
 // Serialized row type (Map converted to object)
 interface SerializedGradebookRow {
@@ -38,6 +38,31 @@ interface SerializedGradebookData {
   assessments: GradebookAssessment[]
   rows: SerializedGradebookRow[]
   weight_config: GradeWeightConfig[]
+  subject_type?: DepEdSubjectType
+  school_id?: string
+  // DepEd quarterly grade rows (fetched separately)
+  depedRows?: Array<{
+    student_id: string
+    student_name: string
+    lrn: string
+    ww_total_score: number | null
+    ww_highest_score: number | null
+    ww_percentage_score: number | null
+    ww_weighted_score: number | null
+    pt_total_score: number | null
+    pt_highest_score: number | null
+    pt_percentage_score: number | null
+    pt_weighted_score: number | null
+    qa_total_score: number | null
+    qa_highest_score: number | null
+    qa_percentage_score: number | null
+    qa_weighted_score: number | null
+    initial_grade: number | null
+    transmuted_grade: number | null
+    quarterly_grade: number | null
+    is_locked: boolean
+    is_released: boolean
+  }>
 }
 
 interface GradebookClientProps {
@@ -54,11 +79,10 @@ export default function GradebookClient({
   teacherId,
 }: GradebookClientProps) {
   const router = useRouter()
-  const [isWeightModalOpen, setIsWeightModalOpen] = useState(false)
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
-  const [isReleaseModalOpen, setIsReleaseModalOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [localRows, setLocalRows] = useState(gradebookData.rows)
+  const [depedRows, setDepedRows] = useState(gradebookData.depedRows ?? [])
 
   // Handle period change
   const handlePeriodChange = (periodId: string) => {
@@ -124,23 +148,27 @@ export default function GradebookClient({
     [gradebookData.course_id, gradebookData.assessments]
   )
 
-  // Handle weight configuration save
-  const handleWeightsSave = async () => {
-    router.refresh()
-    setIsWeightModalOpen(false)
-  }
-
   // Handle bulk grade entry
   const handleBulkSave = async () => {
     router.refresh()
     setIsBulkModalOpen(false)
   }
 
-  // Handle grade release
-  const handleGradeRelease = async () => {
+  // Refresh DepEd rows after compute/release
+  const handleDepEdRefresh = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/teacher/gradebook/deped?courseId=${gradebookData.course_id}&periodId=${currentPeriodId}`
+      )
+      if (res.ok) {
+        const data = await res.json()
+        setDepedRows(data.report?.students ?? [])
+      }
+    } catch {
+      // silently ignore — table will refresh on next recompute
+    }
     router.refresh()
-    setIsReleaseModalOpen(false)
-  }
+  }, [gradebookData.course_id, currentPeriodId, router])
 
   // Calculate class statistics
   const stats = calculateClassStats(localRows, gradebookData.assessments)
@@ -173,41 +201,19 @@ export default function GradebookClient({
             ))}
           </select>
 
-          {/* Actions Dropdown */}
+          {/* Actions */}
           <div className="relative group">
             <Button variant="outline" size="sm">
-              <span className="material-symbols-outlined text-lg mr-2">
-                more_vert
-              </span>
+              <span className="material-symbols-outlined text-lg mr-2">more_vert</span>
               Actions
             </Button>
-            <div className="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
-              <button
-                onClick={() => setIsWeightModalOpen(true)}
-                className="w-full px-4 py-3 text-left text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
-              >
-                <span className="material-symbols-outlined text-lg">
-                  tune
-                </span>
-                Configure Weights
-              </button>
+            <div className="absolute right-0 top-full mt-2 w-44 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
               <button
                 onClick={() => setIsBulkModalOpen(true)}
                 className="w-full px-4 py-3 text-left text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
               >
-                <span className="material-symbols-outlined text-lg">
-                  upload
-                </span>
+                <span className="material-symbols-outlined text-lg">upload</span>
                 Bulk Entry
-              </button>
-              <button
-                onClick={() => setIsReleaseModalOpen(true)}
-                className="w-full px-4 py-3 text-left text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 border-t border-slate-200 dark:border-slate-700"
-              >
-                <span className="material-symbols-outlined text-lg">
-                  publish
-                </span>
-                Release Grades
               </button>
             </div>
           </div>
@@ -290,29 +296,24 @@ export default function GradebookClient({
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="grades">
+      <Tabs defaultValue="scores">
         <TabsList>
-          <TabsTrigger value="grades">
-            <span className="material-symbols-outlined text-lg mr-2">
-              table_chart
-            </span>
-            Grades
+          <TabsTrigger value="scores">
+            <span className="material-symbols-outlined text-lg mr-2">table_chart</span>
+            Score Entry
           </TabsTrigger>
-          <TabsTrigger value="weights">
-            <span className="material-symbols-outlined text-lg mr-2">
-              tune
-            </span>
-            Weight Configuration
+          <TabsTrigger value="deped">
+            <span className="material-symbols-outlined text-lg mr-2">calculate</span>
+            DepEd Grades
           </TabsTrigger>
           <TabsTrigger value="analytics">
-            <span className="material-symbols-outlined text-lg mr-2">
-              analytics
-            </span>
+            <span className="material-symbols-outlined text-lg mr-2">analytics</span>
             Analytics
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="grades">
+        {/* Raw score entry — unchanged */}
+        <TabsContent value="scores">
           <Card className="p-0 overflow-hidden">
             <GradebookTable
               rows={localRows}
@@ -324,12 +325,18 @@ export default function GradebookClient({
           </Card>
         </TabsContent>
 
-        <TabsContent value="weights">
-          <WeightConfigurationPanel
+        {/* DepEd quarterly grade computation */}
+        <TabsContent value="deped">
+          <DepEdGradebookView
             courseId={gradebookData.course_id}
             periodId={currentPeriodId}
-            weightConfig={gradebookData.weight_config}
-            onSave={handleWeightsSave}
+            schoolId={gradebookData.school_id ?? ''}
+            courseName={gradebookData.course_name}
+            periodName={gradebookData.grading_period.name}
+            subjectType={gradebookData.subject_type ?? 'academic'}
+            students={depedRows}
+            onRecompute={handleDepEdRefresh}
+            onRelease={handleDepEdRefresh}
           />
         </TabsContent>
 
@@ -342,15 +349,6 @@ export default function GradebookClient({
       </Tabs>
 
       {/* Modals */}
-      <GradeWeightModal
-        isOpen={isWeightModalOpen}
-        onClose={() => setIsWeightModalOpen(false)}
-        courseId={gradebookData.course_id}
-        periodId={currentPeriodId}
-        currentWeights={gradebookData.weight_config}
-        onSave={handleWeightsSave}
-      />
-
       <BulkGradeModal
         isOpen={isBulkModalOpen}
         onClose={() => setIsBulkModalOpen(false)}
@@ -358,15 +356,6 @@ export default function GradebookClient({
         assessments={gradebookData.assessments}
         students={localRows.map((r) => r.student)}
         onSave={handleBulkSave}
-      />
-
-      <GradeReleaseModal
-        isOpen={isReleaseModalOpen}
-        onClose={() => setIsReleaseModalOpen(false)}
-        courseId={gradebookData.course_id}
-        periodId={currentPeriodId}
-        students={localRows.map((r) => r.student)}
-        onRelease={handleGradeRelease}
       />
     </div>
   )

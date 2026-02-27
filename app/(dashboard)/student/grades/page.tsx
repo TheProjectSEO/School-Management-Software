@@ -1,21 +1,17 @@
 import { redirect } from "next/navigation";
 import { getCurrentStudent } from "@/lib/dal";
-import {
-  getStudentCourseGrades,
-  getCurrentGPA,
-  getGPATrend,
-  getStudentGradingPeriods,
-} from "@/lib/dal/grades";
+import { getStudentDepEdGrades } from "@/lib/dal/deped-grades";
+import { createServiceClient } from "@/lib/supabase/service";
 import GradesClient from "./GradesClient";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Grades | MSU Student Portal",
   description:
-    "View your grades, GPA, and academic standing at Mindanao State University.",
+    "View your grades and academic performance at Mindanao State University.",
 };
 
-export const revalidate = 300; // 5 minutes - grades data
+export const revalidate = 300; // 5 minutes
 
 export default async function GradesPage() {
   const student = await getCurrentStudent();
@@ -24,20 +20,27 @@ export default async function GradesPage() {
     redirect("/login");
   }
 
-  // Fetch grades data in parallel
-  const [grades, gpaData, gpaTrend, gradingPeriods] = await Promise.all([
-    getStudentCourseGrades(student.id),
-    getCurrentGPA(student.id),
-    getGPATrend(student.id),
-    getStudentGradingPeriods(student.id),
-  ]);
+  // Get available academic years for this student
+  const supabase = createServiceClient();
+  const { data: yearRows } = await supabase
+    .from("deped_final_grades")
+    .select("academic_year")
+    .eq("student_id", student.id)
+    .eq("is_released", true)
+    .order("academic_year", { ascending: false });
+
+  const academicYears = [
+    ...new Set((yearRows ?? []).map((r) => r.academic_year)),
+  ];
+
+  // Default to most recent year
+  const latestYear = academicYears[0];
+  const depedReport = await getStudentDepEdGrades(student.id, latestYear);
 
   return (
     <GradesClient
-      initialGrades={grades}
-      initialGPA={gpaData}
-      initialTrend={gpaTrend}
-      gradingPeriods={gradingPeriods}
+      depedReport={depedReport}
+      academicYears={academicYears}
       studentId={student.id}
     />
   );

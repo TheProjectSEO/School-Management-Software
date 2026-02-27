@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ColumnDef } from "@tanstack/react-table";
 import DataTable from "@/components/admin/ui/DataTable";
 import FilterBar from "@/components/admin/ui/FilterBar";
@@ -23,6 +24,7 @@ interface Section {
 const GRADE_LEVELS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
 export default function SectionsPage() {
+  const router = useRouter();
   const [sections, setSections] = useState<Section[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -161,13 +163,16 @@ export default function SectionsPage() {
         method: "DELETE",
       });
 
+      const data = await response.json();
+
       if (response.ok) {
         setShowDeleteModal(false);
         setSelectedSection(null);
         fetchSections();
       } else {
-        const errorData = await response.json();
-        alert(errorData.error || "Failed to delete section");
+        setShowDeleteModal(false);
+        setSelectedSection(null);
+        alert(data.error || "Failed to delete section.");
       }
     } catch (err) {
       console.error("Failed to delete section:", err);
@@ -517,30 +522,74 @@ export default function SectionsPage() {
         </div>
       </FormModal>
 
-      {/* Delete Confirmation Modal */}
-      <ConfirmModal
-        isOpen={showDeleteModal}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setSelectedSection(null);
-        }}
-        onConfirm={handleDeleteSection}
-        title="Delete Section"
-        message={
-          <div>
-            <p>
-              Are you sure you want to delete{" "}
-              <span className="font-medium">{selectedSection?.name}</span>?
-            </p>
-            <p className="text-sm text-gray-500 mt-2">
-              This action cannot be undone. All course assignments and student associations will be removed.
-            </p>
-          </div>
-        }
-        confirmText="Delete"
-        variant="danger"
-        loading={actionLoading}
-      />
+      {/* Delete Modal — blocked if section has dependencies, safe otherwise */}
+      {selectedSection && (selectedSection.enrolled_count > 0 || selectedSection.course_count > 0) ? (
+        <ConfirmModal
+          isOpen={showDeleteModal}
+          onClose={() => { setShowDeleteModal(false); setSelectedSection(null); }}
+          onConfirm={() => { setShowDeleteModal(false); router.push(`/admin/sections/${selectedSection.id}`); }}
+          title="Cannot Delete Section"
+          variant="warning"
+          confirmText="Open Section Details"
+          cancelText="Close"
+          message={
+            <div className="space-y-3">
+              <p className="text-sm text-gray-700">
+                <span className="font-semibold">{selectedSection.name}</span> cannot be deleted because it still has active associations. Complete the following steps first:
+              </p>
+              <ol className="space-y-2 text-sm">
+                {selectedSection.enrolled_count > 0 && (
+                  <li className="flex items-start gap-2.5">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-red-100 text-red-600 text-xs font-bold flex items-center justify-center mt-0.5">1</span>
+                    <span>
+                      <span className="font-medium">Reassign {selectedSection.enrolled_count} student(s)</span> to another section.{" "}
+                      <span className="text-gray-500">Go to Section Details → Students tab → reassign each student to a different section.</span>
+                    </span>
+                  </li>
+                )}
+                {selectedSection.course_count > 0 && (
+                  <li className="flex items-start gap-2.5">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-orange-100 text-orange-600 text-xs font-bold flex items-center justify-center mt-0.5">
+                      {selectedSection.enrolled_count > 0 ? "2" : "1"}
+                    </span>
+                    <span>
+                      <span className="font-medium">Remove {selectedSection.course_count} course assignment(s)</span> from this section.{" "}
+                      <span className="text-gray-500">Go to Section Details → Courses tab → remove each teacher–course assignment.</span>
+                    </span>
+                  </li>
+                )}
+                <li className="flex items-start gap-2.5">
+                  <span className="flex-shrink-0 w-5 h-5 rounded-full bg-green-100 text-green-600 text-xs font-bold flex items-center justify-center mt-0.5">
+                    {(selectedSection.enrolled_count > 0 ? 1 : 0) + (selectedSection.course_count > 0 ? 1 : 0) + 1}
+                  </span>
+                  <span>Once the section is empty, <span className="font-medium">delete it</span>.</span>
+                </li>
+              </ol>
+            </div>
+          }
+        />
+      ) : (
+        <ConfirmModal
+          isOpen={showDeleteModal}
+          onClose={() => { setShowDeleteModal(false); setSelectedSection(null); }}
+          onConfirm={handleDeleteSection}
+          title="Delete Section"
+          message={
+            <div>
+              <p>
+                Are you sure you want to delete{" "}
+                <span className="font-medium">{selectedSection?.name}</span>?
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                This action cannot be undone.
+              </p>
+            </div>
+          }
+          confirmText="Delete"
+          variant="danger"
+          loading={actionLoading}
+        />
+      )}
     </div>
   );
 }

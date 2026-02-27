@@ -657,7 +657,7 @@ export default function CoursesPage() {
           setBulkGrades([]);
           setBulkResult(null);
         }}
-        onSubmit={handleBulkAddSubjects}
+        onSubmit={bulkResult ? () => { setShowBulkModal(false); setBulkGrades([]); setBulkResult(null); } : handleBulkAddSubjects}
         title="Add Standard Subjects for Grade 1-6"
         submitLabel={bulkResult ? "Done" : `Add Subjects for ${bulkGrades.length} Grade${bulkGrades.length !== 1 ? "s" : ""}`}
         loading={actionLoading}

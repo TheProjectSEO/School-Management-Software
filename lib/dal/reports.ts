@@ -240,7 +240,7 @@ export async function getGradesReport(
 
     const studentMap = new Map((studentsRes.data || []).map((s: any) => [s.id, s]));
     const courseMap  = new Map((coursesRes.data  || []).map((c: any) => [c.id, c]));
-    const periodMap  = new Map(((periodsRes as any).data || []).map((p: any) => [p.id, p]));
+    const periodMap  = new Map<string, { id: string; name: string }>(((periodsRes as any).data || []).map((p: any) => [p.id, p as { id: string; name: string }]));
 
     const profileIds = [...new Set((studentsRes.data || []).map((s: any) => s.profile_id).filter(Boolean))];
     const sectionIds = [...new Set((studentsRes.data || []).map((s: any) => s.section_id).filter(Boolean))];

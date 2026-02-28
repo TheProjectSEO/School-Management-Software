@@ -240,7 +240,7 @@ export async function getGradesReport(
 
     const studentMap = new Map((studentsRes.data || []).map((s: any) => [s.id, s]));
     const courseMap  = new Map((coursesRes.data  || []).map((c: any) => [c.id, c]));
-    const periodMap  = new Map<string, { id: string; name: string }>(((periodsRes as any).data || []).map((p: any) => [p.id, p as { id: string; name: string }]));
+    const periodMap  = new Map(((periodsRes as any).data || []).map((p: any) => [p.id, p] as [string, any]));
 
     const profileIds = [...new Set((studentsRes.data || []).map((s: any) => s.profile_id).filter(Boolean))];
     const sectionIds = [...new Set((studentsRes.data || []).map((s: any) => s.section_id).filter(Boolean))];
@@ -266,7 +266,7 @@ export async function getGradesReport(
         student_lrn:    student?.lrn || 'Unknown',
         section_name:   section?.name || 'Unknown',
         course_name:    course?.name || 'Unknown',
-        grading_period: period?.name || 'Unknown',
+        grading_period: (period as any)?.name || 'Unknown',
         grade:          record.grade || 0,
         status:         record.status,
         is_released:    record.is_released,

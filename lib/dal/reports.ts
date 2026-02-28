@@ -93,43 +93,16 @@ export async function getAttendanceReport(
   try {
     const supabase = createServiceClient();
 
-    // Build the query for attendance data
+    // Flat select — correct table is teacher_daily_attendance, column is `date`
     let query = supabase
-      .from('teacher_attendance')
-      .select(
-        `
-        student_id,
-        attendance_date,
-        status,
-        student:students!inner(
-          id,
-          lrn,
-          profile:school_profiles!inner(full_name),
-          section:sections(name)
-        )
-      `
-      );
+      .from('teacher_daily_attendance')
+      .select('student_id, date, status, section_id, course_id');
 
-    // Apply filters
-    if (filters.studentId) {
-      query = query.eq('student_id', filters.studentId);
-    }
-
-    if (filters.courseId) {
-      query = query.eq('course_id', filters.courseId);
-    }
-
-    if (filters.startDate) {
-      query = query.gte('attendance_date', filters.startDate);
-    }
-
-    if (filters.endDate) {
-      query = query.lte('attendance_date', filters.endDate);
-    }
-
-    if (filters.status) {
-      query = query.eq('status', filters.status);
-    }
+    if (filters.studentId) query = query.eq('student_id', filters.studentId);
+    if (filters.courseId)  query = query.eq('course_id', filters.courseId);
+    if (filters.startDate) query = query.gte('date', filters.startDate);
+    if (filters.endDate)   query = query.lte('date', filters.endDate);
+    if (filters.status)    query = query.eq('status', filters.status);
 
     const { data, error } = await query;
 
@@ -138,23 +111,50 @@ export async function getAttendanceReport(
       return [];
     }
 
+    const records = data || [];
+    if (records.length === 0) return [];
+
+    // Collect unique student IDs then fetch related data separately
+    const studentIds = [...new Set(records.map((r: any) => r.student_id).filter(Boolean))];
+
+    const { data: students } = await supabase
+      .from('students')
+      .select('id, lrn, profile_id, section_id')
+      .in('id', studentIds);
+
+    const studentMap = new Map((students || []).map((s: any) => [s.id, s]));
+
+    const profileIds = [...new Set((students || []).map((s: any) => s.profile_id).filter(Boolean))];
+    const { data: profiles } = await supabase
+      .from('school_profiles')
+      .select('id, full_name')
+      .in('id', profileIds);
+
+    const profileMap = new Map((profiles || []).map((p: any) => [p.id, p]));
+
+    const sectionIds = [...new Set((students || []).map((s: any) => s.section_id).filter(Boolean))];
+    const { data: sections } = await supabase
+      .from('sections')
+      .select('id, name')
+      .in('id', sectionIds);
+
+    const sectionMap = new Map((sections || []).map((s: any) => [s.id, s]));
+
     // Group by student and calculate stats
     const studentStats = new Map<string, AttendanceReportItem>();
 
-    (data || []).forEach((record: any) => {
+    records.forEach((record: any) => {
       const studentId = record.student_id;
-      const student = record.student;
+      const student = studentMap.get(studentId);
+      const profile = student ? profileMap.get(student.profile_id) : null;
+      const section = student ? sectionMap.get(student.section_id) : null;
 
       if (!studentStats.has(studentId)) {
         studentStats.set(studentId, {
           student_id: studentId,
-          student_name:
-            student?.profile?.[0]?.full_name ||
-            student?.profile?.full_name ||
-            'Unknown',
+          student_name: profile?.full_name || 'Unknown',
           student_lrn: student?.lrn || 'Unknown',
-          section_name:
-            student?.section?.[0]?.name || student?.section?.name || 'Unknown',
+          section_name: section?.name || 'Unknown',
           total_days: 0,
           present_days: 0,
           absent_days: 0,
@@ -168,18 +168,10 @@ export async function getAttendanceReport(
       stats.total_days++;
 
       switch (record.status) {
-        case 'present':
-          stats.present_days++;
-          break;
-        case 'absent':
-          stats.absent_days++;
-          break;
-        case 'late':
-          stats.late_days++;
-          break;
-        case 'excused':
-          stats.excused_days++;
-          break;
+        case 'present': stats.present_days++; break;
+        case 'absent':  stats.absent_days++;  break;
+        case 'late':    stats.late_days++;    break;
+        case 'excused': stats.excused_days++; break;
       }
     });
 
@@ -199,6 +191,8 @@ export async function getAttendanceReport(
   }
 }
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * Get grades report data with optional filters
  */
@@ -208,62 +202,76 @@ export async function getGradesReport(
   try {
     const supabase = createServiceClient();
 
-    let query = supabase.from('course_grades').select(
-      `
-        *,
-        student:students!inner(
-          id,
-          lrn,
-          profile:school_profiles!inner(full_name),
-          section:sections(name)
-        ),
-        course:courses!inner(name),
-        grading_period:grading_periods(name)
-      `
-    );
+    // Flat select — no FK joins
+    let query = supabase
+      .from('course_grades')
+      .select('student_id, course_id, grading_period_id, grade, status, is_released, created_at')
+      .order('created_at', { ascending: false });
 
-    if (filters.studentId) {
-      query = query.eq('student_id', filters.studentId);
-    }
-
-    if (filters.courseId) {
-      query = query.eq('course_id', filters.courseId);
-    }
-
-    if (filters.gradingPeriodId) {
+    if (filters.studentId) query = query.eq('student_id', filters.studentId);
+    if (filters.courseId)  query = query.eq('course_id', filters.courseId);
+    // Only apply grading period filter if value is a real UUID (not a label like "Q2")
+    if (filters.gradingPeriodId && UUID_REGEX.test(filters.gradingPeriodId)) {
       query = query.eq('grading_period_id', filters.gradingPeriodId);
     }
 
-    const { data, error } = await query.order('created_at', {
-      ascending: false,
-    });
+    const { data, error } = await query;
 
     if (error) {
       console.error('Error fetching grades report:', error);
       return [];
     }
 
-    return (data || []).map((record: any) => ({
-      student_id: record.student_id,
-      student_name:
-        record.student?.profile?.[0]?.full_name ||
-        record.student?.profile?.full_name ||
-        'Unknown',
-      student_lrn: record.student?.lrn || 'Unknown',
-      section_name:
-        record.student?.section?.[0]?.name ||
-        record.student?.section?.name ||
-        'Unknown',
-      course_name:
-        record.course?.[0]?.name || record.course?.name || 'Unknown',
-      grading_period:
-        record.grading_period?.[0]?.name ||
-        record.grading_period?.name ||
-        'Unknown',
-      grade: record.grade || 0,
-      status: record.status,
-      is_released: record.is_released,
-    }));
+    const records = data || [];
+    if (records.length === 0) return [];
+
+    // Fetch related data separately
+    const studentIds = [...new Set(records.map((r: any) => r.student_id).filter(Boolean))];
+    const courseIds  = [...new Set(records.map((r: any) => r.course_id).filter(Boolean))];
+    const periodIds  = [...new Set(records.map((r: any) => r.grading_period_id).filter(Boolean))];
+
+    const [studentsRes, coursesRes, periodsRes] = await Promise.all([
+      supabase.from('students').select('id, lrn, profile_id, section_id').in('id', studentIds),
+      supabase.from('courses').select('id, name').in('id', courseIds),
+      periodIds.length
+        ? supabase.from('grading_periods').select('id, name').in('id', periodIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const studentMap = new Map((studentsRes.data || []).map((s: any) => [s.id, s]));
+    const courseMap  = new Map((coursesRes.data  || []).map((c: any) => [c.id, c]));
+    const periodMap  = new Map(((periodsRes as any).data || []).map((p: any) => [p.id, p]));
+
+    const profileIds = [...new Set((studentsRes.data || []).map((s: any) => s.profile_id).filter(Boolean))];
+    const sectionIds = [...new Set((studentsRes.data || []).map((s: any) => s.section_id).filter(Boolean))];
+
+    const [profilesRes, sectionsRes] = await Promise.all([
+      supabase.from('school_profiles').select('id, full_name').in('id', profileIds),
+      supabase.from('sections').select('id, name').in('id', sectionIds),
+    ]);
+
+    const profileMap = new Map((profilesRes.data || []).map((p: any) => [p.id, p]));
+    const sectionMap = new Map((sectionsRes.data || []).map((s: any) => [s.id, s]));
+
+    return records.map((record: any) => {
+      const student = studentMap.get(record.student_id);
+      const profile = student ? profileMap.get(student.profile_id) : null;
+      const section = student ? sectionMap.get(student.section_id) : null;
+      const course  = courseMap.get(record.course_id);
+      const period  = periodMap.get(record.grading_period_id);
+
+      return {
+        student_id:     record.student_id,
+        student_name:   profile?.full_name || 'Unknown',
+        student_lrn:    student?.lrn || 'Unknown',
+        section_name:   section?.name || 'Unknown',
+        course_name:    course?.name || 'Unknown',
+        grading_period: period?.name || 'Unknown',
+        grade:          record.grade || 0,
+        status:         record.status,
+        is_released:    record.is_released,
+      };
+    });
   } catch (error) {
     console.error('Unexpected error in getGradesReport:', error);
     return [];
@@ -446,7 +454,7 @@ export async function getDashboardStats(
 
     // Calculate average attendance rate
     const { data: attendanceData } = await supabase
-      .from('teacher_attendance')
+      .from('teacher_daily_attendance')
       .select('status');
 
     let averageAttendanceRate = 0;
@@ -570,7 +578,7 @@ export async function getAttendanceOverview(schoolId?: string): Promise<{
   try {
     const supabase = createServiceClient();
 
-    let query = supabase.from('teacher_attendance').select('status');
+    let query = supabase.from('teacher_daily_attendance').select('status');
 
     // Note: school_id filter would require joining with students table
     // For now, return all attendance records

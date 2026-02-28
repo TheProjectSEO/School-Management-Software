@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -123,7 +125,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
   const fetchTeacher = useCallback(async () => {
     if (!teacherId) return;
     try {
-      const response = await fetch(`/api/admin/users/teachers/${teacherId}`);
+      const response = await authFetch(`/api/admin/users/teachers/${teacherId}`);
       if (!response.ok) {
         throw new Error("Failed to fetch teacher");
       }
@@ -151,7 +153,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
   const fetchAssignments = useCallback(async () => {
     if (!teacherId) return;
     try {
-      const response = await fetch(`/api/admin/users/teachers/${teacherId}/assignments`);
+      const response = await authFetch(`/api/admin/users/teachers/${teacherId}/assignments`);
       if (response.ok) {
         const data = await response.json();
         setAssignments(data);
@@ -165,7 +167,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
   const fetchAdvisories = useCallback(async () => {
     if (!teacherId) return;
     try {
-      const response = await fetch(`/api/admin/users/teachers/${teacherId}/advisory`);
+      const response = await authFetch(`/api/admin/users/teachers/${teacherId}/advisory`);
       if (response.ok) {
         const data = await response.json();
         setAdvisories(data);
@@ -179,8 +181,8 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
   const fetchSectionsAndCourses = useCallback(async () => {
     try {
       const [sectionsRes, coursesRes] = await Promise.all([
-        fetch("/api/admin/sections"),
-        fetch("/api/admin/courses"),
+        authFetch("/api/admin/sections"),
+        authFetch("/api/admin/courses"),
       ]);
       if (sectionsRes.ok) {
         const data = await sectionsRes.json();
@@ -288,7 +290,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
         payload.adminPassword = password;
       }
 
-      const response = await fetch(`/api/admin/users/teachers/${teacherId}`, {
+      const response = await authFetch(`/api/admin/users/teachers/${teacherId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -327,7 +329,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/admin/users/teachers/${teacherId}/reset-password`, {
+      const response = await authFetch(`/api/admin/users/teachers/${teacherId}/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ newPassword: newPassword || undefined }),
@@ -364,7 +366,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/admin/users/teachers/${teacherId}/reset-password`, {
+      const response = await authFetch(`/api/admin/users/teachers/${teacherId}/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -399,7 +401,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/admin/users/teachers/${teacherId}/assignments`, {
+      const response = await authFetch(`/api/admin/users/teachers/${teacherId}/assignments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -457,7 +459,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/admin/users/teachers/${teacherId}/advisory`, {
+      const response = await authFetch(`/api/admin/users/teachers/${teacherId}/advisory`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

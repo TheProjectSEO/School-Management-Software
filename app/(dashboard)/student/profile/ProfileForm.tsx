@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
@@ -74,7 +76,7 @@ export default function ProfileForm({ profileData }: ProfileFormProps) {
     setIsSaving(true);
 
     try {
-      const response = await fetch("/api/student/profile/update", {
+      const response = await authFetch("/api/student/profile/update", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

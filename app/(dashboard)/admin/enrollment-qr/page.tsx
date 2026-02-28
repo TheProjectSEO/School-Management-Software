@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useCallback, useEffect, useState } from "react";
 import QRCodeLib from "qrcode";
 
@@ -40,7 +42,7 @@ export default function EnrollmentQRPage() {
   async function load() {
     setLoading(true);
     setError(null);
-    const res = await fetch("/api/admin/enrollment-qr");
+    const res = await authFetch("/api/admin/enrollment-qr");
     const json = await res.json();
     if (!res.ok) {
       setError(json.error || "Failed to load QR codes");
@@ -62,7 +64,7 @@ export default function EnrollmentQRPage() {
       availableTracks: (formData.get("tracks") as string)?.split(",").map((g) => g.trim()).filter(Boolean),
       enrollmentUrl: formData.get("enrollmentUrl"),
     };
-    const res = await fetch("/api/admin/enrollment-qr", {
+    const res = await authFetch("/api/admin/enrollment-qr", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),

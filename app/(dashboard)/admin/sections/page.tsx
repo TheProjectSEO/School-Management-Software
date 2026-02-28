@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -54,7 +56,7 @@ export default function SectionsPage() {
       if (filters.search) params.set("search", filters.search);
       if (filters.gradeLevel) params.set("gradeLevel", filters.gradeLevel);
 
-      const response = await fetch(`/api/admin/sections?${params}`);
+      const response = await authFetch(`/api/admin/sections?${params}`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to fetch sections");
@@ -93,7 +95,7 @@ export default function SectionsPage() {
 
     setActionLoading(true);
     try {
-      const response = await fetch("/api/admin/sections", {
+      const response = await authFetch("/api/admin/sections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -127,7 +129,7 @@ export default function SectionsPage() {
 
     setActionLoading(true);
     try {
-      const response = await fetch(`/api/admin/sections/${selectedSection.id}`, {
+      const response = await authFetch(`/api/admin/sections/${selectedSection.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -159,7 +161,7 @@ export default function SectionsPage() {
 
     setActionLoading(true);
     try {
-      const response = await fetch(`/api/admin/sections/${selectedSection.id}`, {
+      const response = await authFetch(`/api/admin/sections/${selectedSection.id}`, {
         method: "DELETE",
       });
 

@@ -5,6 +5,7 @@ import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import type { DepEdSubjectType } from '@/lib/grading/deped-engine'
 import { SUBJECT_TYPE_LABELS } from '@/lib/grading/deped-engine'
+import { authFetch } from "@/lib/utils/authFetch";
 
 // ============================================================================
 // Types
@@ -118,7 +119,7 @@ export default function DepEdGradebookView({
     setLoading(true)
     setMessage(null)
     try {
-      const res = await fetch('/api/teacher/gradebook/deped', {
+      const res = await authFetch('/api/teacher/gradebook/deped', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ courseId, periodId, schoolId }),
@@ -144,7 +145,7 @@ export default function DepEdGradebookView({
     setReleasing(true)
     setMessage(null)
     try {
-      const res = await fetch('/api/teacher/gradebook/deped', {
+      const res = await authFetch('/api/teacher/gradebook/deped', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ courseId, periodId, schoolId, action: 'release' }),

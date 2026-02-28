@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Card from '@/components/ui/Card'
 import { HONORS_LABELS } from '@/lib/grading/deped-engine'
+import { authFetch } from "@/lib/utils/authFetch";
 
 type HonorsEntry = {
   student_id: string
@@ -12,6 +13,24 @@ type HonorsEntry = {
   general_average: number
   honors_status: string
   subject_grades: Array<{ course_name: string; final_grade: number }>
+}
+
+type Course = {
+  id: string
+  name: string
+  subject_code: string | null
+  grade_level: string | null
+}
+
+type FinalGradeRow = {
+  id: string
+  student_id: string
+  q1_grade: number | null
+  q2_grade: number | null
+  q3_grade: number | null
+  q4_grade: number | null
+  final_grade: number | null
+  is_released: boolean
 }
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -24,7 +43,10 @@ const HONORS_COLORS: Record<string, string> = {
   with_honors:         'bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400',
 }
 
+type Tab = 'honors' | 'final'
+
 export default function AdminGradesPage() {
+  const [activeTab, setActiveTab] = useState<Tab>('honors')
   const [academicYear, setAcademicYear] = useState(DEFAULT_YEAR)
   const [honorsList, setHonorsList] = useState<HonorsEntry[]>([])
   const [loading, setLoading] = useState(false)
@@ -32,11 +54,99 @@ export default function AdminGradesPage() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [expandedStudent, setExpandedStudent] = useState<string | null>(null)
 
+  // Final grades tab state
+  const [courses, setCourses] = useState<Course[]>([])
+  const [selectedCourseId, setSelectedCourseId] = useState('')
+  const [finalGrades, setFinalGrades] = useState<FinalGradeRow[]>([])
+  const [finalLoading, setFinalLoading] = useState(false)
+  const [finalComputing, setFinalComputing] = useState(false)
+  const [finalReleasing, setFinalReleasing] = useState(false)
+  const [finalMessage, setFinalMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+
+  useEffect(() => {
+    authFetch('/api/admin/courses')
+      .then((r) => r.json())
+      .then((d) => setCourses(d.courses ?? []))
+      .catch(() => {})
+  }, [])
+
+  async function fetchFinalGrades() {
+    if (!selectedCourseId || !academicYear) return
+    setFinalLoading(true)
+    setFinalMessage(null)
+    try {
+      const res = await authFetch(`/api/admin/grades/deped/final?courseId=${selectedCourseId}&academicYear=${encodeURIComponent(academicYear)}`)
+      const data = await res.json()
+      if (data.success) {
+        setFinalGrades(data.finalGrades ?? [])
+        if (!data.finalGrades?.length) {
+          setFinalMessage({ type: 'error', text: 'No final grades computed yet. Click "Compute Final Grades" first.' })
+        }
+      } else {
+        setFinalMessage({ type: 'error', text: data.error ?? 'Failed to load final grades.' })
+      }
+    } catch {
+      setFinalMessage({ type: 'error', text: 'Network error.' })
+    } finally {
+      setFinalLoading(false)
+    }
+  }
+
+  async function computeFinalGrades() {
+    if (!selectedCourseId || !academicYear) return
+    setFinalComputing(true)
+    setFinalMessage(null)
+    try {
+      const res = await authFetch('/api/admin/grades/deped/final', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId: selectedCourseId, academicYear }),
+      })
+      const data = await res.json()
+      if (data.success || res.status === 207) {
+        setFinalMessage({
+          type: data.failed > 0 ? 'error' : 'success',
+          text: `Computed ${data.computed} final grade(s).${data.failed > 0 ? ` ${data.failed} failed.` : ''} Load grades to view results.`,
+        })
+      } else {
+        setFinalMessage({ type: 'error', text: data.error ?? 'Computation failed.' })
+      }
+    } catch {
+      setFinalMessage({ type: 'error', text: 'Network error.' })
+    } finally {
+      setFinalComputing(false)
+    }
+  }
+
+  async function releaseFinalGrades() {
+    if (!selectedCourseId || !academicYear) return
+    setFinalReleasing(true)
+    setFinalMessage(null)
+    try {
+      const res = await authFetch('/api/admin/grades/deped/final', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ courseId: selectedCourseId, academicYear, action: 'release' }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setFinalMessage({ type: 'success', text: 'Final grades released to students.' })
+        fetchFinalGrades()
+      } else {
+        setFinalMessage({ type: 'error', text: data.error ?? 'Release failed.' })
+      }
+    } catch {
+      setFinalMessage({ type: 'error', text: 'Network error.' })
+    } finally {
+      setFinalReleasing(false)
+    }
+  }
+
   async function fetchHonors() {
     setLoading(true)
     setMessage(null)
     try {
-      const res = await fetch(`/api/admin/grades/deped?academicYear=${academicYear}&action=honors`)
+      const res = await authFetch(`/api/admin/grades/deped?academicYear=${academicYear}&action=honors`)
       const data = await res.json()
       if (data.success) {
         setHonorsList(data.honors ?? [])
@@ -57,7 +167,7 @@ export default function AdminGradesPage() {
     setComputing(true)
     setMessage(null)
     try {
-      const res = await fetch('/api/admin/grades/deped', {
+      const res = await authFetch('/api/admin/grades/deped', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ academicYear, action: 'general_average' }),
@@ -96,6 +206,26 @@ export default function AdminGradesPage() {
         </p>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-slate-200 dark:border-slate-700">
+        {(['honors', 'final'] as Tab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              activeTab === tab
+                ? 'border-primary text-primary'
+                : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+            }`}
+          >
+            {tab === 'honors' ? 'Honors & General Averages' : 'Final Grades (per Course)'}
+          </button>
+        ))}
+      </div>
+
+      {/* ── HONORS TAB ── */}
+      {activeTab === 'honors' && (
+        <>
       {/* Controls */}
       <Card>
         <div className="flex flex-wrap items-end gap-4">
@@ -254,6 +384,146 @@ export default function AdminGradesPage() {
               </Card>
             )
           })}
+        </>
+      )}
+        </>
+      )}
+
+      {/* ── FINAL GRADES TAB ── */}
+      {activeTab === 'final' && (
+        <>
+          <Card>
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Academic Year
+                </label>
+                <input
+                  type="text"
+                  value={academicYear}
+                  onChange={(e) => setAcademicYear(e.target.value)}
+                  placeholder="e.g. 2024-2025"
+                  className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary w-36"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Course / Subject
+                </label>
+                <select
+                  value={selectedCourseId}
+                  onChange={(e) => { setSelectedCourseId(e.target.value); setFinalGrades([]) }}
+                  className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-primary min-w-52"
+                >
+                  <option value="">Select a course…</option>
+                  {courses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}{c.subject_code ? ` (${c.subject_code})` : ''}{c.grade_level ? ` — Grade ${c.grade_level}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <button
+                onClick={computeFinalGrades}
+                disabled={finalComputing || !selectedCourseId || !academicYear}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">
+                  {finalComputing ? 'progress_activity' : 'calculate'}
+                </span>
+                {finalComputing ? 'Computing…' : 'Compute Final Grades'}
+              </button>
+
+              <button
+                onClick={fetchFinalGrades}
+                disabled={finalLoading || !selectedCourseId || !academicYear}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <span className="material-symbols-outlined text-lg">refresh</span>
+                {finalLoading ? 'Loading…' : 'Load Grades'}
+              </button>
+
+              {finalGrades.length > 0 && (
+                <button
+                  onClick={releaseFinalGrades}
+                  disabled={finalReleasing}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <span className="material-symbols-outlined text-lg">send</span>
+                  {finalReleasing ? 'Releasing…' : 'Release to Students'}
+                </button>
+              )}
+            </div>
+
+            {finalMessage && (
+              <div className={`mt-3 px-4 py-2 rounded-lg text-sm font-medium ${
+                finalMessage.type === 'success'
+                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                  : 'bg-red-50 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+              }`}>
+                {finalMessage.text}
+              </div>
+            )}
+          </Card>
+
+          {finalGrades.length > 0 && (
+            <Card className="p-0 overflow-hidden">
+              <div className="px-5 py-3 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                <h3 className="font-bold text-slate-900 dark:text-slate-100">
+                  Final Grades — {finalGrades.length} student{finalGrades.length !== 1 ? 's' : ''}
+                </h3>
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  finalGrades.every((g) => g.is_released)
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-amber-100 text-amber-700'
+                }`}>
+                  {finalGrades.every((g) => g.is_released) ? 'Released' : 'Not Released'}
+                </span>
+              </div>
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800 text-xs font-semibold text-slate-500 uppercase">
+                  <tr>
+                    <th className="px-4 py-2.5 text-left">Student ID</th>
+                    <th className="px-3 py-2.5 text-center">Q1</th>
+                    <th className="px-3 py-2.5 text-center">Q2</th>
+                    <th className="px-3 py-2.5 text-center">Q3</th>
+                    <th className="px-3 py-2.5 text-center">Q4</th>
+                    <th className="px-3 py-2.5 text-center">Final</th>
+                    <th className="px-3 py-2.5 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {finalGrades.map((row) => (
+                    <tr key={row.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
+                      <td className="px-4 py-3 font-mono text-xs text-slate-500">{row.student_id.slice(0, 8)}…</td>
+                      <td className="px-3 py-3 text-center">{row.q1_grade ?? '—'}</td>
+                      <td className="px-3 py-3 text-center">{row.q2_grade ?? '—'}</td>
+                      <td className="px-3 py-3 text-center">{row.q3_grade ?? '—'}</td>
+                      <td className="px-3 py-3 text-center">{row.q4_grade ?? '—'}</td>
+                      <td className="px-3 py-3 text-center">
+                        <span className={`font-extrabold ${
+                          (row.final_grade ?? 0) >= 90 ? 'text-emerald-600' :
+                          (row.final_grade ?? 0) >= 75 ? 'text-slate-900 dark:text-slate-100' :
+                          'text-red-600'
+                        }`}>
+                          {row.final_grade ?? '—'}
+                        </span>
+                      </td>
+                      <td className="px-3 py-3 text-center">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                          row.is_released ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {row.is_released ? 'Released' : 'Pending'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </Card>
+          )}
         </>
       )}
     </div>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Button from '@/components/ui/Button'
 import type { GradeWeightConfig, AssessmentTypeForWeighting } from '@/lib/dal/types/gradebook'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface GradeWeightModalProps {
   isOpen: boolean
@@ -139,7 +140,7 @@ export default function GradeWeightModal({
           drop_lowest: w.drop_lowest,
         }))
 
-      const response = await fetch('/api/teacher/gradebook/weights', {
+      const response = await authFetch('/api/teacher/gradebook/weights', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

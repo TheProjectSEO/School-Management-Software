@@ -14,17 +14,10 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const courseId = searchParams.get('course_id')
 
-    // Build query
+    // Build query — flat select only (BUG-001: no FK joins)
     let query = supabase
       .from('assessments')
-      .select(`
-        *,
-        courses:course_id (
-          id,
-          name,
-          subject_code
-        )
-      `)
+      .select('*')
       .eq('created_by', teacherId)
       .order('created_at', { ascending: false })
 
@@ -32,12 +25,28 @@ export async function GET(request: NextRequest) {
       query = query.eq('course_id', courseId)
     }
 
-    const { data: assessments, error } = await query
+    const { data: assessmentRows, error } = await query
 
     if (error) {
       console.error('Error fetching assessments:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
+
+    // Fetch course names separately
+    const courseIds = [...new Set((assessmentRows || []).map((a: any) => a.course_id).filter(Boolean))]
+    let courseMap = new Map<string, { id: string; name: string; subject_code: string | null }>()
+    if (courseIds.length > 0) {
+      const { data: courses } = await supabase
+        .from('courses')
+        .select('id, name, subject_code')
+        .in('id', courseIds)
+      courseMap = new Map((courses || []).map((c) => [c.id, c]))
+    }
+
+    const assessments = (assessmentRows || []).map((a: any) => ({
+      ...a,
+      course: courseMap.get(a.course_id) ?? null,
+    }))
 
     return NextResponse.json({ assessments })
   } catch (error) {

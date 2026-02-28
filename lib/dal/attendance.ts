@@ -44,22 +44,10 @@ export async function getStudentDailyAttendance(
     const supabase = createServiceClient();
 
     let query = supabase
-      .from('teacher_attendance')
-      .select(`
-        id,
-        student_id,
-        attendance_date,
-        status,
-        first_seen_at,
-        last_seen_at,
-        notes,
-        course_id,
-        courses:course_id (
-          name
-        )
-      `)
+      .from('teacher_daily_attendance')
+      .select('id, student_id, date, status, notes, section_id')
       .eq('student_id', studentId)
-      .order('attendance_date', { ascending: false });
+      .order('date', { ascending: false });
 
     // Apply date filters
     if (filters?.startDate) {
@@ -83,13 +71,9 @@ export async function getStudentDailyAttendance(
     return (data || []).map((record: any) => ({
       id: record.id,
       student_id: record.student_id,
-      date: record.attendance_date,
+      date: record.date,
       status: record.status as AttendanceStatus,
-      first_seen_at: record.first_seen_at,
-      last_seen_at: record.last_seen_at,
       notes: record.notes,
-      course_id: record.course_id,
-      course_name: record.courses?.name,
     }));
   } catch (error) {
     console.error('Unexpected error in getStudentDailyAttendance:', error);
@@ -116,8 +100,8 @@ export async function getAttendanceSummary(
     const supabase = createServiceClient();
 
     let query = supabase
-      .from('teacher_attendance')
-      .select('attendance_date, status')
+      .from('teacher_daily_attendance')
+      .select('date, status')
       .eq('student_id', studentId);
 
     // Apply date filters
@@ -143,12 +127,12 @@ export async function getAttendanceSummary(
     const dailyStatuses = new Map<string, AttendanceStatus>();
 
     for (const record of data) {
-      const existingStatus = dailyStatuses.get(record.attendance_date);
+      const existingStatus = dailyStatuses.get(record.date);
       const currentStatus = record.status as AttendanceStatus;
 
       // Use the "worst" status for the day (absent > late > excused > present)
       if (!existingStatus || getStatusPriority(currentStatus) > getStatusPriority(existingStatus)) {
-        dailyStatuses.set(record.attendance_date, currentStatus);
+        dailyStatuses.set(record.date, currentStatus);
       }
     }
 
@@ -227,19 +211,12 @@ export async function getAttendanceCalendar(
     const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
 
     const { data, error } = await supabase
-      .from('teacher_attendance')
-      .select(`
-        attendance_date,
-        status,
-        course_id,
-        courses:course_id (
-          name
-        )
-      `)
+      .from('teacher_daily_attendance')
+      .select('date, status')
       .eq('student_id', studentId)
-      .gte('attendance_date', startDate)
-      .lte('attendance_date', endDate)
-      .order('attendance_date', { ascending: true });
+      .gte('date', startDate)
+      .lte('date', endDate)
+      .order('date', { ascending: true });
 
     if (error) {
       console.error('Error fetching attendance calendar:', error);
@@ -257,9 +234,9 @@ export async function getAttendanceCalendar(
     }>();
 
     for (const record of data) {
-      const date = record.attendance_date;
+      const date = record.date;
       const status = record.status as AttendanceStatus;
-      const courseName = (record.courses as any)?.name || 'Unknown Course';
+      const courseName = 'Class';
 
       if (!entriesByDate.has(date)) {
         entriesByDate.set(date, { statuses: [], courses: [] });

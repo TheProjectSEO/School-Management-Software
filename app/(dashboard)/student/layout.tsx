@@ -1,5 +1,7 @@
 'use client';
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import React, { useState, useEffect } from 'react';
 import { StudentGuard } from '@/components/auth/RoleGuard';
 import { useAuth } from '@/hooks/useAuth';
@@ -20,7 +22,7 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
     if (!user) return;
     let cancelled = false;
 
-    fetch('/api/student/profile')
+    authFetch('/api/student/profile')
       .then((res) => res.ok ? res.json() : null)
       .then((data) => {
         if (!cancelled && data) setProfileData(data);

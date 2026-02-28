@@ -10,6 +10,7 @@ import { usePresence } from '@/hooks/usePresence'
 import { TypingIndicator } from '@/components/ui/TypingIndicator'
 import { ReadReceiptTicks, getMessageStatus } from '@/components/ui/ReadReceiptTicks'
 import { OnlineStatus } from '@/components/ui/OnlineIndicator'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface MessagesInterfaceProps {
   teacherId: string
@@ -194,7 +195,7 @@ export default function MessagesInterface({ teacherId, profileId, schoolId }: Me
   const loadConversations = async () => {
     setIsLoading(true)
     try {
-      const res = await fetch('/api/teacher/messages')
+      const res = await authFetch('/api/teacher/messages')
       if (res.ok) {
         const data = await res.json()
         setConversations(data.conversations || [])
@@ -209,7 +210,7 @@ export default function MessagesInterface({ teacherId, profileId, schoolId }: Me
 
   const loadMessages = async (studentProfileId: string) => {
     try {
-      const res = await fetch(`/api/teacher/messages/${studentProfileId}`)
+      const res = await authFetch(`/api/teacher/messages/${studentProfileId}`)
       if (res.ok) {
         const data = await res.json()
         setMessages(data.messages || [])
@@ -229,7 +230,7 @@ export default function MessagesInterface({ teacherId, profileId, schoolId }: Me
 
   const loadAvailableStudents = async () => {
     try {
-      const res = await fetch('/api/teacher/messages/students')
+      const res = await authFetch('/api/teacher/messages/students')
       if (res.ok) {
         const data = await res.json()
         setAvailableStudents(data.students || [])
@@ -265,7 +266,7 @@ export default function MessagesInterface({ teacherId, profileId, schoolId }: Me
     setIsSending(true)
 
     try {
-      const res = await fetch(`/api/teacher/messages/${selectedConversation.partner_profile_id}`, {
+      const res = await authFetch(`/api/teacher/messages/${selectedConversation.partner_profile_id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: messageBody }),

@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useEffect, useState } from "react";
 
 type Application = {
@@ -46,7 +48,7 @@ export default function ApplicationsPage() {
     }
     // Add cache-busting timestamp to ensure fresh data
     params.set("_t", Date.now().toString());
-    const res = await fetch(`/api/admin/applications?${params.toString()}`, {
+    const res = await authFetch(`/api/admin/applications?${params.toString()}`, {
       cache: 'no-store',
     });
     const json = await res.json();
@@ -68,7 +70,7 @@ export default function ApplicationsPage() {
     if (app.applying_for_grade) {
       setLoadingSections(true);
       try {
-        const res = await fetch(`/api/admin/sections?gradeLevel=${encodeURIComponent(app.applying_for_grade)}`);
+        const res = await authFetch(`/api/admin/sections?gradeLevel=${encodeURIComponent(app.applying_for_grade)}`);
         const data = await res.json();
         if (Array.isArray(data)) {
           setSections(data);
@@ -94,7 +96,7 @@ export default function ApplicationsPage() {
         body.sectionId = selectedSectionId;
       }
 
-      const res = await fetch(`/api/admin/applications/${showApproveModal.applicationId}/approve`, {
+      const res = await authFetch(`/api/admin/applications/${showApproveModal.applicationId}/approve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -132,7 +134,7 @@ export default function ApplicationsPage() {
         action === "request-info"
           ? { requestedDocuments: ["birth_certificate", "report_card"] }
           : {};
-      const res = await fetch(`/api/admin/applications/${id}/${action}`, {
+      const res = await authFetch(`/api/admin/applications/${id}/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),

@@ -6,6 +6,7 @@ import CalendarView from '@/components/calendar/CalendarView'
 import CreateSessionModal, { type SessionFormData } from '@/components/calendar/CreateSessionModal'
 import SessionDetailsPanel from '@/components/calendar/SessionDetailsPanel'
 import type { LiveSession, AssessmentDueDate, TeacherSubject } from '@/lib/dal/teacher'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface CalendarClientProps {
   teacherId: string
@@ -30,7 +31,7 @@ export default function CalendarClient({
 
   const handleCreateSession = async (data: SessionFormData) => {
     try {
-      const response = await fetch('/api/teacher/sessions', {
+      const response = await authFetch('/api/teacher/sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
@@ -60,7 +61,7 @@ export default function CalendarClient({
 
   const handleDeleteSession = async (sessionId: string) => {
     try {
-      const response = await fetch(`/api/teacher/sessions/${sessionId}`, {
+      const response = await authFetch(`/api/teacher/sessions/${sessionId}`, {
         method: 'DELETE'
       })
 

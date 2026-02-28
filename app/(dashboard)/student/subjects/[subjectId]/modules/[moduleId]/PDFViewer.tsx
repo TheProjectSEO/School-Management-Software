@@ -1,5 +1,8 @@
 'use client'
 
+import { authFetch } from "@/lib/utils/authFetch";
+
+
 interface PDFViewerProps {
   fileUrl: string
   fileTitle: string
@@ -21,7 +24,7 @@ export default function PDFViewer({ fileUrl, fileTitle, fileType, fileId, isPlay
 
   const handleDownload = () => {
     // Track download
-    fetch(`/api/student/attachments/${fileId}/download`, {
+    authFetch(`/api/student/attachments/${fileId}/download`, {
       method: 'POST'
     }).catch(err => console.error('Failed to track download:', err))
     // Open file in new tab for download

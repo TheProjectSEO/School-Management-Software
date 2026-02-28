@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface GradingItem {
   id: string
@@ -94,7 +95,7 @@ export default function GradingItemClient({ item }: GradingItemClientProps) {
         setIsSaving(true)
       }
 
-      const response = await fetch(`/api/teacher/grading/${item.id}`, {
+      const response = await authFetch(`/api/teacher/grading/${item.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

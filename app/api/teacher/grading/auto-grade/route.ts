@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI'
 import { createServiceClient } from '@/lib/supabase/service'
-import { getCurrentUser } from '@/lib/auth/session'
 import { autoGradeSubmission, processSubmission, regradeSubmission } from '@/lib/grading/auto-grader'
 
 /**
@@ -8,31 +8,11 @@ import { autoGradeSubmission, processSubmission, regradeSubmission } from '@/lib
  * Trigger auto-grading for a submission
  */
 export async function POST(request: NextRequest) {
+  const authResult = await requireTeacherAPI()
+  if (!authResult.success) return authResult.response
+
   try {
     const supabase = createServiceClient()
-
-    // Get authenticated user using JWT
-    const currentUser = await getCurrentUser()
-    if (!currentUser) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
-
-    // Get teacher profile using profile_id from JWT
-    const { data: teacherProfile } = await supabase
-      .from('teacher_profiles')
-      .select('id')
-      .eq('profile_id', currentUser.profile_id)
-      .single()
-
-    if (!teacherProfile) {
-      return NextResponse.json(
-        { success: false, error: 'Teacher profile not found' },
-        { status: 403 }
-      )
-    }
 
     // Parse request body
     const body = await request.json()
@@ -45,16 +25,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify teacher has access to this submission
+    // Verify teacher has access to this submission — flat select (no FK joins per BUG-001)
     const { data: submission } = await supabase
       .from('submissions')
-      .select(`
-        id,
-        assessment_id,
-        assessments!inner(
-          course_id
-        )
-      `)
+      .select('id, assessment_id')
       .eq('id', submissionId)
       .single()
 
@@ -65,15 +39,27 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Extract course_id from the nested assessment relation
-    const assessment = submission.assessments as unknown as { course_id: string }
-    const courseId = assessment.course_id
+    // Fetch assessment separately to get course_id
+    const { data: assessmentData } = await supabase
+      .from('assessments')
+      .select('course_id')
+      .eq('id', submission.assessment_id)
+      .single()
+
+    if (!assessmentData) {
+      return NextResponse.json(
+        { success: false, error: 'Assessment not found' },
+        { status: 404 }
+      )
+    }
+
+    const courseId = assessmentData.course_id
 
     // Verify teacher assignment
     const { count } = await supabase
       .from('teacher_assignments')
       .select('*', { count: 'exact', head: true })
-      .eq('teacher_profile_id', teacherProfile.id)
+      .eq('teacher_profile_id', authResult.teacher.teacherId)
       .eq('course_id', courseId)
 
     if ((count || 0) === 0) {

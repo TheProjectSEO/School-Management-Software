@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -64,7 +66,7 @@ export default function QuizClient({
         setLoading(true);
 
         // Start the quiz first
-        const startRes = await fetch(`/api/student/assessments/${assessmentId}/start`, {
+        const startRes = await authFetch(`/api/student/assessments/${assessmentId}/start`, {
           method: "POST",
         });
         const startData = await startRes.json();
@@ -77,7 +79,7 @@ export default function QuizClient({
         setSubmissionId(startData.submissionId);
 
         // Get questions and any saved answers
-        const questionsRes = await fetch(`/api/student/assessments/${assessmentId}/questions`);
+        const questionsRes = await authFetch(`/api/student/assessments/${assessmentId}/questions`);
         const questionsData = await questionsRes.json();
 
         if (!questionsRes.ok) {
@@ -149,7 +151,7 @@ export default function QuizClient({
       if (!submissionId) return;
 
       try {
-        await fetch(`/api/student/assessments/${assessmentId}/save-answer`, {
+        await authFetch(`/api/student/assessments/${assessmentId}/save-answer`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -201,7 +203,7 @@ export default function QuizClient({
 
       const answersArray = Array.from(answers.values());
 
-      const res = await fetch(`/api/student/assessments/${assessmentId}/submit`, {
+      const res = await authFetch(`/api/student/assessments/${assessmentId}/submit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -21,10 +21,10 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Get student profile
+    // Get student profile (flat select — no FK joins per BUG-001)
     const { data: student, error: studentError } = await supabase
       .from('students')
-      .select('id, profile:school_profiles(full_name)')
+      .select('id, profile_id')
       .eq('profile_id', profile.id)
       .single();
 
@@ -35,16 +35,10 @@ export async function POST(
       );
     }
 
-    // Get session - use service client to bypass RLS
-    const serviceClient = createServiceClient();
-    const { data: session, error: sessionError } = await serviceClient
+    // Get session (flat select — no FK joins per BUG-001)
+    const { data: session, error: sessionError } = await supabase
       .from('live_sessions')
-      .select(
-        `
-        *,
-        course:courses(id, name)
-      `
-      )
+      .select('id, title, description, status, daily_room_name, daily_room_url, course_id, max_participants, recording_enabled')
       .eq('id', sessionId)
       .single();
 
@@ -115,9 +109,16 @@ export async function POST(
       );
     }
 
+    // Fetch student name separately
+    const { data: profileData } = await supabase
+      .from('school_profiles')
+      .select('full_name')
+      .eq('id', student.profile_id)
+      .single();
+
     // Create Daily.co token for student
     const dailyClient = getDailyClient();
-    const studentName = (student as any).profile?.full_name || 'Student';
+    const studentName = profileData?.full_name || 'Student';
 
     const token = await dailyClient.createMeetingToken(session.daily_room_name, {
       user_name: studentName,
@@ -156,7 +157,7 @@ export async function POST(
         id: session.id,
         title: session.title,
         description: session.description,
-        course: session.course,
+        course_id: session.course_id,
         recording_enabled: session.recording_enabled,
         max_participants: session.max_participants,
       },

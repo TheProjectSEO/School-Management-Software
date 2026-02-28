@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 
 interface StudentAlert {
@@ -135,7 +137,7 @@ export function StudentAlertsPanel({ sectionId, courseId, compact = false }: Stu
       if (selectedType) params.set("alertType", selectedType);
       params.set("minSeverity", selectedSeverity);
 
-      const response = await fetch(`/api/teacher/ai/student-alerts?${params.toString()}`);
+      const response = await authFetch(`/api/teacher/ai/student-alerts?${params.toString()}`);
       const data = await response.json();
 
       if (!response.ok || !data.success) {

@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 
@@ -39,7 +41,7 @@ export default function AvatarUpload({ currentAvatarUrl, fullName }: AvatarUploa
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("/api/student/profile/avatar", {
+      const response = await authFetch("/api/student/profile/avatar", {
         method: "POST",
         body: formData,
       });
@@ -70,7 +72,7 @@ export default function AvatarUpload({ currentAvatarUrl, fullName }: AvatarUploa
     setError(null);
 
     try {
-      const response = await fetch("/api/student/profile/avatar", {
+      const response = await authFetch("/api/student/profile/avatar", {
         method: "DELETE",
       });
 

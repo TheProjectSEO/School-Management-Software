@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -62,7 +64,7 @@ export default function TeachersPage() {
       if (filters.status) params.set("status", filters.status);
       if (filters.department) params.set("department", filters.department);
 
-      const response = await fetch(`/api/admin/users/teachers?${params}`);
+      const response = await authFetch(`/api/admin/users/teachers?${params}`);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -108,7 +110,7 @@ export default function TeachersPage() {
   const handleBulkDeactivate = async () => {
     setActionLoading(true);
     try {
-      const response = await fetch("/api/admin/users/teachers/bulk-status", {
+      const response = await authFetch("/api/admin/users/teachers/bulk-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -131,7 +133,7 @@ export default function TeachersPage() {
   const handleBulkActivate = async () => {
     setActionLoading(true);
     try {
-      const response = await fetch("/api/admin/users/teachers/bulk-status", {
+      const response = await authFetch("/api/admin/users/teachers/bulk-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -158,7 +160,7 @@ export default function TeachersPage() {
     if (filters.department) params.set("department", filters.department);
     params.set("format", format);
 
-    const response = await fetch(`/api/admin/users/teachers/export?${params}`);
+    const response = await authFetch(`/api/admin/users/teachers/export?${params}`);
     const blob = await response.blob();
 
     const url = window.URL.createObjectURL(blob);
@@ -455,7 +457,7 @@ function AddTeacherModal({
   useEffect(() => {
     const generateNextEmployeeId = async () => {
       try {
-        const response = await fetch("/api/admin/users/teachers?pageSize=1000");
+        const response = await authFetch("/api/admin/users/teachers?pageSize=1000");
         if (!response.ok) return;
 
         const result = await response.json();
@@ -505,7 +507,7 @@ function AddTeacherModal({
     setLoading(true);
 
     try {
-      const response = await fetch("/api/admin/users/teachers", {
+      const response = await authFetch("/api/admin/users/teachers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

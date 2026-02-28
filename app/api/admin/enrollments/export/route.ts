@@ -1,56 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentAdmin, hasPermission } from "@/lib/dal/admin";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
+import { createServiceClient } from "@/lib/supabase/service";
 import * as XLSX from "xlsx";
 
 // GET /api/admin/enrollments/export - Export enrollments as CSV
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireAdminAPI("users:read");
+    if (!auth.success) return auth.response;
 
-    const canRead = await hasPermission("users:read");
-    if (!canRead) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const supabase = createAdminClient();
+    const supabase = createServiceClient();
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search");
     const status = searchParams.get("status");
     const courseId = searchParams.get("courseId");
     const format = searchParams.get("format") || "csv";
 
-    // Build query
+    // Flat select — no FK joins (BUG-001)
     let query = supabase
       .from("enrollments")
-      .select(`
-        id,
-        status,
-        enrolled_at,
-        students!inner(
-          id,
-          profile:school_profiles!inner(full_name, phone)
-        ),
-        courses!inner(
-          id,
-          name,
-          subject_code
-        ),
-        sections(
-          id,
-          name,
-          grade_level
-        )
-      `)
+      .select("id, status, enrolled_at, student_id, course_id, section_id")
       .order("enrolled_at", { ascending: false });
 
     if (status) {
       query = query.eq("status", status);
     }
-
     if (courseId) {
       query = query.eq("course_id", courseId);
     }
@@ -62,25 +36,42 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch enrollments" }, { status: 500 });
     }
 
+    // Fetch related data separately
+    const studentIds = [...new Set((enrollments || []).map(e => e.student_id).filter(Boolean))];
+    const courseIds = [...new Set((enrollments || []).map(e => e.course_id).filter(Boolean))];
+    const sectionIds = [...new Set((enrollments || []).map(e => e.section_id).filter(Boolean))];
+
+    const [{ data: studentsData }, { data: coursesData }, { data: sectionsData }] = await Promise.all([
+      studentIds.length > 0
+        ? supabase.from("students").select("id, profile_id").in("id", studentIds)
+        : Promise.resolve({ data: [] }),
+      courseIds.length > 0
+        ? supabase.from("courses").select("id, name, subject_code").in("id", courseIds)
+        : Promise.resolve({ data: [] }),
+      sectionIds.length > 0
+        ? supabase.from("sections").select("id, name, grade_level").in("id", sectionIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const profileIds = [...new Set((studentsData || []).map(s => s.profile_id).filter(Boolean))];
+    const { data: profilesData } = profileIds.length > 0
+      ? await supabase.from("school_profiles").select("id, full_name, phone").in("id", profileIds)
+      : { data: [] };
+
+    // Build lookup maps
+    const profileMap = new Map((profilesData || []).map(p => [p.id, p]));
+    const studentProfileMap = new Map((studentsData || []).map(s => [s.id, profileMap.get(s.profile_id)]));
+    const courseMap = new Map((coursesData || []).map(c => [c.id, c]));
+    const sectionMap = new Map((sectionsData || []).map(s => [s.id, s]));
+
     // Transform data for export
     const exportData = (enrollments || []).map((enrollment) => {
-      const student = enrollment.students as unknown as {
-        id: string;
-        profile: { full_name: string; phone: string | null };
-      };
-      const course = enrollment.courses as unknown as {
-        id: string;
-        name: string;
-        subject_code: string;
-      };
-      const section = enrollment.sections as unknown as {
-        id: string;
-        name: string;
-        grade_level: string;
-      } | null;
+      const profile = studentProfileMap.get(enrollment.student_id);
+      const course = courseMap.get(enrollment.course_id);
+      const section = sectionMap.get(enrollment.section_id);
 
       return {
-        "Student Name": student?.profile?.full_name || "N/A",
+        "Student Name": profile?.full_name || "N/A",
         "Course": course?.name || "N/A",
         "Course Code": course?.subject_code || "N/A",
         "Section": section?.name || "N/A",

@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
@@ -50,7 +52,7 @@ export default function CourseDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/courses?search=`);
+      const response = await authFetch(`/api/admin/courses?search=`);
       if (!response.ok) {
         throw new Error("Failed to fetch course");
       }
@@ -77,7 +79,7 @@ export default function CourseDetailPage() {
   const fetchSections = useCallback(async () => {
     setSectionsLoading(true);
     try {
-      const response = await fetch(`/api/admin/courses/${courseId}/sections`);
+      const response = await authFetch(`/api/admin/courses/${courseId}/sections`);
       if (response.ok) {
         const data = await response.json();
         setSections(data);
@@ -102,7 +104,7 @@ export default function CourseDetailPage() {
 
     setActionLoading(true);
     try {
-      const response = await fetch(`/api/admin/courses/${course.id}`, {
+      const response = await authFetch(`/api/admin/courses/${course.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -133,7 +135,7 @@ export default function CourseDetailPage() {
 
     setActionLoading(true);
     try {
-      const response = await fetch(`/api/admin/courses/${course.id}`, {
+      const response = await authFetch(`/api/admin/courses/${course.id}`, {
         method: "DELETE",
       });
 

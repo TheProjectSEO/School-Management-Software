@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
@@ -74,7 +76,7 @@ export default function BulkEnrollPage() {
 
   const fetchCourses = async () => {
     try {
-      const response = await fetch("/api/admin/courses");
+      const response = await authFetch("/api/admin/courses");
       const data = await response.json();
       
       // Ensure data is an array
@@ -95,7 +97,7 @@ export default function BulkEnrollPage() {
 
   const fetchSections = async (courseId: string) => {
     try {
-      const response = await fetch(`/api/admin/courses/${courseId}/sections`);
+      const response = await authFetch(`/api/admin/courses/${courseId}/sections`);
       const data = await response.json();
       
       // Ensure data is an array
@@ -123,7 +125,7 @@ export default function BulkEnrollPage() {
       params.set("status", "active");
       params.set("pageSize", "100");
 
-      const response = await fetch(`/api/admin/users/students?${params}`);
+      const response = await authFetch(`/api/admin/users/students?${params}`);
       const data = await response.json();
       
       // Ensure data.data is an array
@@ -167,7 +169,7 @@ export default function BulkEnrollPage() {
 
     setStep("processing");
     try {
-      const response = await fetch("/api/admin/enrollments", {
+      const response = await authFetch("/api/admin/enrollments", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

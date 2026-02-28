@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
@@ -47,7 +49,7 @@ export default function VideoPlayer({
   const markComplete = useCallback(async () => {
     if (completedRef.current) return;
     try {
-      const response = await fetch("/api/student/progress/complete", {
+      const response = await authFetch("/api/student/progress/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ studentId, courseId, lessonId }),
@@ -63,7 +65,7 @@ export default function VideoPlayer({
 
   const updateProgress = async (newProgress: number) => {
     try {
-      const response = await fetch("/api/student/progress/update", {
+      const response = await authFetch("/api/student/progress/update", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

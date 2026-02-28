@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable, FilterBar, ChartCard, ExportButton, StatCard } from "@/components/admin/ui";
@@ -92,7 +94,7 @@ export default function AttendanceReportPage() {
       if (filters.sectionId) params.set("sectionId", filters.sectionId);
       if (filters.courseId) params.set("courseId", filters.courseId);
 
-      const response = await fetch(`/api/admin/reports/attendance?${params}`);
+      const response = await authFetch(`/api/admin/reports/attendance?${params}`);
       const result: PaginatedResult = await response.json();
 
       setRecords(result.data);
@@ -184,7 +186,7 @@ export default function AttendanceReportPage() {
     params.set("groupBy", groupBy);
     params.set("format", exportFormat);
 
-    const response = await fetch(`/api/admin/reports/attendance/export?${params}`);
+    const response = await authFetch(`/api/admin/reports/attendance/export?${params}`);
     const blob = await response.blob();
 
     const url = window.URL.createObjectURL(blob);

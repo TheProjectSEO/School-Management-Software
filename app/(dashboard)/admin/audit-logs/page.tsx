@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable, FilterBar, ExportButton, StatCard } from "@/components/admin/ui";
@@ -87,7 +89,7 @@ export default function AuditLogsPage() {
       if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
       if (filters.dateTo) params.set("dateTo", filters.dateTo);
 
-      const response = await fetch(`/api/admin/audit-logs?${params}`);
+      const response = await authFetch(`/api/admin/audit-logs?${params}`);
       const result: PaginatedResult = await response.json();
 
       setLogs(result.data);
@@ -244,7 +246,7 @@ export default function AuditLogsPage() {
     if (filters.dateTo) params.set("dateTo", filters.dateTo);
     params.set("format", exportFormat);
 
-    const response = await fetch(`/api/admin/audit-logs/export?${params}`);
+    const response = await authFetch(`/api/admin/audit-logs/export?${params}`);
     const blob = await response.blob();
 
     const url = window.URL.createObjectURL(blob);

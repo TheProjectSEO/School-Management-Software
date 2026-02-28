@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import Button from '@/components/ui/Button'
 import type { GradebookAssessment } from '@/lib/dal/types/gradebook'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface GradebookStudent {
   student_id: string
@@ -134,7 +135,7 @@ export default function BulkGradeModal({
     setError(null)
 
     try {
-      const response = await fetch('/api/teacher/gradebook/bulk-entry', {
+      const response = await authFetch('/api/teacher/gradebook/bulk-entry', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

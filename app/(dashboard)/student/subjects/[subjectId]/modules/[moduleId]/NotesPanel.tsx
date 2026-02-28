@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 
@@ -39,7 +41,7 @@ export default function NotesPanel({ studentId, courseId, lessonId, lessonTitle 
   const fetchNotes = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch(`/api/student/notes?courseId=${courseId}&lessonId=${lessonId}`);
+      const response = await authFetch(`/api/student/notes?courseId=${courseId}&lessonId=${lessonId}`);
       if (response.ok) {
         const data = await response.json();
         setNotes(data.notes || []);
@@ -67,7 +69,7 @@ export default function NotesPanel({ studentId, courseId, lessonId, lessonTitle 
 
       if (existingNote) {
         // Update existing note
-        const response = await fetch(`/api/student/notes/${existingNote.id}`, {
+        const response = await authFetch(`/api/student/notes/${existingNote.id}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -81,7 +83,7 @@ export default function NotesPanel({ studentId, courseId, lessonId, lessonTitle 
         }
       } else {
         // Create new note
-        const response = await fetch("/api/student/notes", {
+        const response = await authFetch("/api/student/notes", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

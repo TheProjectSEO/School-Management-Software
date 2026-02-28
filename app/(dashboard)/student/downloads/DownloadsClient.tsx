@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { Download } from "@/lib/dal";
@@ -236,7 +238,7 @@ export default function DownloadsClient({ downloads, stats }: DownloadsClientPro
     try {
       setIsDownloading((prev) => ({ ...prev, [downloadId]: true }));
 
-      const response = await fetch(`/api/student/downloads/${downloadId}`);
+      const response = await authFetch(`/api/student/downloads/${downloadId}`);
       if (!response.ok) {
         throw new Error("Failed to get download URL");
       }
@@ -270,7 +272,7 @@ export default function DownloadsClient({ downloads, stats }: DownloadsClientPro
         return;
       }
 
-      const response = await fetch("/api/student/downloads/batch", {
+      const response = await authFetch("/api/student/downloads/batch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ downloadIds }),
@@ -312,7 +314,7 @@ export default function DownloadsClient({ downloads, stats }: DownloadsClientPro
     }
 
     try {
-      const response = await fetch(`/api/student/downloads/${downloadId}`, {
+      const response = await authFetch(`/api/student/downloads/${downloadId}`, {
         method: "DELETE",
       });
 
@@ -330,7 +332,7 @@ export default function DownloadsClient({ downloads, stats }: DownloadsClientPro
 
   const handleRetry = async (downloadId: string) => {
     try {
-      const response = await fetch(`/api/student/downloads/${downloadId}`, {
+      const response = await authFetch(`/api/student/downloads/${downloadId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "queued" }),
@@ -351,7 +353,7 @@ export default function DownloadsClient({ downloads, stats }: DownloadsClientPro
   const handleSeedDownloads = async () => {
     try {
       setIsSeeding(true);
-      const response = await fetch("/api/student/admin/seed-downloads", {
+      const response = await authFetch("/api/student/admin/seed-downloads", {
         method: "POST",
       });
 

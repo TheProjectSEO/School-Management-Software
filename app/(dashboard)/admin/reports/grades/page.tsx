@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { DataTable, FilterBar, ChartCard, ExportButton, StatCard } from "@/components/admin/ui";
@@ -94,7 +96,7 @@ export default function GradesReportPage() {
       if (filters.courseId) params.set("courseId", filters.courseId);
       if (filters.status) params.set("status", filters.status);
 
-      const response = await fetch(`/api/admin/reports/grades?${params}`);
+      const response = await authFetch(`/api/admin/reports/grades?${params}`);
       const result: PaginatedResult = await response.json();
 
       setRecords(result.data);
@@ -189,7 +191,7 @@ export default function GradesReportPage() {
     if (filters.courseId) params.set("courseId", filters.courseId);
     params.set("format", exportFormat);
 
-    const response = await fetch(`/api/admin/reports/grades/export?${params}`);
+    const response = await authFetch(`/api/admin/reports/grades/export?${params}`);
     const blob = await response.blob();
 
     const url = window.URL.createObjectURL(blob);

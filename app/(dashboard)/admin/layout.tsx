@@ -1,5 +1,8 @@
 'use client';
 
+import { authFetch } from "@/lib/utils/authFetch";
+
+
 import React, { useEffect, useState } from 'react';
 import { AdminGuard } from '@/components/auth/RoleGuard';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,7 +31,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       if (!user?.id) return;
 
       try {
-        const res = await fetch('/api/admin/profile');
+        const res = await authFetch('/api/admin/profile');
         if (res.ok) {
           const data = await res.json();
           setAdminProfile({

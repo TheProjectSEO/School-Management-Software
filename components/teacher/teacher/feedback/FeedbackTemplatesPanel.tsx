@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 
 interface FeedbackTemplate {
@@ -111,7 +113,7 @@ export function FeedbackTemplatesPanel({
       if (selectedCategory) params.set("category", selectedCategory);
       if (searchQuery) params.set("search", searchQuery);
 
-      const response = await fetch(`/api/teacher/feedback-templates?${params.toString()}`);
+      const response = await authFetch(`/api/teacher/feedback-templates?${params.toString()}`);
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -137,7 +139,7 @@ export function FeedbackTemplatesPanel({
     setIsApplying(template.id);
 
     try {
-      const response = await fetch(`/api/teacher/feedback-templates/${template.id}/apply`, {
+      const response = await authFetch(`/api/teacher/feedback-templates/${template.id}/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(submissionContext || {}),
@@ -163,7 +165,7 @@ export function FeedbackTemplatesPanel({
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/teacher/feedback-templates", {
+      const response = await authFetch("/api/teacher/feedback-templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -198,7 +200,7 @@ export function FeedbackTemplatesPanel({
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`/api/teacher/feedback-templates/${editingTemplate.id}`, {
+      const response = await authFetch(`/api/teacher/feedback-templates/${editingTemplate.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -230,7 +232,7 @@ export function FeedbackTemplatesPanel({
     if (!confirm("Are you sure you want to delete this template?")) return;
 
     try {
-      const response = await fetch(`/api/teacher/feedback-templates/${id}`, {
+      const response = await authFetch(`/api/teacher/feedback-templates/${id}`, {
         method: "DELETE",
       });
 

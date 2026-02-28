@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState } from "react";
 import Link from "next/link";
 import { BulkImportWizard } from "@/components/admin/ui";
@@ -40,7 +42,7 @@ export default function ImportPage() {
   ];
 
   const handleStudentImport = async (data: Record<string, string>[]): Promise<ImportResult> => {
-    const response = await fetch("/api/admin/users/students/bulk-import", {
+    const response = await authFetch("/api/admin/users/students/bulk-import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ students: data }),
@@ -54,7 +56,7 @@ export default function ImportPage() {
   };
 
   const handleTeacherImport = async (data: Record<string, string>[]): Promise<ImportResult> => {
-    const response = await fetch("/api/admin/users/teachers/bulk-import", {
+    const response = await authFetch("/api/admin/users/teachers/bulk-import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ teachers: data }),

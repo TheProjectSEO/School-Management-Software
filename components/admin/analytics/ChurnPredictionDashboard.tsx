@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 
 interface RiskFactor {
@@ -81,7 +83,7 @@ export function ChurnPredictionDashboard() {
       params.set("minRiskLevel", selectedRiskLevel);
       params.set("limit", "50");
 
-      const response = await fetch(`/api/admin/analytics/churn-prediction?${params.toString()}`);
+      const response = await authFetch(`/api/admin/analytics/churn-prediction?${params.toString()}`);
       const data = await response.json();
 
       if (!response.ok || !data.success) {

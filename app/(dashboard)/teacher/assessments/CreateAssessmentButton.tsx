@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { authFetch } from '@/lib/utils/authFetch'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface Subject {
   id: string

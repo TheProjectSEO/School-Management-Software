@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { authFetch } from '@/lib/utils/authFetch'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -22,6 +21,7 @@ import {
   arrayMove
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { authFetch } from "@/lib/utils/authFetch";
 
 type VideoType = 'youtube' | 'vimeo' | 'upload' | 'embed' | 'external' | null
 type ContentType = 'video' | 'reading' | 'quiz' | 'activity'
@@ -330,7 +330,7 @@ export default function LessonEditor({
         uploadFormData.append('bucket', 'lesson-attachments')
         uploadFormData.append('folder', `lessons/${formData.id || 'new'}`)
 
-        const response = await fetch('/api/teacher/content/upload', {
+        const response = await authFetch('/api/teacher/content/upload', {
           method: 'POST',
           body: uploadFormData,
         })

@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -66,7 +68,7 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
     async function fetchData() {
       try {
         // Fetch student data
-        const response = await fetch(`/api/admin/users/students/${studentId}`);
+        const response = await authFetch(`/api/admin/users/students/${studentId}`);
         if (!response.ok) {
           throw new Error("Failed to fetch student");
         }
@@ -84,7 +86,7 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
         });
 
         // Fetch sections
-        const sectionsResponse = await fetch("/api/admin/sections");
+        const sectionsResponse = await authFetch("/api/admin/sections");
         if (sectionsResponse.ok) {
           const sectionsData = await sectionsResponse.json();
           setSections(Array.isArray(sectionsData) ? sectionsData : []);
@@ -106,7 +108,7 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
 
     try {
       // Update student details via PUT
-      const response = await fetch(`/api/admin/users/students/${studentId}`, {
+      const response = await authFetch(`/api/admin/users/students/${studentId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -120,7 +122,7 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
 
       // Update status via PATCH if needed
       if (response.ok && formData.status) {
-        await fetch(`/api/admin/users/students/${studentId}`, {
+        await authFetch(`/api/admin/users/students/${studentId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: formData.status }),
@@ -151,7 +153,7 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/admin/users/students/${studentId}/reset-password`, {
+      const response = await authFetch(`/api/admin/users/students/${studentId}/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ newPassword: newPassword || undefined }),
@@ -189,7 +191,7 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
     setError(null);
 
     try {
-      const response = await fetch(`/api/admin/users/students/${studentId}/reset-password`, {
+      const response = await authFetch(`/api/admin/users/students/${studentId}/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

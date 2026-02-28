@@ -15,6 +15,7 @@ import type {
   AssessmentScore,
 } from '@/lib/dal/types/gradebook'
 import type { DepEdSubjectType } from '@/lib/grading/deped-engine'
+import { authFetch } from "@/lib/utils/authFetch";
 
 // Serialized row type (Map converted to object)
 interface SerializedGradebookRow {
@@ -99,7 +100,7 @@ export default function GradebookClient({
       setIsSaving(true)
 
       try {
-        const response = await fetch('/api/teacher/gradebook/save-score', {
+        const response = await authFetch('/api/teacher/gradebook/save-score', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

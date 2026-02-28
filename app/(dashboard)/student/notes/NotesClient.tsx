@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import type { Note } from "@/lib/dal";
@@ -134,7 +136,7 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
     setIsDeleting(true);
 
     try {
-      const response = await fetch(`/api/student/notes/${noteId}`, {
+      const response = await authFetch(`/api/student/notes/${noteId}`, {
         method: "DELETE",
       });
 
@@ -156,7 +158,7 @@ export default function NotesClient({ notes: initialNotes, courses }: NotesClien
   // Toggle favorite
   const toggleFavorite = async (note: Note) => {
     try {
-      const response = await fetch(`/api/student/notes/${note.id}`, {
+      const response = await authFetch(`/api/student/notes/${note.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ isFavorite: !note.is_favorite }),

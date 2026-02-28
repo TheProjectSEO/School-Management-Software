@@ -1,5 +1,7 @@
 'use client';
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 /**
  * Live Session Client Component
  * Manages all real-time features and interactions
@@ -51,7 +53,7 @@ export function LiveSessionClient({
   useEffect(() => {
     async function joinSession() {
       try {
-        const response = await fetch(`/api/student/live-sessions/${sessionId}/join`, {
+        const response = await authFetch(`/api/student/live-sessions/${sessionId}/join`, {
           method: 'POST',
         });
 

@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 
 interface Student {
@@ -71,7 +73,7 @@ export default function AttendanceDashboard({
   useEffect(() => {
     async function fetchSections() {
       try {
-        const response = await fetch("/api/teacher/subjects");
+        const response = await authFetch("/api/teacher/subjects");
         if (response.ok) {
           const data = await response.json();
           // Extract unique sections from subjects
@@ -116,7 +118,7 @@ export default function AttendanceDashboard({
         date: selectedDate,
       });
 
-      const response = await fetch(`/api/teacher/attendance/daily?${params.toString()}`);
+      const response = await authFetch(`/api/teacher/attendance/daily?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch attendance");
@@ -155,7 +157,7 @@ export default function AttendanceDashboard({
     setIsSaving(studentId);
 
     try {
-      const response = await fetch("/api/teacher/attendance/daily", {
+      const response = await authFetch("/api/teacher/attendance/daily", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

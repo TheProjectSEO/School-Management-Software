@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface Announcement {
   id: string
@@ -36,7 +37,7 @@ export default function EditAnnouncementPage() {
   useEffect(() => {
     async function fetchAnnouncement() {
       try {
-        const response = await fetch(`/api/teacher/announcements/${id}`)
+        const response = await authFetch(`/api/teacher/announcements/${id}`)
         if (!response.ok) {
           if (response.status === 404) {
             router.push('/teacher/announcements')
@@ -82,7 +83,7 @@ export default function EditAnnouncementPage() {
     setSuccess(null)
 
     try {
-      const response = await fetch(`/api/teacher/announcements/${id}`, {
+      const response = await authFetch(`/api/teacher/announcements/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -122,7 +123,7 @@ export default function EditAnnouncementPage() {
 
     try {
       // First save
-      const saveResponse = await fetch(`/api/teacher/announcements/${id}`, {
+      const saveResponse = await authFetch(`/api/teacher/announcements/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -139,7 +140,7 @@ export default function EditAnnouncementPage() {
       }
 
       // Then publish
-      const publishResponse = await fetch(`/api/teacher/announcements/${id}/publish`, {
+      const publishResponse = await authFetch(`/api/teacher/announcements/${id}/publish`, {
         method: 'POST'
       })
 
@@ -162,7 +163,7 @@ export default function EditAnnouncementPage() {
     }
 
     try {
-      const response = await fetch(`/api/teacher/announcements/${id}`, {
+      const response = await authFetch(`/api/teacher/announcements/${id}`, {
         method: 'DELETE'
       })
 

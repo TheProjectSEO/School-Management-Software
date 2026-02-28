@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
@@ -19,7 +21,7 @@ export default function ApplicationDetailPage() {
 
   async function load() {
     setError(null);
-    const res = await fetch(`/api/admin/applications/${applicationId}`);
+    const res = await authFetch(`/api/admin/applications/${applicationId}`);
     const json = await res.json();
     if (!res.ok) {
       setError(json.error || "Failed to load application");
@@ -30,7 +32,7 @@ export default function ApplicationDetailPage() {
   }
 
   async function viewDocument(docId: string) {
-    const res = await fetch(`/api/admin/applications/${applicationId}/documents/${docId}`);
+    const res = await authFetch(`/api/admin/applications/${applicationId}/documents/${docId}`);
     const json = await res.json();
     if (!res.ok) {
       alert(json.error || "Failed to get document");

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
+import { authFetch } from "@/lib/utils/authFetch";
 
 type TargetType = 'section' | 'grade' | 'course' | 'school'
 type Priority = 'low' | 'normal' | 'high' | 'urgent'
@@ -59,7 +60,7 @@ export default function CreateAnnouncementModal({
     async function fetchTargets() {
       setIsLoading(true)
       try {
-        const response = await fetch('/api/teacher/announcements/targets')
+        const response = await authFetch('/api/teacher/announcements/targets')
         if (response.ok) {
           const data = await response.json()
           setSections(data.sections || [])
@@ -96,7 +97,7 @@ export default function CreateAnnouncementModal({
 
       setIsLoadingPreview(true)
       try {
-        const response = await fetch('/api/teacher/announcements/targets', {
+        const response = await authFetch('/api/teacher/announcements/targets', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -135,7 +136,7 @@ export default function CreateAnnouncementModal({
     setError(null)
 
     try {
-      const response = await fetch('/api/teacher/announcements', {
+      const response = await authFetch('/api/teacher/announcements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -184,7 +185,7 @@ export default function CreateAnnouncementModal({
 
     try {
       // First create the announcement
-      const createResponse = await fetch('/api/teacher/announcements', {
+      const createResponse = await authFetch('/api/teacher/announcements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -207,7 +208,7 @@ export default function CreateAnnouncementModal({
       const { announcement } = await createResponse.json()
 
       // Then publish it
-      const publishResponse = await fetch(`/api/teacher/announcements/${announcement.id}/publish`, {
+      const publishResponse = await authFetch(`/api/teacher/announcements/${announcement.id}/publish`, {
         method: 'POST'
       })
 

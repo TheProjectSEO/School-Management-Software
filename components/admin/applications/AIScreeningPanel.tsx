@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useCallback } from "react";
 
 interface AIScreeningResult {
@@ -60,7 +62,7 @@ export function AIScreeningPanel({ applicationId, applicationName, onClose }: AI
     setError(null);
 
     try {
-      const response = await fetch(`/api/admin/applications/${applicationId}/ai-screen`, {
+      const response = await authFetch(`/api/admin/applications/${applicationId}/ai-screen`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });

@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -93,7 +95,7 @@ export default function SectionDetailPage() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/admin/sections/${sectionId}`);
+      const response = await authFetch(`/api/admin/sections/${sectionId}`);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || "Failed to fetch section");
@@ -127,8 +129,8 @@ export default function SectionDetailPage() {
       }
 
       const [coursesRes, teachersRes] = await Promise.all([
-        fetch(`/api/admin/courses?${coursesParams}`),
-        fetch("/api/admin/users/teachers?status=active&pageSize=100"),
+        authFetch(`/api/admin/courses?${coursesParams}`),
+        authFetch("/api/admin/users/teachers?status=active&pageSize=100"),
       ]);
 
       if (coursesRes.ok) {
@@ -195,7 +197,7 @@ export default function SectionDetailPage() {
         teacherProfileId: selectedTeacherId,
       }));
 
-      const response = await fetch(`/api/admin/sections/${sectionId}/courses`, {
+      const response = await authFetch(`/api/admin/sections/${sectionId}/courses`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ assignments }),
@@ -261,7 +263,7 @@ export default function SectionDetailPage() {
       const params = new URLSearchParams({ pageSize: "100" });
       if (search) params.set("search", search);
 
-      const response = await fetch(`/api/admin/users/students?${params}`);
+      const response = await authFetch(`/api/admin/users/students?${params}`);
       if (response.ok) {
         const data = await response.json();
         // Filter: match section's grade level, exclude already enrolled students
@@ -316,7 +318,7 @@ export default function SectionDetailPage() {
     setEnrollLoading(true);
     setEnrollResult(null);
     try {
-      const response = await fetch(`/api/admin/sections/${sectionId}/enroll`, {
+      const response = await authFetch(`/api/admin/sections/${sectionId}/enroll`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ studentIds: Array.from(selectedStudentIds) }),

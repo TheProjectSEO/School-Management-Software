@@ -7,6 +7,7 @@ import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import GradingRubric from './GradingRubric'
 import { GradingQueueItem } from '@/lib/dal/grading-queue'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface AIGradingSuggestion {
   suggested_points: number
@@ -233,7 +234,7 @@ export default function GradingPanel({
     setAiError(null)
 
     try {
-      const response = await fetch('/api/teacher/ai/grade-response', {
+      const response = await authFetch('/api/teacher/ai/grade-response', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ queueItemId: item.id })

@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect } from "react";
 import { StatCard } from "@/components/admin/ui";
 
@@ -48,7 +50,7 @@ export default function SchoolSettingsPage() {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const response = await fetch("/api/admin/settings/school");
+      const response = await authFetch("/api/admin/settings/school");
       if (response.ok) {
         const data = await response.json();
         setSettings(data);
@@ -68,7 +70,7 @@ export default function SchoolSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const response = await fetch("/api/admin/settings/school", {
+      const response = await authFetch("/api/admin/settings/school", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),
@@ -93,7 +95,7 @@ export default function SchoolSettingsPage() {
     formData.append("logo", file);
 
     try {
-      const response = await fetch("/api/admin/settings/school", {
+      const response = await authFetch("/api/admin/settings/school", {
         method: "POST",
         body: formData,
       });

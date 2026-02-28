@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useRef, useEffect, useCallback } from "react";
 
 interface ChatMessage {
@@ -86,7 +88,7 @@ export function InquiryChatbot({
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/admin/chatbot/inquiry", {
+      const response = await authFetch("/api/admin/chatbot/inquiry", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -6,6 +6,7 @@ import Badge from '@/components/ui/Badge'
 import Card from '@/components/ui/Card'
 import EmptyState from '@/components/ui/EmptyState'
 import CreateAnnouncementModal from './CreateAnnouncementModal'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface Announcement {
   id: string
@@ -35,7 +36,7 @@ export default function AnnouncementsTab() {
   const fetchAnnouncements = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('/api/teacher/announcements')
+      const response = await authFetch('/api/teacher/announcements')
       if (response.ok) {
         const data = await response.json()
         setAnnouncements(data.announcements || [])
@@ -55,7 +56,7 @@ export default function AnnouncementsTab() {
   const handlePublish = async (id: string) => {
     setIsPublishing(id)
     try {
-      const response = await fetch(`/api/teacher/announcements/${id}/publish`, {
+      const response = await authFetch(`/api/teacher/announcements/${id}/publish`, {
         method: 'POST'
       })
       if (response.ok) {
@@ -76,7 +77,7 @@ export default function AnnouncementsTab() {
 
     setIsDeleting(id)
     try {
-      const response = await fetch(`/api/teacher/announcements/${id}`, {
+      const response = await authFetch(`/api/teacher/announcements/${id}`, {
         method: 'DELETE'
       })
       if (response.ok) {

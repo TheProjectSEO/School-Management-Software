@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useEffect, useRef, useState } from "react";
 import MarkdownRenderer from "@/components/ui/MarkdownRenderer";
 
@@ -54,7 +56,7 @@ export function RecordingAIPanel({
         content: m.content,
       }));
 
-      const response = await fetch(`/api/student/live-sessions/${sessionId}/ask`, {
+      const response = await authFetch(`/api/student/live-sessions/${sessionId}/ask`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

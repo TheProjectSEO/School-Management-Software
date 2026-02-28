@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -104,7 +106,7 @@ export default function StudentsPage() {
       if (filters.gradeLevel) params.set("gradeLevel", filters.gradeLevel);
       if (filters.sectionId) params.set("sectionId", filters.sectionId);
 
-      const response = await fetch(`/api/admin/users/students?${params}`);
+      const response = await authFetch(`/api/admin/users/students?${params}`);
       const result: PaginatedResult = await response.json();
 
       setStudents(result.data);
@@ -122,7 +124,7 @@ export default function StudentsPage() {
 
   const fetchSections = useCallback(async () => {
     try {
-      const response = await fetch("/api/admin/sections");
+      const response = await authFetch("/api/admin/sections");
       const data = await response.json();
       setSections(data || []);
     } catch (error) {
@@ -133,7 +135,7 @@ export default function StudentsPage() {
   const generateNextLRN = useCallback(async () => {
     try {
       // Fetch all students to get existing LRNs
-      const response = await fetch("/api/admin/users/students?pageSize=9999");
+      const response = await authFetch("/api/admin/users/students?pageSize=9999");
       const result: PaginatedResult = await response.json();
 
       // Extract LRNs that match format: YYYY-MSU-####
@@ -211,7 +213,7 @@ export default function StudentsPage() {
   const handleBulkDeactivate = async () => {
     setActionLoading(true);
     try {
-      const response = await fetch("/api/admin/users/students/bulk-status", {
+      const response = await authFetch("/api/admin/users/students/bulk-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -235,7 +237,7 @@ export default function StudentsPage() {
   const handleBulkReactivate = async () => {
     setActionLoading(true);
     try {
-      const response = await fetch("/api/admin/users/students/bulk-status", {
+      const response = await authFetch("/api/admin/users/students/bulk-status", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -280,7 +282,7 @@ export default function StudentsPage() {
         return;
       }
 
-      const response = await fetch("/api/admin/users/students/bulk-section", {
+      const response = await authFetch("/api/admin/users/students/bulk-section", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -344,7 +346,7 @@ export default function StudentsPage() {
         return;
       }
 
-      const response = await fetch("/api/admin/users/students/bulk-section", {
+      const response = await authFetch("/api/admin/users/students/bulk-section", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -381,7 +383,7 @@ export default function StudentsPage() {
     if (filters.gradeLevel) params.set("gradeLevel", filters.gradeLevel);
     params.set("format", format);
 
-    const response = await fetch(`/api/admin/users/students/export?${params}`);
+    const response = await authFetch(`/api/admin/users/students/export?${params}`);
     const blob = await response.blob();
 
     const url = window.URL.createObjectURL(blob);
@@ -408,7 +410,7 @@ export default function StudentsPage() {
 
     setActionLoading(true);
     try {
-      const response = await fetch("/api/admin/users/students", {
+      const response = await authFetch("/api/admin/users/students", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),

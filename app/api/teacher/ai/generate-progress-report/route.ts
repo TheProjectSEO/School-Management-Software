@@ -61,45 +61,91 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get additional student progress data
+    // Get additional student progress data — flat select (no FK joins per BUG-001)
     const { data: progressData } = await supabase
       .from("student_progress")
-      .select(`
-        progress_percent,
-        completed_at,
-        lesson:lessons(
-          title,
-          module:modules(title, course:courses(name))
-        )
-      `)
+      .select("lesson_id, progress_percent, completed_at")
       .eq("student_id", reportCard.student_id)
       .order("completed_at", { ascending: false })
       .limit(20);
 
-    // Get recent submission performance
+    // Get recent submission performance — flat select (no FK joins per BUG-001)
     const { data: submissions } = await supabase
       .from("submissions")
-      .select(`
-        score,
-        submitted_at,
-        status,
-        assessment:assessments(
-          title,
-          total_points,
-          type,
-          course:courses(name)
-        )
-      `)
+      .select("assessment_id, score, submitted_at, status")
       .eq("student_id", reportCard.student_id)
       .eq("status", "graded")
       .order("submitted_at", { ascending: false })
       .limit(15);
 
+    // Fetch related data separately
+    const lessonIds = (progressData || []).map(p => p.lesson_id).filter(Boolean);
+    const assessmentIds = (submissions || []).map(s => s.assessment_id).filter(Boolean);
+
+    const [{ data: lessonsData }, { data: assessmentsData }] = await Promise.all([
+      lessonIds.length > 0
+        ? supabase.from("lessons").select("id, title, module_id").in("id", lessonIds)
+        : Promise.resolve({ data: [] }),
+      assessmentIds.length > 0
+        ? supabase.from("assessments").select("id, title, total_points, type, course_id").in("id", assessmentIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const moduleIds = [...new Set((lessonsData || []).map(l => l.module_id).filter(Boolean))];
+    const { data: modulesData } = moduleIds.length > 0
+      ? await supabase.from("modules").select("id, title, course_id").in("id", moduleIds)
+      : { data: [] };
+
+    const courseIdsFromModules = (modulesData || []).map(m => m.course_id).filter(Boolean);
+    const courseIdsFromAssessments = (assessmentsData || []).map(a => a.course_id).filter(Boolean);
+    const allCourseIds = [...new Set([...courseIdsFromModules, ...courseIdsFromAssessments])];
+    const { data: coursesData } = allCourseIds.length > 0
+      ? await supabase.from("courses").select("id, name").in("id", allCourseIds)
+      : { data: [] };
+
+    // Build lookup maps
+    const lessonMap = new Map((lessonsData || []).map(l => [l.id, l]));
+    const moduleMap = new Map((modulesData || []).map(m => [m.id, m]));
+    const courseMap = new Map((coursesData || []).map(c => [c.id, c]));
+    const assessmentMap = new Map((assessmentsData || []).map(a => [a.id, a]));
+
+    // Enrich progress data with nested-like structure for buildStudentContext
+    const enrichedProgress = (progressData || []).map(p => {
+      const lesson = lessonMap.get(p.lesson_id);
+      const module = lesson ? moduleMap.get(lesson.module_id) : undefined;
+      const course = module ? courseMap.get(module.course_id) : undefined;
+      return {
+        progress_percent: p.progress_percent,
+        completed_at: p.completed_at,
+        lesson: lesson ? {
+          title: lesson.title,
+          module: module ? { title: module.title, course: course ? { name: course.name } : undefined } : undefined,
+        } : undefined,
+      };
+    });
+
+    // Enrich submissions with nested-like structure for buildStudentContext
+    const enrichedSubmissions = (submissions || []).map(s => {
+      const assessment = assessmentMap.get(s.assessment_id);
+      const course = assessment ? courseMap.get(assessment.course_id) : undefined;
+      return {
+        score: s.score,
+        submitted_at: s.submitted_at,
+        status: s.status,
+        assessment: assessment ? {
+          title: assessment.title,
+          total_points: assessment.total_points,
+          type: assessment.type,
+          course: course ? { name: course.name } : undefined,
+        } : undefined,
+      };
+    });
+
     // Build context for AI
     const studentContext = buildStudentContext({
       reportCard,
-      progressData: progressData || [],
-      submissions: submissions || [],
+      progressData: enrichedProgress,
+      submissions: enrichedSubmissions,
       subject,
     });
 

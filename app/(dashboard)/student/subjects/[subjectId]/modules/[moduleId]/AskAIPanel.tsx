@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import MarkdownRenderer from "@/components/ui/MarkdownRenderer";
@@ -116,7 +118,7 @@ export default function AskAIPanel({
         content: m.content,
       }));
 
-      const response = await fetch("/api/student/ai/ask", {
+      const response = await authFetch("/api/student/ai/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

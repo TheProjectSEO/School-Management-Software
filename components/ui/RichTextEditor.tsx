@@ -5,6 +5,7 @@ import StarterKit from '@tiptap/starter-kit'
 import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import { useCallback, useEffect, useRef } from 'react'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface RichTextEditorProps {
   value: string
@@ -58,7 +59,7 @@ export default function RichTextEditor({
       formData.append('file', file)
       formData.append('bucket', 'course-content')
 
-      const response = await fetch('/api/teacher/content/upload', {
+      const response = await authFetch('/api/teacher/content/upload', {
         method: 'POST',
         body: formData
       })

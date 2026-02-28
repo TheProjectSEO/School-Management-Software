@@ -1,11 +1,12 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { playMessageSound, playAlertSound } from "@/lib/utils/notificationSound";
 import type { RealtimeChannel } from "@supabase/supabase-js";
-import { authFetch } from "@/lib/utils/authFetch";
 
 interface AdminNotificationContextType {
   /** Total unread message count */

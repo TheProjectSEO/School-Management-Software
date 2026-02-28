@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 
@@ -87,7 +89,7 @@ export function StudentAccountsDashboard() {
         params.set("gradeLevel", gradeFilter);
       }
 
-      const response = await fetch(`/api/admin/finance/student-accounts?${params.toString()}`);
+      const response = await authFetch(`/api/admin/finance/student-accounts?${params.toString()}`);
       const data = await response.json();
 
       if (data.success) {
@@ -110,7 +112,7 @@ export function StudentAccountsDashboard() {
   const fetchAccountDetail = async (accountId: string) => {
     setLoadingDetail(true);
     try {
-      const response = await fetch(`/api/admin/finance/student-accounts/${accountId}`);
+      const response = await authFetch(`/api/admin/finance/student-accounts/${accountId}`);
       const data = await response.json();
 
       if (data.success) {
@@ -127,7 +129,7 @@ export function StudentAccountsDashboard() {
 
   const handleStatusChange = async (accountId: string, newStatus: string) => {
     try {
-      const response = await fetch(`/api/admin/finance/student-accounts/${accountId}`, {
+      const response = await authFetch(`/api/admin/finance/student-accounts/${accountId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),

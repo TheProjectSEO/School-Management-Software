@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useEffect, useState } from "react";
 import type { CourseGrade } from "@/lib/dal/types/grades";
 
@@ -32,7 +34,7 @@ export function GradeHistoryModal({
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/grades?courseId=${courseId}`);
+      const response = await authFetch(`/api/grades?courseId=${courseId}`);
       if (!response.ok) {
         throw new Error("Failed to fetch grade history");
       }

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import { authFetch } from '@/lib/utils/authFetch'
+import { authFetch } from "@/lib/utils/authFetch";
 
 type SubjectAssignment = {
   id: string

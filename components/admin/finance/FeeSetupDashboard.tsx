@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 
 interface FeeCategory {
@@ -95,9 +97,9 @@ export function FeeSetupDashboard() {
 
     try {
       const [categoriesRes, structuresRes, plansRes] = await Promise.all([
-        fetch("/api/admin/finance/fee-categories"),
-        fetch("/api/admin/finance/fee-structures"),
-        fetch("/api/admin/finance/payment-plans"),
+        authFetch("/api/admin/finance/fee-categories"),
+        authFetch("/api/admin/finance/fee-structures"),
+        authFetch("/api/admin/finance/payment-plans"),
       ]);
 
       const [categoriesData, structuresData, plansData] = await Promise.all([
@@ -122,7 +124,7 @@ export function FeeSetupDashboard() {
 
   const handleCreateCategory = async () => {
     try {
-      const response = await fetch("/api/admin/finance/fee-categories", {
+      const response = await authFetch("/api/admin/finance/fee-categories", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -154,7 +156,7 @@ export function FeeSetupDashboard() {
 
   const handleCreateStructure = async () => {
     try {
-      const response = await fetch("/api/admin/finance/fee-structures", {
+      const response = await authFetch("/api/admin/finance/fee-structures", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -184,7 +186,7 @@ export function FeeSetupDashboard() {
 
   const handleGenerateDefaultPlans = async () => {
     try {
-      const response = await fetch("/api/admin/finance/payment-plans", {
+      const response = await authFetch("/api/admin/finance/payment-plans", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

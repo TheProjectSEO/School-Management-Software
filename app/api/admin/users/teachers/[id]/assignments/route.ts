@@ -23,15 +23,7 @@ export async function GET(
 
     const { data, error } = await supabase
       .from("teacher_assignments")
-      .select(`
-        id,
-        teacher_profile_id,
-        course_id,
-        section_id,
-        is_primary,
-        courses:courses (id, name, subject_code),
-        sections:sections (id, name, grade_level)
-      `)
+      .select("id, teacher_profile_id, course_id, section_id, is_primary")
       .eq("teacher_profile_id", teacherId);
 
     if (error) {
@@ -39,14 +31,32 @@ export async function GET(
       return NextResponse.json({ error: "Failed to fetch assignments" }, { status: 500 });
     }
 
-    const assignments = (data || []).map((item: any) => ({
+    const rows = data || [];
+
+    // Fetch courses and sections separately (BUG-001: no FK joins)
+    const courseIds = [...new Set(rows.map((r) => r.course_id).filter(Boolean))];
+    const sectionIds = [...new Set(rows.map((r) => r.section_id).filter(Boolean))];
+
+    const [{ data: courses }, { data: sections }] = await Promise.all([
+      courseIds.length > 0
+        ? supabase.from("courses").select("id, name, subject_code").in("id", courseIds)
+        : Promise.resolve({ data: [] }),
+      sectionIds.length > 0
+        ? supabase.from("sections").select("id, name, grade_level").in("id", sectionIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const courseMap = new Map((courses || []).map((c) => [c.id, c]));
+    const sectionMap = new Map((sections || []).map((s) => [s.id, s]));
+
+    const assignments = rows.map((item) => ({
       id: item.id,
       teacher_profile_id: item.teacher_profile_id,
       course_id: item.course_id,
       section_id: item.section_id,
       is_primary: item.is_primary ?? true,
-      course: item.courses,
-      section: item.sections,
+      course: courseMap.get(item.course_id) ?? null,
+      section: sectionMap.get(item.section_id) ?? null,
     }));
 
     return NextResponse.json(assignments);

@@ -1,5 +1,8 @@
 'use client';
 
+import { authFetch } from "@/lib/utils/authFetch";
+
+
 /**
  * Teacher Live Sessions Dashboard
  * Manage Daily.co virtual classroom sessions
@@ -60,7 +63,7 @@ export default function LiveSessionsPage() {
 
   async function fetchSessions() {
     try {
-      const response = await fetch('/api/teacher/live-sessions');
+      const response = await authFetch('/api/teacher/live-sessions');
       if (response.ok) {
         const data = await response.json();
         // API returns { sessions } in teacher-app and array in student-app; normalize
@@ -76,7 +79,7 @@ export default function LiveSessionsPage() {
   async function startSession(sessionId: string) {
     try {
       // Call API to create Daily.co room
-      const response = await fetch(`/api/teacher/live-sessions/${sessionId}/start`, {
+      const response = await authFetch(`/api/teacher/live-sessions/${sessionId}/start`, {
         method: 'POST',
       });
 
@@ -142,7 +145,7 @@ export default function LiveSessionsPage() {
     const appJoinLink = dailyLink;
 
     try {
-      const response = await fetch('/api/teacher/announcements', {
+      const response = await authFetch('/api/teacher/announcements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -172,7 +175,7 @@ export default function LiveSessionsPage() {
     if (!confirm('End this session? Recording will be processed.')) return;
 
     try {
-      const response = await fetch(`/api/teacher/live-sessions/${sessionId}/end`, {
+      const response = await authFetch(`/api/teacher/live-sessions/${sessionId}/end`, {
         method: 'POST',
       });
 
@@ -191,7 +194,7 @@ export default function LiveSessionsPage() {
     if (!confirm('Process recording for this session? This may take a minute.')) return;
 
     try {
-      const response = await fetch(`/api/teacher/live-sessions/${sessionId}/recording`, {
+      const response = await authFetch(`/api/teacher/live-sessions/${sessionId}/recording`, {
         method: 'POST',
       });
 
@@ -213,7 +216,7 @@ export default function LiveSessionsPage() {
     if (!confirm('Generate AI transcript for this recording? This may take a minute.')) return;
 
     try {
-      const response = await fetch(`/api/teacher/live-sessions/${sessionId}/transcribe`, {
+      const response = await authFetch(`/api/teacher/live-sessions/${sessionId}/transcribe`, {
         method: 'POST',
       });
 
@@ -238,12 +241,12 @@ export default function LiveSessionsPage() {
     setShowTranscriptModal(true);
 
     try {
-      const response = await fetch(`/api/teacher/live-sessions/${sessionId}/transcribe`);
+      const response = await authFetch(`/api/teacher/live-sessions/${sessionId}/transcribe`);
       const data = await response.json();
 
       if (response.ok && data.hasTranscript) {
         // Get full transcript
-        const fullResponse = await fetch(`/api/teacher/live-sessions/${sessionId}/transcript`);
+        const fullResponse = await authFetch(`/api/teacher/live-sessions/${sessionId}/transcript`);
         const fullData = await fullResponse.json();
 
         const session = sessions.find(s => s.id === sessionId);
@@ -584,7 +587,7 @@ function CreateSessionModal({
 
   useEffect(() => {
     // Fetch teacher's subjects/section assignments from teacher-app API
-    fetch('/api/teacher/subjects')
+    authFetch('/api/teacher/subjects')
       .then((res) => res.json())
       .then((data) => {
         const list = data.subjects || [];
@@ -608,7 +611,7 @@ function CreateSessionModal({
     setCreating(true);
 
     try {
-      const response = await fetch('/api/teacher/live-sessions', {
+      const response = await authFetch('/api/teacher/live-sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

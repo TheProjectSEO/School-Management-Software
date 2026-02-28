@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import type {
@@ -470,7 +472,7 @@ function RemarksTab({
     setAiError(null);
 
     try {
-      const response = await fetch("/api/teacher/ai/generate-progress-report", {
+      const response = await authFetch("/api/teacher/ai/generate-progress-report", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

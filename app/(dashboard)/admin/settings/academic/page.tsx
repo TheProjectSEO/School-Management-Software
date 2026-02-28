@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect } from "react";
 import { ConfirmModal } from "@/components/admin/ui";
 
@@ -88,7 +90,7 @@ export default function AcademicSettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch("/api/admin/settings/academic");
+      const response = await authFetch("/api/admin/settings/academic");
       if (response.ok) {
         const data = await response.json();
         setSettings(data);
@@ -101,7 +103,7 @@ export default function AcademicSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const response = await fetch("/api/admin/settings/academic", {
+      const response = await authFetch("/api/admin/settings/academic", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings),

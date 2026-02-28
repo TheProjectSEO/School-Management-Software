@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 
@@ -104,7 +106,7 @@ export function RecordPaymentPage() {
     setError(null);
 
     try {
-      const response = await fetch(`/api/admin/finance/student-accounts/${accountId}`);
+      const response = await authFetch(`/api/admin/finance/student-accounts/${accountId}`);
       const data = await response.json();
 
       if (data.success) {
@@ -164,7 +166,7 @@ export function RecordPaymentPage() {
         payload.depositor_name = depositorName || undefined;
       }
 
-      const response = await fetch("/api/admin/payments/record", {
+      const response = await authFetch("/api/admin/payments/record", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

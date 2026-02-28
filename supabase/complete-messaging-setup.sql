@@ -24,26 +24,11 @@ CREATE TABLE IF NOT EXISTS teacher_direct_messages (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Student message quotas table (3 messages per day per teacher)
-CREATE TABLE IF NOT EXISTS student_message_quotas (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  student_id UUID NOT NULL REFERENCES students(id) ON DELETE CASCADE,
-  teacher_id UUID NOT NULL REFERENCES teacher_profiles(id) ON DELETE CASCADE,
-  school_id UUID NOT NULL REFERENCES schools(id) ON DELETE CASCADE,
-  quota_date DATE NOT NULL DEFAULT CURRENT_DATE,
-  messages_sent INTEGER DEFAULT 0,
-  max_messages INTEGER DEFAULT 3,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE (student_id, teacher_id, quota_date)
-);
-
 -- Add indexes for performance
 CREATE INDEX IF NOT EXISTS idx_tdm_from_profile ON teacher_direct_messages(from_profile_id);
 CREATE INDEX IF NOT EXISTS idx_tdm_to_profile ON teacher_direct_messages(to_profile_id);
 CREATE INDEX IF NOT EXISTS idx_tdm_school ON teacher_direct_messages(school_id);
 CREATE INDEX IF NOT EXISTS idx_tdm_created_at ON teacher_direct_messages(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_smq_student_teacher_date ON student_message_quotas(student_id, teacher_id, quota_date);
-
 -- Add delivered_at column if it doesn't exist
 DO $$
 BEGIN
@@ -64,7 +49,6 @@ DROP FUNCTION IF EXISTS mark_messages_delivered(UUID, UUID) CASCADE;
 DROP FUNCTION IF EXISTS mark_messages_read(UUID, UUID) CASCADE;
 DROP FUNCTION IF EXISTS send_teacher_message(UUID, UUID, UUID, TEXT, JSONB) CASCADE;
 DROP FUNCTION IF EXISTS send_student_message(UUID, UUID, UUID, TEXT, JSONB) CASCADE;
-DROP FUNCTION IF EXISTS check_student_message_quota(UUID, UUID) CASCADE;
 DROP FUNCTION IF EXISTS get_user_conversations(UUID, INTEGER) CASCADE;
 DROP FUNCTION IF EXISTS get_conversation(UUID, UUID, INTEGER, INTEGER) CASCADE;
 DROP FUNCTION IF EXISTS get_student_profile_by_id(UUID) CASCADE;
@@ -123,38 +107,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 COMMENT ON FUNCTION mark_messages_read IS 'Mark messages from a partner as read';
 
--- Check student message quota
-CREATE OR REPLACE FUNCTION check_student_message_quota(p_student_id UUID, p_teacher_id UUID)
-RETURNS JSONB AS $$
-DECLARE
-  v_quota RECORD;
-BEGIN
-  SELECT * INTO v_quota FROM public.student_message_quotas
-  WHERE student_id = p_student_id AND teacher_id = p_teacher_id AND quota_date = CURRENT_DATE;
-
-  IF NOT FOUND THEN
-    RETURN jsonb_build_object(
-      'can_send', true,
-      'remaining', 3,
-      'used', 0,
-      'max', 3,
-      'resets_at', (CURRENT_DATE + INTERVAL '1 day')::timestamptz
-    );
-  END IF;
-
-  RETURN jsonb_build_object(
-    'can_send', v_quota.messages_sent < v_quota.max_messages,
-    'remaining', v_quota.max_messages - v_quota.messages_sent,
-    'used', v_quota.messages_sent,
-    'max', v_quota.max_messages,
-    'resets_at', (CURRENT_DATE + INTERVAL '1 day')::timestamptz
-  );
-END;
-$$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
-
-COMMENT ON FUNCTION check_student_message_quota IS 'Check how many messages a student can send to a teacher today';
-
--- Send student message (with quota enforcement)
+-- Send student message
 CREATE OR REPLACE FUNCTION send_student_message(
   p_student_id UUID,
   p_teacher_id UUID,
@@ -164,18 +117,11 @@ CREATE OR REPLACE FUNCTION send_student_message(
 )
 RETURNS JSONB AS $$
 DECLARE
-  v_quota JSONB;
   v_student_profile_id UUID;
   v_teacher_profile_id UUID;
   v_message_id UUID;
 BEGIN
-  -- Check quota first
-  v_quota := public.check_student_message_quota(p_student_id, p_teacher_id);
-  IF NOT (v_quota->>'can_send')::boolean THEN
-    RETURN jsonb_build_object('success', false, 'error', 'Daily message limit reached', 'quota', v_quota);
-  END IF;
-
-  -- Get profile IDs (explicit public schema)
+  -- Get profile IDs
   SELECT profile_id INTO v_student_profile_id FROM public.students WHERE id = p_student_id;
   SELECT profile_id INTO v_teacher_profile_id FROM public.teacher_profiles WHERE id = p_teacher_id;
 
@@ -188,22 +134,13 @@ BEGIN
   VALUES (p_school_id, v_student_profile_id, v_teacher_profile_id, 'student', p_body, p_attachments)
   RETURNING id INTO v_message_id;
 
-  -- Update or insert quota
-  INSERT INTO public.student_message_quotas (student_id, teacher_id, school_id, quota_date, messages_sent)
-  VALUES (p_student_id, p_teacher_id, p_school_id, CURRENT_DATE, 1)
-  ON CONFLICT (student_id, teacher_id, quota_date)
-  DO UPDATE SET messages_sent = public.student_message_quotas.messages_sent + 1;
-
-  -- Get updated quota
-  v_quota := public.check_student_message_quota(p_student_id, p_teacher_id);
-
-  RETURN jsonb_build_object('success', true, 'message_id', v_message_id, 'quota', v_quota);
+  RETURN jsonb_build_object('success', true, 'message_id', v_message_id);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-COMMENT ON FUNCTION send_student_message IS 'Send a message from student to teacher with quota enforcement';
+COMMENT ON FUNCTION send_student_message IS 'Send a message from student to teacher';
 
--- Send teacher message (no quota limit)
+-- Send teacher message
 CREATE OR REPLACE FUNCTION send_teacher_message(
   p_teacher_id UUID,
   p_student_id UUID,
@@ -391,7 +328,6 @@ DECLARE
   v_can_message BOOLEAN := false;
   v_reason TEXT := 'No relationship found';
   v_shared_courses TEXT[];
-  v_quota JSONB;
 BEGIN
   -- Check if student is enrolled in any course taught by this teacher
   SELECT
@@ -408,28 +344,17 @@ BEGIN
   IF v_can_message IS NULL THEN
     v_can_message := false;
     v_reason := 'You are not enrolled in any courses taught by this teacher';
-    v_quota := NULL;
-  ELSE
-    -- Also check quota if they can message
-    v_quota := public.check_student_message_quota(p_student_id, p_teacher_id);
-
-    -- Override can_message if quota is exhausted
-    IF NOT (v_quota->>'can_send')::boolean THEN
-      v_can_message := false;
-      v_reason := 'Daily message limit reached (3 messages per day to this teacher)';
-    END IF;
   END IF;
 
   RETURN jsonb_build_object(
     'can_message', v_can_message,
     'reason', v_reason,
-    'shared_courses', COALESCE(v_shared_courses, ARRAY[]::TEXT[]),
-    'quota', v_quota
+    'shared_courses', COALESCE(v_shared_courses, ARRAY[]::TEXT[])
   );
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
-COMMENT ON FUNCTION can_student_message_teacher IS 'Check if a student can message a teacher (based on enrollment + quota)';
+COMMENT ON FUNCTION can_student_message_teacher IS 'Check if a student can message a teacher (based on enrollment)';
 
 -- Generic validation function (determines user types automatically)
 CREATE OR REPLACE FUNCTION validate_messaging_permission(
@@ -558,13 +483,11 @@ COMMENT ON FUNCTION get_messageable_users IS 'Get list of users that the given u
 -- ============================================================================
 
 ALTER TABLE teacher_direct_messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE student_message_quotas ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies first
 DROP POLICY IF EXISTS "Users can read their own messages" ON teacher_direct_messages;
 DROP POLICY IF EXISTS "Users can insert messages they send" ON teacher_direct_messages;
 DROP POLICY IF EXISTS "Users can update their received messages" ON teacher_direct_messages;
-DROP POLICY IF EXISTS "Students can view their quotas" ON student_message_quotas;
 
 -- Create policies
 CREATE POLICY "Users can read their own messages"
@@ -597,17 +520,6 @@ USING (
   )
 );
 
-CREATE POLICY "Students can view their quotas"
-ON public.student_message_quotas FOR SELECT
-TO authenticated
-USING (
-  student_id IN (
-    SELECT s.id FROM public.students s
-    JOIN public.school_profiles sp ON sp.id = s.profile_id
-    WHERE sp.auth_user_id = auth.uid()
-  )
-);
-
 -- ============================================================================
 -- STEP 6: GRANT PERMISSIONS
 -- ============================================================================
@@ -615,7 +527,6 @@ USING (
 GRANT EXECUTE ON FUNCTION get_unread_count(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION mark_messages_delivered(UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION mark_messages_read(UUID, UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION check_student_message_quota(UUID, UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION send_student_message(UUID, UUID, UUID, TEXT, JSONB) TO authenticated;
 GRANT EXECUTE ON FUNCTION send_teacher_message(UUID, UUID, UUID, TEXT, JSONB) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_user_conversations(UUID, INTEGER) TO authenticated;
@@ -639,7 +550,6 @@ AND routine_name IN (
   'mark_messages_read',
   'send_teacher_message',
   'send_student_message',
-  'check_student_message_quota',
   'get_user_conversations',
   'get_conversation',
   'get_student_profile_by_id',
@@ -651,7 +561,7 @@ AND routine_name IN (
 ORDER BY routine_name;
 
 -- ============================================================================
--- DONE! You should see 13 functions listed above if successful.
+-- DONE! You should see 12 functions listed above if successful.
 -- ============================================================================
 
 -- ============================================================================

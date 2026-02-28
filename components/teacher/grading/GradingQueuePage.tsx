@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 
@@ -67,7 +69,7 @@ export default function GradingQueuePage({ teacherId }: GradingQueuePageProps) {
         params.set("assessmentId", selectedAssessment);
       }
 
-      const response = await fetch(`/api/teacher/grading/queue?${params.toString()}`);
+      const response = await authFetch(`/api/teacher/grading/queue?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch grading queue");
@@ -91,7 +93,7 @@ export default function GradingQueuePage({ teacherId }: GradingQueuePageProps) {
   // Fetch stats
   const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch("/api/teacher/grading/queue/stats");
+      const response = await authFetch("/api/teacher/grading/queue/stats");
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -111,7 +113,7 @@ export default function GradingQueuePage({ teacherId }: GradingQueuePageProps) {
   // Fetch assessments with pending grading
   const fetchAssessments = useCallback(async () => {
     try {
-      const response = await fetch("/api/teacher/grading/queue/assessments");
+      const response = await authFetch("/api/teacher/grading/queue/assessments");
       if (response.ok) {
         const data = await response.json();
         if (data.success) {

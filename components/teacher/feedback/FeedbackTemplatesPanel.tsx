@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 
 interface FeedbackTemplate {
@@ -68,7 +70,7 @@ export default function FeedbackTemplatesPanel({
         params.set("category", selectedCategory);
       }
 
-      const response = await fetch(`/api/teacher/feedback-templates?${params.toString()}`);
+      const response = await authFetch(`/api/teacher/feedback-templates?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch templates");
@@ -105,7 +107,7 @@ export default function FeedbackTemplatesPanel({
     setIsCreating(true);
 
     try {
-      const response = await fetch("/api/teacher/feedback-templates", {
+      const response = await authFetch("/api/teacher/feedback-templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -141,7 +143,7 @@ export default function FeedbackTemplatesPanel({
 
       // Increment usage count in background
       try {
-        await fetch(`/api/teacher/feedback-templates/${template.id}/apply`, {
+        await authFetch(`/api/teacher/feedback-templates/${template.id}/apply`, {
           method: "POST",
         });
         // Update local state
@@ -163,7 +165,7 @@ export default function FeedbackTemplatesPanel({
     }
 
     try {
-      const response = await fetch(`/api/teacher/feedback-templates/${templateId}`, {
+      const response = await authFetch(`/api/teacher/feedback-templates/${templateId}`, {
         method: "DELETE",
       });
 

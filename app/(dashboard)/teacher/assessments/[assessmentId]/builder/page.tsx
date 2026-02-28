@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import Link from 'next/link'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface Assessment {
   id: string
@@ -59,7 +60,7 @@ export default function AssessmentBuilderPage() {
   const loadAssessment = async () => {
     try {
       setIsLoading(true)
-      const response = await fetch(`/api/teacher/assessments/${assessmentId}`)
+      const response = await authFetch(`/api/teacher/assessments/${assessmentId}`)
       if (!response.ok) throw new Error('Failed to load assessment')
       const data = await response.json()
       setAssessment(data.assessment)
@@ -115,7 +116,7 @@ export default function AssessmentBuilderPage() {
         } : null,
       }))
 
-      const response = await fetch(`/api/teacher/assessments/${assessmentId}`, {
+      const response = await authFetch(`/api/teacher/assessments/${assessmentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -148,7 +149,7 @@ export default function AssessmentBuilderPage() {
   const publishAssessment = async () => {
     try {
       setIsSaving(true)
-      const response = await fetch(`/api/teacher/assessments/${assessmentId}/publish`, {
+      const response = await authFetch(`/api/teacher/assessments/${assessmentId}/publish`, {
         method: 'POST'
       })
       if (!response.ok) throw new Error('Failed to publish assessment')
@@ -163,7 +164,7 @@ export default function AssessmentBuilderPage() {
   const unpublishAssessment = async () => {
     try {
       setIsSaving(true)
-      const response = await fetch(`/api/teacher/assessments/${assessmentId}/unpublish`, {
+      const response = await authFetch(`/api/teacher/assessments/${assessmentId}/unpublish`, {
         method: 'POST'
       })
       if (!response.ok) throw new Error('Failed to unpublish assessment')

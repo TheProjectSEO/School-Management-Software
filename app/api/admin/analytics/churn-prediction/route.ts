@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import { createServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -51,6 +52,9 @@ interface ChurnSummary {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireAdminAPI();
+  if (!auth.success) return auth.response;
+
   try {
     const { searchParams } = new URL(request.url);
     const gradeLevel = searchParams.get("gradeLevel");
@@ -60,17 +64,10 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServiceClient();
 
-    // Fetch all students with relevant data
+    // Fetch all students — flat select (no FK joins per BUG-001)
     let studentsQuery = supabase
       .from("students")
-      .select(`
-        id,
-        lrn,
-        grade_level,
-        school_id,
-        section:sections(id, name, grade_level),
-        profile:profiles(id, full_name, avatar_url)
-      `)
+      .select("id, lrn, grade_level, school_id, section_id, profile_id")
       .limit(500);
 
     if (gradeLevel) {
@@ -85,6 +82,22 @@ export async function GET(request: NextRequest) {
     if (studentsError) {
       throw studentsError;
     }
+
+    // Fetch sections and profiles separately
+    const sectionIds = [...new Set((students || []).map(s => s.section_id).filter(Boolean))];
+    const profileIds = [...new Set((students || []).map(s => s.profile_id).filter(Boolean))];
+
+    const [{ data: sectionsData }, { data: profilesData }] = await Promise.all([
+      sectionIds.length > 0
+        ? supabase.from("sections").select("id, name, grade_level").in("id", sectionIds)
+        : Promise.resolve({ data: [] }),
+      profileIds.length > 0
+        ? supabase.from("school_profiles").select("id, full_name").in("id", profileIds)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const sectionMap = new Map((sectionsData || []).map(s => [s.id, s]));
+    const profileMap = new Map((profilesData || []).map(p => [p.id, p]));
 
     if (!students || students.length === 0) {
       return NextResponse.json({
@@ -115,18 +128,19 @@ export async function GET(request: NextRequest) {
       .in("student_id", studentIds)
       .gte("date", thirtyDaysAgo.toISOString().split("T")[0]);
 
-    // Fetch submission/grade data
+    // Fetch submission/grade data — flat select (no FK joins per BUG-001)
     const { data: submissions } = await supabase
       .from("submissions")
-      .select(`
-        student_id,
-        score,
-        status,
-        submitted_at,
-        assessment:assessments(total_points, type)
-      `)
+      .select("student_id, assessment_id, score, status, submitted_at")
       .in("student_id", studentIds)
       .gte("submitted_at", ninetyDaysAgo.toISOString());
+
+    // Fetch assessments separately
+    const submissionAssessmentIds = [...new Set((submissions || []).map(s => s.assessment_id).filter(Boolean))];
+    const { data: assessmentsData } = submissionAssessmentIds.length > 0
+      ? await supabase.from("assessments").select("id, total_points, type").in("id", submissionAssessmentIds)
+      : { data: [] };
+    const assessmentMap = new Map((assessmentsData || []).map(a => [a.id, a]));
 
     // Fetch student progress (engagement)
     const { data: progressData } = await supabase
@@ -179,11 +193,13 @@ export async function GET(request: NextRequest) {
       // 2. Academic Performance Analysis
       const studentSubmissions = (submissions || []).filter(s => s.student_id === studentId);
       if (studentSubmissions.length > 0) {
-        // assessment is an array from the join, get first element
-        const gradedSubmissions = studentSubmissions.filter(s => s.status === 'graded' && (s.assessment as any)?.[0]?.total_points);
+        const gradedSubmissions = studentSubmissions.filter(s => {
+          const assessment = assessmentMap.get(s.assessment_id);
+          return s.status === 'graded' && assessment?.total_points;
+        });
         if (gradedSubmissions.length >= 3) {
           const avgScore = gradedSubmissions.reduce((sum, s) => {
-            const assessment = (s.assessment as any)?.[0];
+            const assessment = assessmentMap.get(s.assessment_id)!;
             const pct = (s.score / assessment.total_points) * 100;
             return sum + pct;
           }, 0) / gradedSubmissions.length;
@@ -274,12 +290,15 @@ export async function GET(request: NextRequest) {
           }, studentProgress[0].last_accessed_at!)
         : null;
 
+      const sectionData = sectionMap.get(student.section_id);
+      const profileData = profileMap.get(student.profile_id);
+
       atRiskStudents.push({
         id: studentId,
-        full_name: (student.profile as any)?.full_name || "Unknown",
+        full_name: profileData?.full_name || "Unknown",
         lrn: student.lrn || "",
-        grade_level: (student.section as any)?.grade_level || student.grade_level || "",
-        section_name: (student.section as any)?.name || "",
+        grade_level: sectionData?.grade_level || student.grade_level || "",
+        section_name: sectionData?.name || "",
         risk_score: finalRiskScore,
         risk_level: riskLevel,
         risk_factors: riskFactors,

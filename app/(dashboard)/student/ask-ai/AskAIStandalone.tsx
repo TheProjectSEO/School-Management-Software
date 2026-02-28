@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useRef, useEffect } from "react";
 import MarkdownRenderer from "@/components/ui/MarkdownRenderer";
 import { ActionCardsContainer, ActionCardItem, ActionCardType } from "@/components/ai/ActionCard";
@@ -82,7 +84,7 @@ export default function AskAIStandalone() {
         content: m.content,
       }));
 
-      const response = await fetch("/api/student/ai/ask", {
+      const response = await authFetch("/api/student/ai/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

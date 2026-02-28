@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState } from "react";
 
 type FormState = {
@@ -66,7 +68,7 @@ export function ApplicationForm({ qrCodeId }: { qrCodeId?: string }) {
     setSubmitting(true);
     setResult(null);
     try {
-      const res = await fetch("/api/applications", {
+      const res = await authFetch("/api/applications", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -218,7 +220,7 @@ export function ApplicationForm({ qrCodeId }: { qrCodeId?: string }) {
 
 async function uploadIfPresent(applicationId: string, documentType: string, file?: File | null) {
   if (!file) return;
-  const res = await fetch("/api/applications/documents/create-upload-url", {
+  const res = await authFetch("/api/applications/documents/create-upload-url", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({

@@ -9,6 +9,7 @@ import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import Modal from '@/components/teacher/ui/Modal'
 import Button from '@/components/teacher/ui/Button'
 import Input from '@/components/ui/Input'
+import { authFetch } from "@/lib/utils/authFetch";
 
 type Module = {
   id: string
@@ -65,7 +66,7 @@ export default function SubjectDetailPage() {
       setError(null)
 
       // Fetch subject details from dedicated endpoint
-      const subjectRes = await fetch(`/api/teacher/subjects/${subjectId}`)
+      const subjectRes = await authFetch(`/api/teacher/subjects/${subjectId}`)
       if (!subjectRes.ok) throw new Error('Failed to fetch subject')
       const subjectData = await subjectRes.json()
 
@@ -74,7 +75,7 @@ export default function SubjectDetailPage() {
       }
 
       // Fetch modules for this subject/course
-      const modulesRes = await fetch(`/api/teacher/content/modules?course_id=${subjectId}`)
+      const modulesRes = await authFetch(`/api/teacher/content/modules?course_id=${subjectId}`)
       if (!modulesRes.ok) throw new Error('Failed to fetch modules')
       const modulesData = await modulesRes.json()
       setModules(modulesData.modules || [])
@@ -92,7 +93,7 @@ export default function SubjectDetailPage() {
 
     try {
       setIsSubmitting(true)
-      const res = await fetch('/api/teacher/content/modules', {
+      const res = await authFetch('/api/teacher/content/modules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -123,7 +124,7 @@ export default function SubjectDetailPage() {
 
     try {
       setIsSubmitting(true)
-      const res = await fetch(`/api/teacher/content/modules/${selectedModule.id}`, {
+      const res = await authFetch(`/api/teacher/content/modules/${selectedModule.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -154,7 +155,7 @@ export default function SubjectDetailPage() {
 
     try {
       setIsSubmitting(true)
-      const res = await fetch(`/api/teacher/content/modules/${selectedModule.id}`, {
+      const res = await authFetch(`/api/teacher/content/modules/${selectedModule.id}`, {
         method: 'DELETE'
       })
 
@@ -175,7 +176,7 @@ export default function SubjectDetailPage() {
 
   const handleTogglePublish = async (module: Module) => {
     try {
-      const res = await fetch(`/api/teacher/content/modules/${module.id}`, {
+      const res = await authFetch(`/api/teacher/content/modules/${module.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

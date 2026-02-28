@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clsx } from "clsx";
@@ -104,7 +106,7 @@ export default function AdminSidebar({ adminName, adminRole, schoolName }: Admin
   const handleLogout = async () => {
     try {
       // Call logout API to clear JWT cookies
-      const response = await fetch('/api/auth/logout', {
+      const response = await authFetch('/api/auth/logout', {
         method: 'POST',
       });
 

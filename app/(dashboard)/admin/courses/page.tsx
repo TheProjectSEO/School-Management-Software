@@ -1,8 +1,9 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { authFetch } from "@/lib/utils/authFetch";
 import { ColumnDef } from "@tanstack/react-table";
 import DataTable from "@/components/admin/ui/DataTable";
 import FilterBar from "@/components/admin/ui/FilterBar";

@@ -10,6 +10,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import GradingQueueList from './GradingQueueList'
 import GradingPanel from './GradingPanel'
 import { GradingQueueItem, GradingQueueStats, GradingQueueFilters } from '@/lib/dal/grading-queue'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface GradingQueuePageProps {
   teacherId: string
@@ -54,7 +55,7 @@ export default function GradingQueuePage({ teacherId }: GradingQueuePageProps) {
       if (questionTypeFilter) params.set('questionType', questionTypeFilter)
       if (submissionFilter) params.set('submission', submissionFilter)
 
-      const response = await fetch(`/api/teacher/grading/queue?${params.toString()}`)
+      const response = await authFetch(`/api/teacher/grading/queue?${params.toString()}`)
       const data = await response.json()
 
       if (data.success) {
@@ -70,7 +71,7 @@ export default function GradingQueuePage({ teacherId }: GradingQueuePageProps) {
   // Fetch stats
   const fetchStats = useCallback(async () => {
     try {
-      const response = await fetch('/api/teacher/grading/queue/stats')
+      const response = await authFetch('/api/teacher/grading/queue/stats')
       const data = await response.json()
 
       if (data.success) {
@@ -84,7 +85,7 @@ export default function GradingQueuePage({ teacherId }: GradingQueuePageProps) {
   // Fetch assessments for filter
   const fetchAssessments = useCallback(async () => {
     try {
-      const response = await fetch('/api/teacher/grading/queue/assessments')
+      const response = await authFetch('/api/teacher/grading/queue/assessments')
       const data = await response.json()
 
       if (data.success) {
@@ -113,7 +114,7 @@ export default function GradingQueuePage({ teacherId }: GradingQueuePageProps) {
     setLoadingItem(true)
 
     try {
-      const response = await fetch(`/api/teacher/grading/queue/${item.id}`)
+      const response = await authFetch(`/api/teacher/grading/queue/${item.id}`)
       const data = await response.json()
 
       if (data.success && data.questionDetails) {
@@ -131,7 +132,7 @@ export default function GradingQueuePage({ teacherId }: GradingQueuePageProps) {
 
   // Grade an item
   const handleGrade = useCallback(async (itemId: string, points: number, feedback: string) => {
-    const response = await fetch(`/api/teacher/grading/queue/${itemId}`, {
+    const response = await authFetch(`/api/teacher/grading/queue/${itemId}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ points, feedback })
@@ -149,7 +150,7 @@ export default function GradingQueuePage({ teacherId }: GradingQueuePageProps) {
 
   // Flag an item
   const handleFlag = useCallback(async (itemId: string, reason: string) => {
-    const response = await fetch(`/api/teacher/grading/queue/${itemId}/flag`, {
+    const response = await authFetch(`/api/teacher/grading/queue/${itemId}/flag`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ reason })

@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/service";
 import { getCurrentProfile } from "@/lib/dal/auth";
 import { getStudentCourseIds } from "@/lib/dal/student";
 import { getClassroomTheme } from "@/lib/utils/classroom/theme";
+import JoinLiveButton from "@/components/student/live-sessions/JoinLiveButton";
 
 type LiveSession = {
   id: string;
@@ -235,15 +236,7 @@ export default async function LiveSessionsPage() {
 
                 <div className="mt-4 flex items-center gap-3">
                   {session.status === "live" && session.daily_room_url && (
-                    <a
-                      href={session.daily_room_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold ${isPlayful ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white hover:from-green-500 hover:to-emerald-600' : 'bg-green-600 text-white hover:bg-green-700'}`}
-                    >
-                      <span className="material-symbols-outlined text-base">videocam</span>
-                      Join Live
-                    </a>
+                    <JoinLiveButton sessionId={session.id} isPlayful={isPlayful} />
                   )}
                   {session.status === "ended" && session.recording_url && (
                     <>

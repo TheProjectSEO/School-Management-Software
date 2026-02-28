@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import { createServiceClient } from "@/lib/supabase/service";
 import { callOpenAIChatCompletions } from "@/lib/ai/openai";
 
@@ -42,6 +43,9 @@ interface ChatMessage {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireAdminAPI();
+  if (!auth.success) return auth.response;
+
   try {
     const body: InquiryChatRequest = await request.json();
     const { message, conversation_id, visitor_info, context } = body;

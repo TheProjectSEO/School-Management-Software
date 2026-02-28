@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 
 interface StudentAlert {
@@ -57,7 +59,7 @@ export default function StudentAlertsPanel({
       if (sectionId) params.set('section_id', sectionId);
       if (courseId) params.set('course_id', courseId);
 
-      const response = await fetch(`/api/teacher/ai/student-alerts?${params.toString()}`);
+      const response = await authFetch(`/api/teacher/ai/student-alerts?${params.toString()}`);
 
       if (!response.ok) {
         throw new Error('Failed to fetch alerts');

@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -83,7 +85,7 @@ export default function EnrollmentsPage() {
       if (filters.courseId) params.set("courseId", filters.courseId);
       if (filters.sectionId) params.set("sectionId", filters.sectionId);
 
-      const response = await fetch(`/api/admin/enrollments?${params}`);
+      const response = await authFetch(`/api/admin/enrollments?${params}`);
       const result: PaginatedResult = await response.json();
 
       setStudents(result.data);
@@ -109,7 +111,7 @@ export default function EnrollmentsPage() {
       const fetchSections = async () => {
         setSectionsLoading(true);
         try {
-          const response = await fetch(`/api/admin/courses/${showActionModal.enrollment?.course_id}/sections`);
+          const response = await authFetch(`/api/admin/courses/${showActionModal.enrollment?.course_id}/sections`);
           if (response.ok) {
             const sections = await response.json();
             const filtered = sections.filter((s: { id: string }) => s.id !== showActionModal.enrollment?.section_id);
@@ -160,19 +162,19 @@ export default function EnrollmentsPage() {
       const enrollmentId = showActionModal.enrollment.enrollment_id;
 
       if (showActionModal.type === "drop") {
-        response = await fetch(`/api/admin/enrollments/${enrollmentId}/drop`, {
+        response = await authFetch(`/api/admin/enrollments/${enrollmentId}/drop`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ reason: dropReason }),
         });
       } else if (showActionModal.type === "transfer") {
-        response = await fetch(`/api/admin/enrollments/${enrollmentId}/transfer`, {
+        response = await authFetch(`/api/admin/enrollments/${enrollmentId}/transfer`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ newSectionId: transferSectionId }),
         });
       } else if (showActionModal.type === "approve") {
-        response = await fetch(`/api/admin/enrollments/${enrollmentId}/approve`, {
+        response = await authFetch(`/api/admin/enrollments/${enrollmentId}/approve`, {
           method: "POST",
         });
       }
@@ -211,7 +213,7 @@ export default function EnrollmentsPage() {
       if (filters.courseId) params.set("courseId", filters.courseId);
       params.set("format", exportFormat);
 
-      const response = await fetch(`/api/admin/enrollments/export?${params}`);
+      const response = await authFetch(`/api/admin/enrollments/export?${params}`);
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));

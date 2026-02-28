@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useRef } from "react";
 
 interface TeacherProfile {
@@ -43,7 +45,7 @@ export default function SettingsPage() {
   useEffect(() => {
     async function fetchProfile() {
       try {
-        const response = await fetch("/api/teacher/profile");
+        const response = await authFetch("/api/teacher/profile");
 
         if (!response.ok) {
           throw new Error("Failed to fetch profile");
@@ -92,7 +94,7 @@ export default function SettingsPage() {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch("/api/teacher/profile/avatar", {
+      const response = await authFetch("/api/teacher/profile/avatar", {
         method: "POST",
         body: formData,
       });
@@ -120,7 +122,7 @@ export default function SettingsPage() {
     setAvatarError(null);
 
     try {
-      const response = await fetch("/api/teacher/profile/avatar", {
+      const response = await authFetch("/api/teacher/profile/avatar", {
         method: "DELETE",
       });
       const data = await response.json();
@@ -147,7 +149,7 @@ export default function SettingsPage() {
     setSuccessMessage(null);
 
     try {
-      const response = await fetch("/api/teacher/profile", {
+      const response = await authFetch("/api/teacher/profile", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

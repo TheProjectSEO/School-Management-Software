@@ -174,6 +174,20 @@ export function useRealtimeMessages(
           const message = (payload.new || payload.old) as DirectMessage | null;
           if (!message) return;
 
+          // Guard: if UPDATE payload is missing profile fields, REPLICA IDENTITY FULL
+          // is not set on the table — log a warning and skip silently.
+          if (
+            payload.eventType === "UPDATE" &&
+            !message.to_profile_id &&
+            !message.from_profile_id
+          ) {
+            console.warn(
+              "[useRealtimeMessages] UPDATE payload missing profile fields. " +
+              "Run: ALTER TABLE teacher_direct_messages REPLICA IDENTITY FULL;"
+            );
+            return;
+          }
+
           // Filter: only process messages TO or FROM this user
           const isToMe = message.to_profile_id === profileId;
           const isFromMe = message.from_profile_id === profileId;

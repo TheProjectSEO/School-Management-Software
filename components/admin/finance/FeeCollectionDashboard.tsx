@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState, useEffect, useCallback } from "react";
 
 interface PaymentHistoryItem {
@@ -90,7 +92,7 @@ export function FeeCollectionDashboard() {
       params.set("minRiskLevel", selectedRiskLevel);
       params.set("limit", "50");
 
-      const response = await fetch(`/api/admin/finance/fee-collection-ai?${params.toString()}`);
+      const response = await authFetch(`/api/admin/finance/fee-collection-ai?${params.toString()}`);
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -115,7 +117,7 @@ export function FeeCollectionDashboard() {
     setGeneratedReminder(null);
 
     try {
-      const response = await fetch("/api/admin/finance/fee-collection-ai", {
+      const response = await authFetch("/api/admin/finance/fee-collection-ai", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -219,17 +219,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   // Auto-enroll in section courses if section provided
   if (student.section_id) {
-    const { data: sectionCourses, error: coursesError } = await supabase
-      .from("courses")
-      .select("id")
+    // Get courses assigned to this section via teacher_assignments (courses table has no section_id)
+    const { data: sectionAssignments, error: coursesError } = await supabase
+      .from("teacher_assignments")
+      .select("course_id")
       .eq("section_id", student.section_id);
-    
+
+    const uniqueCourseIds = [...new Set((sectionAssignments || []).map((a) => a.course_id))];
+
     if (coursesError) {
       console.error("Error fetching section courses:", coursesError);
-    } else if (sectionCourses && sectionCourses.length > 0) {
-      const enrollmentsToCreate = sectionCourses.map((c) => ({
+    } else if (uniqueCourseIds.length > 0) {
+      const enrollmentsToCreate = uniqueCourseIds.map((courseId) => ({
         student_id: student.id,
-        course_id: c.id,
+        course_id: courseId,
         school_id: student.school_id,
         section_id: student.section_id,
         status: "active",
@@ -249,7 +252,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         console.log(`Created ${enrollments?.length || 0} enrollments for student ${student.id}`);
       }
     } else {
-      console.log(`No courses found for section ${student.section_id}`);
+      console.log(`No course assignments found for section ${student.section_id}`);
     }
   } else {
     console.log(`No section_id provided for student ${student.id}, skipping auto-enrollment`);

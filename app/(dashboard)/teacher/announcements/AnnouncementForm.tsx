@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface Section {
   id: string
@@ -72,7 +73,7 @@ export default function AnnouncementForm({ sections, preSelectedSectionId }: Ann
     setIsSubmitting(true)
 
     try {
-      const response = await fetch('/api/teacher/announcements', {
+      const response = await authFetch('/api/teacher/announcements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

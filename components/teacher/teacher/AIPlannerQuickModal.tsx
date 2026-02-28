@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
 import { useRouter } from 'next/navigation'
-import { authFetch } from '@/lib/utils/authFetch'
+import { authFetch } from "@/lib/utils/authFetch";
 
 type QuickModuleDraft = {
   title: string

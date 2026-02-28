@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAdminRealtimeMessages } from "@/hooks/useAdminRealtimeMessages";
-import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import { authFetch } from "@/lib/utils/authFetch";
 
 /**
  * Admin Messaging Page
@@ -85,7 +85,7 @@ export default function AdminMessagesPage() {
   useEffect(() => {
     const fetchAdminProfile = async () => {
       try {
-        const res = await fetchWithAuth("/api/admin/profile");
+        const res = await authFetch("/api/admin/profile");
         if (res.ok) {
           const data = await res.json();
           setAdminProfileId(data.adminProfileId || null);
@@ -116,17 +116,19 @@ export default function AdminMessagesPage() {
 
   // React to realtime updates
   useEffect(() => {
-    if (!selectedConversation) return;
-    if (newMessage || updatedMessages.size > 0) {
+    if (!newMessage && updatedMessages.size === 0) return;
+    // Always refresh conversation list (unread badges, last message preview)
+    loadConversations();
+    // Refresh messages only if a conversation is open
+    if (selectedConversation) {
       loadMessages(selectedConversation.partner_profile_id, true);
-      loadConversations();
     }
   }, [newMessage, updatedMessages, selectedConversation?.partner_profile_id]);
 
   const loadConversations = async () => {
     setIsLoading(true);
     try {
-      const res = await fetchWithAuth("/api/admin/messages/conversations");
+      const res = await authFetch("/api/admin/messages/conversations");
       if (res.ok) {
         const data = await res.json();
         const list = data.conversations || data.data || [];
@@ -156,7 +158,7 @@ export default function AdminMessagesPage() {
   const loadMessages = async (profileId: string, silent = false) => {
     if (!silent) setIsLoadingMessages(true);
     try {
-      const res = await fetchWithAuth(`/api/admin/messages/${profileId}`);
+      const res = await authFetch(`/api/admin/messages/${profileId}`);
       if (res.ok) {
         const data = await res.json();
         setMessages(data.messages || []);
@@ -175,7 +177,7 @@ export default function AdminMessagesPage() {
 
   const markMessagesAsRead = async (profileId: string) => {
     try {
-      await fetchWithAuth(`/api/admin/messages/${profileId}/read`, {
+      await authFetch(`/api/admin/messages/${profileId}/read`, {
         method: "POST",
       });
 
@@ -217,7 +219,7 @@ export default function AdminMessagesPage() {
     setIsSending(true);
 
     try {
-      const res = await fetchWithAuth("/api/admin/messages", {
+      const res = await authFetch("/api/admin/messages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -278,7 +280,7 @@ export default function AdminMessagesPage() {
 
     setIsSearching(true);
     try {
-      const res = await fetchWithAuth(
+      const res = await authFetch(
         `/api/admin/messages/search?q=${encodeURIComponent(query)}`
       );
       if (res.ok) {

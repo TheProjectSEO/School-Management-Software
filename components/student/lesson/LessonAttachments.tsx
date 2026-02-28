@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface LessonAttachment {
   id: string
@@ -38,7 +39,7 @@ function ImagePreview({
   const handleClick = () => {
     setIsLightboxOpen(true)
     // Track download
-    fetch(`/api/student/attachments/${attachment.id}/download`, {
+    authFetch(`/api/student/attachments/${attachment.id}/download`, {
       method: 'POST'
     }).catch(err => console.error('Failed to track download:', err))
   }
@@ -121,7 +122,7 @@ function PDFPreview({
 
   const handleDownload = () => {
     // Track download
-    fetch(`/api/student/attachments/${attachment.id}/download`, {
+    authFetch(`/api/student/attachments/${attachment.id}/download`, {
       method: 'POST'
     }).catch(err => console.error('Failed to track download:', err))
     window.open(attachment.file_url, '_blank')
@@ -242,7 +243,7 @@ function DownloadLink({
 }) {
   const handleDownload = () => {
     // Track download
-    fetch(`/api/student/attachments/${attachment.id}/download`, {
+    authFetch(`/api/student/attachments/${attachment.id}/download`, {
       method: 'POST'
     }).catch(err => console.error('Failed to track download:', err))
     window.open(attachment.file_url, '_blank')

@@ -3,13 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { authFetch } from '@/lib/utils/authFetch'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import Button from '@/components/ui/Button'
 import EmptyState from '@/components/ui/EmptyState'
 import CreateModuleModal from './CreateModuleModal'
 import { ModuleWithDetails } from '@/lib/dal/teacher'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface ModulesTabProps {
   modules: ModuleWithDetails[]
@@ -46,7 +46,7 @@ export default function ModulesTab({ modules, subjectId }: ModulesTabProps) {
     try {
       await Promise.all(
         moduleList.map((module, index) =>
-          fetch(`/api/teacher/content/modules/${module.id}`, {
+          authFetch(`/api/teacher/content/modules/${module.id}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ order: index + 1 }),

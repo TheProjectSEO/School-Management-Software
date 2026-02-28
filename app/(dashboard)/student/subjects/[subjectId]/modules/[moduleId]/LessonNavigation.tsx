@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState } from "react";
 import Link from "next/link";
 import type { Lesson } from "@/lib/dal/types";
@@ -33,7 +35,7 @@ export default function LessonNavigation({
 
     setCompleting(true);
     try {
-      const response = await fetch("/api/student/progress/complete", {
+      const response = await authFetch("/api/student/progress/complete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

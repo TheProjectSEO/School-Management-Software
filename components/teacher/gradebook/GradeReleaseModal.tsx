@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Button from '@/components/ui/Button'
+import { authFetch } from "@/lib/utils/authFetch";
 
 interface GradebookStudent {
   student_id: string
@@ -79,7 +80,7 @@ export default function GradeReleaseModal({
           ? students.map((s) => s.student_id)
           : Array.from(selectedStudents)
 
-      const response = await fetch('/api/teacher/gradebook/release', {
+      const response = await authFetch('/api/teacher/gradebook/release', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

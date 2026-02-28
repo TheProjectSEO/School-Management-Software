@@ -1,5 +1,6 @@
 'use client';
 
+import { authFetch } from "@/lib/utils/authFetch";
 import React, { createContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import {
@@ -40,7 +41,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
-      const response = await fetch('/api/auth/me', {
+      const response = await authFetch('/api/auth/me', {
         credentials: 'include',
       });
 
@@ -57,14 +58,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // If 401, try refreshing the token before giving up
       if (response.status === 401) {
-        const refreshResponse = await fetch('/api/auth/refresh', {
+        const refreshResponse = await authFetch('/api/auth/refresh', {
           method: 'POST',
           credentials: 'include',
         });
 
         if (refreshResponse.ok) {
           // Retry /api/auth/me with the new cookies
-          const retryResponse = await fetch('/api/auth/me', {
+          const retryResponse = await authFetch('/api/auth/me', {
             credentials: 'include',
           });
 
@@ -105,7 +106,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setState((prev) => ({ ...prev, isLoading: true, error: null }));
 
       try {
-        const response = await fetch('/api/auth/login', {
+        const response = await authFetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
@@ -152,7 +153,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setState((prev) => ({ ...prev, isLoading: true }));
 
     try {
-      await fetch('/api/auth/logout', {
+      await authFetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
@@ -173,7 +174,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Refresh token
   const refresh = useCallback(async (): Promise<void> => {
     try {
-      const response = await fetch('/api/auth/refresh', {
+      const response = await authFetch('/api/auth/refresh', {
         method: 'POST',
         credentials: 'include',
       });

@@ -1,5 +1,7 @@
 "use client";
 
+import { authFetch } from "@/lib/utils/authFetch";
+
 import { useState } from "react";
 import type { Announcement } from "@/lib/dal";
 import { formatDistanceToNow, format } from "date-fns";
@@ -126,7 +128,7 @@ export function AnnouncementsClient({
 
     setIsMarkingRead(announcementId);
     try {
-      const response = await fetch(`/api/student/announcements/${announcementId}`, {
+      const response = await authFetch(`/api/student/announcements/${announcementId}`, {
         method: "POST",
       });
 

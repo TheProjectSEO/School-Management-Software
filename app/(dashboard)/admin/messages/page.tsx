@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useAdminRealtimeMessages } from "@/hooks/useAdminRealtimeMessages";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { authFetch } from "@/lib/utils/authFetch";
 
 /**
@@ -66,10 +67,14 @@ export default function AdminMessagesPage() {
   const [searchResults, setSearchResults] = useState<User[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [adminProfileId, setAdminProfileId] = useState<string | null>(null);
+  const [adminName, setAdminName] = useState<string>("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const { subscribe, unsubscribe, newMessage, updatedMessages } =
     useAdminRealtimeMessages(adminProfileId);
+
+  const { isPartnerTyping, partnerTypingState, notifyTyping, connect: connectTyping, disconnect: disconnectTyping } =
+    useTypingIndicator(adminProfileId);
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -89,6 +94,7 @@ export default function AdminMessagesPage() {
         if (res.ok) {
           const data = await res.json();
           setAdminProfileId(data.profileId || null);
+          setAdminName(data.fullName || "Admin");
         }
       } catch (error) {
         console.error("Error fetching admin profile:", error);
@@ -111,7 +117,11 @@ export default function AdminMessagesPage() {
   useEffect(() => {
     if (selectedConversation) {
       loadMessages(selectedConversation.partner_profile_id);
+      connectTyping(selectedConversation.partner_profile_id, adminName);
+    } else {
+      disconnectTyping();
     }
+    return () => disconnectTyping();
   }, [selectedConversation?.partner_profile_id]);
 
   // React to realtime updates
@@ -216,6 +226,7 @@ export default function AdminMessagesPage() {
 
     setMessages((prev) => [...prev, optimisticMessage]);
     setMessageInput("");
+    notifyTyping(false);
     setIsSending(true);
 
     try {
@@ -582,6 +593,22 @@ export default function AdminMessagesPage() {
                   })
                 )}
 
+                {isPartnerTyping && (
+                  <div className="flex justify-start">
+                    <div className="bg-gray-100 text-gray-500 px-4 py-3 rounded-2xl rounded-bl-md flex items-center gap-2 text-sm">
+                      <span className="font-medium">
+                        {partnerTypingState?.profileName || selectedConversation?.partner_name}
+                      </span>
+                      <span>is typing</span>
+                      <span className="flex gap-0.5 items-center">
+                        <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                        <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                        <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 <div ref={messagesEndRef} />
               </div>
 
@@ -590,7 +617,10 @@ export default function AdminMessagesPage() {
                 <div className="flex items-end gap-3">
                   <textarea
                     value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
+                    onChange={(e) => {
+                      setMessageInput(e.target.value);
+                      notifyTyping(e.target.value.length > 0);
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();

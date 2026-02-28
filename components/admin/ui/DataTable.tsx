@@ -116,7 +116,7 @@ export default function DataTable<T extends object>({
     },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getPaginationRowModel: pagination ? undefined : getPaginationRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
     manualPagination: !!pagination,
     pageCount: pagination?.totalPages,
     getRowId: rowKey ? (row) => String(row[rowKey]) : undefined,

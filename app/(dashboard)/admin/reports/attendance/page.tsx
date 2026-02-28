@@ -97,7 +97,7 @@ export default function AttendanceReportPage() {
       const response = await authFetch(`/api/admin/reports/attendance?${params}`);
       const result: PaginatedResult = await response.json();
 
-      setRecords(result.data);
+      setRecords(result.data ?? []);
       setSummary(result.summary);
       setPagination((prev) => ({
         ...prev,

@@ -87,7 +87,7 @@ export default function ProgressReportPage() {
       const response = await authFetch(`/api/admin/reports/progress?${params}`);
       const result: PaginatedResult = await response.json();
 
-      setRecords(result.data);
+      setRecords(result.data ?? []);
       setSummary(result.summary);
       setPagination((prev) => ({
         ...prev,

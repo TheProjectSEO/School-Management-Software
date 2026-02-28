@@ -99,7 +99,7 @@ export default function GradesReportPage() {
       const response = await authFetch(`/api/admin/reports/grades?${params}`);
       const result: PaginatedResult = await response.json();
 
-      setRecords(result.data);
+      setRecords(result.data ?? []);
       setSummary(result.summary);
       setPagination((prev) => ({
         ...prev,

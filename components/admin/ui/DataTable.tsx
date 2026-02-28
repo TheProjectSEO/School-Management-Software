@@ -36,7 +36,7 @@ interface DataTableProps<T extends object> {
 
 export default function DataTable<T extends object>({
   columns,
-  data,
+  data = [],
   pagination,
   onPageChange,
   selectable = false,

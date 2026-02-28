@@ -219,7 +219,7 @@ export async function revokeAllUserTokens(userId: string): Promise<boolean> {
  */
 export async function logAuthEvent(
   userId: string | null,
-  eventType: 'login' | 'logout' | 'token_refresh' | 'permission_denied' | 'login_failed',
+  eventType: 'login' | 'logout' | 'token_refresh' | 'permission_denied' | 'login_failed' | 'login_blocked',
   metadata?: Record<string, unknown>,
   userAgent?: string,
   ipAddress?: string
@@ -254,4 +254,55 @@ export async function getUserPermissionOverrides(
   }
 
   return data.map((p) => p.permission);
+}
+
+/**
+ * Check if a user has an active session from a different IP/device.
+ * Returns the active session IP if found, null otherwise.
+ */
+export async function checkActiveSession(
+  userId: string,
+  currentIp: string | undefined,
+  currentUa: string | undefined
+): Promise<{ activeIp: string | null; activeUa: string | null } | null> {
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from('refresh_tokens')
+    .select('ip_address, user_agent')
+    .eq('user_id', userId)
+    .is('revoked_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  // Same device: IP and user-agent both match — not a threat
+  const sameIp = data.ip_address && currentIp && data.ip_address === currentIp;
+  const sameUa = data.user_agent && currentUa && data.user_agent === currentUa;
+  if (sameIp && sameUa) return null;
+
+  return {
+    activeIp: (data.ip_address as string) || null,
+    activeUa: (data.user_agent as string) || null,
+  };
+}
+
+/**
+ * Insert a security alert so the active user gets a real-time notification.
+ */
+export async function createSecurityAlert(
+  userId: string,
+  attackerIp: string | undefined,
+  attackerUa: string | undefined
+): Promise<void> {
+  const supabase = createAdminClient();
+
+  await supabase.from('user_security_alerts').insert({
+    user_id: userId,
+    attacker_ip: attackerIp || null,
+    attacker_ua: attackerUa || null,
+  });
 }

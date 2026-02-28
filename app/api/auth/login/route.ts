@@ -8,6 +8,8 @@ import {
   storeRefreshToken,
   logAuthEvent,
   getUserPermissionOverrides,
+  checkActiveSession,
+  createSecurityAlert,
 } from '@/lib/supabase/admin';
 import { setAuthCookies } from '@/lib/auth/session';
 import { getDashboardPath } from '@/lib/auth/rbac';
@@ -54,6 +56,37 @@ export async function POST(request: NextRequest) {
     }
 
     const userId = authData.user.id;
+
+    // --- Concurrent device block ---
+    // If this user already has an active session from a different device/IP,
+    // block the new login and notify the active device.
+    const incomingIp =
+      request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
+    const incomingUa = request.headers.get('user-agent') || undefined;
+
+    const existingSession = await checkActiveSession(userId, incomingIp, incomingUa);
+    if (existingSession !== null) {
+      // Fire-and-forget: notify the active user in real-time
+      await Promise.all([
+        createSecurityAlert(userId, incomingIp, incomingUa),
+        logAuthEvent(
+          userId,
+          'login_blocked',
+          { reason: 'active_session_on_another_device', attacker_ip: incomingIp },
+          incomingUa,
+          incomingIp
+        ),
+      ]);
+
+      return NextResponse.json(
+        {
+          error: 'This account is currently active on another device. Please log out from that device first.',
+          code: 'ACCOUNT_ACTIVE_ELSEWHERE',
+        },
+        { status: 403 }
+      );
+    }
+    // --- End concurrent device block ---
 
     // Get user role and profile
     const roleData = await getUserRole(userId);

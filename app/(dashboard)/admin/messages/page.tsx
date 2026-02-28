@@ -88,7 +88,7 @@ export default function AdminMessagesPage() {
         const res = await authFetch("/api/admin/profile");
         if (res.ok) {
           const data = await res.json();
-          setAdminProfileId(data.adminProfileId || null);
+          setAdminProfileId(data.profileId || null);
         }
       } catch (error) {
         console.error("Error fetching admin profile:", error);

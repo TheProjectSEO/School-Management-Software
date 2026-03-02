@@ -9,7 +9,7 @@ import {
   logAuthEvent,
   getUserPermissionOverrides,
   checkActiveSession,
-  createSecurityAlert,
+  revokeAllUserTokens,
 } from '@/lib/supabase/admin';
 import { setAuthCookies } from '@/lib/auth/session';
 import { getDashboardPath } from '@/lib/auth/rbac';
@@ -66,25 +66,18 @@ export async function POST(request: NextRequest) {
 
     const existingSession = await checkActiveSession(userId, incomingIp, incomingUa);
     if (existingSession !== null) {
-      // Fire-and-forget: notify the active user in real-time
+      // IP changed — expire the old session and allow the new login from the new location
       await Promise.all([
-        createSecurityAlert(userId, incomingIp, incomingUa),
+        revokeAllUserTokens(userId),
         logAuthEvent(
           userId,
-          'login_blocked',
-          { reason: 'active_session_on_another_device', attacker_ip: incomingIp },
+          'session_expired_ip_change',
+          { previous_ip: existingSession.activeIp, new_ip: incomingIp },
           incomingUa,
           incomingIp
         ),
       ]);
-
-      return NextResponse.json(
-        {
-          error: 'This account is currently active on another device. Please log out from that device first.',
-          code: 'ACCOUNT_ACTIVE_ELSEWHERE',
-        },
-        { status: 403 }
-      );
+      // Fall through to issue new tokens below
     }
     // --- End concurrent device block ---
 

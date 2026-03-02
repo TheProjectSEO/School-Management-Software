@@ -219,7 +219,7 @@ export async function revokeAllUserTokens(userId: string): Promise<boolean> {
  */
 export async function logAuthEvent(
   userId: string | null,
-  eventType: 'login' | 'logout' | 'token_refresh' | 'permission_denied' | 'login_failed' | 'login_blocked',
+  eventType: 'login' | 'logout' | 'token_refresh' | 'permission_denied' | 'login_failed' | 'login_blocked' | 'session_expired_ip_change',
   metadata?: Record<string, unknown>,
   userAgent?: string,
   ipAddress?: string
@@ -257,8 +257,10 @@ export async function getUserPermissionOverrides(
 }
 
 /**
- * Check if a user has an active session from a different IP/device.
- * Returns the active session IP if found, null otherwise.
+ * Check if a user has an active session from a different IP.
+ * Returns the active session data if a different IP is detected, null otherwise.
+ * Sessions are considered the same device if IPs match.
+ * If IP cannot be determined on either side, the session is allowed through.
  */
 export async function checkActiveSession(
   userId: string,
@@ -279,11 +281,13 @@ export async function checkActiveSession(
 
   if (error || !data) return null;
 
-  // Same device: IP and user-agent both match — not a threat
-  const sameIp = data.ip_address && currentIp && data.ip_address === currentIp;
-  const sameUa = data.user_agent && currentUa && data.user_agent === currentUa;
-  if (sameIp && sameUa) return null;
+  // If IP is unavailable on either side, we can't make a determination — allow through
+  if (!data.ip_address || !currentIp) return null;
 
+  // Same IP = same device/network — allow re-login
+  if (data.ip_address === currentIp) return null;
+
+  // Different IP detected — session was from a different location
   return {
     activeIp: (data.ip_address as string) || null,
     activeUa: (data.user_agent as string) || null,

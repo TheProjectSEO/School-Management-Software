@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { Metadata } from "next";
 import { InquiryChatbot } from "@/components/admin/chatbot/InquiryChatbot";
 

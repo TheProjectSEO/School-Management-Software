@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { Metadata } from "next";
 import FeedbackTemplatesPanel from "@/components/teacher/feedback/FeedbackTemplatesPanel";
 

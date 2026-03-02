@@ -1,0 +1,15 @@
+# Legacy apps — not part of the deployed build
+_legacy/
+
+# Local dev files
+.env.local
+*.log
+
+# Supabase local dev
+supabase/.branches
+supabase/.temp
+
+# Test/script artifacts
+scripts/
+image.png
+supabase/queries/

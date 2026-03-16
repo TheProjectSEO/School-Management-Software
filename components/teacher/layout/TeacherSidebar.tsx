@@ -80,9 +80,22 @@ export default function TeacherSidebar({ initialTeacherData }: TeacherSidebarPro
   return (
     <aside className="w-64 bg-white dark:bg-card-dark border-r border-slate-200 dark:border-slate-700 h-screen flex flex-col">
       {/* Logo */}
-      <div className="p-6 border-b border-slate-200 dark:border-slate-700">
-        <BrandLogo size="lg" />
-        <p className="text-sm text-slate-600 dark:text-slate-400 mt-2">Teacher Portal</p>
+      <div className="p-4 border-b border-slate-200 dark:border-slate-700">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0">
+            <BrandLogo size="lg" />
+            <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">Teacher Portal</p>
+          </div>
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-semibold rounded-lg transition-colors shrink-0 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+            title="Logout"
+          >
+            <span className="material-symbols-outlined text-[16px]">logout</span>
+            {isLoggingOut ? 'Logging out...' : 'Logout'}
+          </button>
+        </div>
       </div>
 
       {/* Navigation */}
@@ -121,7 +134,7 @@ export default function TeacherSidebar({ initialTeacherData }: TeacherSidebarPro
       </nav>
 
       {/* User Profile */}
-      <div className="p-4 border-t border-slate-200 dark:border-slate-700 space-y-2">
+      <div className="p-4 border-t border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer transition-colors">
           {teacher?.avatar_url ? (
             <img
@@ -148,20 +161,6 @@ export default function TeacherSidebar({ initialTeacherData }: TeacherSidebarPro
             )}
           </div>
         </div>
-
-        {/* Logout Button */}
-        <button
-          onClick={handleLogout}
-          disabled={isLoggingOut}
-          className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <span className="material-symbols-outlined text-[20px]">
-            logout
-          </span>
-          <span className="font-medium text-sm">
-            {isLoggingOut ? 'Logging out...' : 'Logout'}
-          </span>
-        </button>
       </div>
     </aside>
   )

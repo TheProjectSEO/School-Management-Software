@@ -72,14 +72,32 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
             {isPlayful ? `Hi, ${firstName}!` : 'MSU'}
           </span>
         </div>
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
-        >
-          <span className="material-symbols-outlined">
-            {isOpen ? "close" : "menu"}
-          </span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onLogout}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors shadow-sm ${
+              isPlayful
+                ? 'bg-pink-500 hover:bg-pink-600 text-white'
+                : 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white'
+            }`}
+            title="Log Out"
+          >
+            {isPlayful ? (
+              <span className="text-sm leading-none">{'\u{1F44B}'}</span>
+            ) : (
+              <span className="material-symbols-outlined text-[16px]">logout</span>
+            )}
+            {isPlayful ? 'Bye!' : 'Log Out'}
+          </button>
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+          >
+            <span className="material-symbols-outlined">
+              {isOpen ? "close" : "menu"}
+            </span>
+          </button>
+        </div>
       </header>
 
       {/* Mobile Menu Overlay */}
@@ -173,24 +191,6 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
                 })}
               </div>
 
-              {/* Logout Button */}
-              <button
-                onClick={onLogout}
-                className={`flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg py-2.5 transition-colors mt-4 ${
-                  isPlayful
-                    ? 'text-purple-400 hover:bg-pink-100 hover:text-pink-600'
-                    : 'text-slate-500 dark:text-slate-400 hover:bg-red-50 hover:text-primary dark:hover:bg-slate-800'
-                }`}
-              >
-                {isPlayful ? (
-                  <span className="text-xl leading-none">{'\u{1F44B}'}</span>
-                ) : (
-                  <span className="material-symbols-outlined text-[20px]">logout</span>
-                )}
-                <span className={`${theme.nav.fontSize} ${theme.nav.fontWeight}`}>
-                  {isPlayful ? 'Bye Bye!' : 'Log Out'}
-                </span>
-              </button>
             </div>
           </nav>
         </div>

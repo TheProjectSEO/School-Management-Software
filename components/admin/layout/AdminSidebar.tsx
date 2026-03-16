@@ -125,27 +125,37 @@ export default function AdminSidebar({ adminName, adminRole, schoolName }: Admin
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 bg-[#101822] text-white flex flex-col">
       {/* Header */}
-      <div className="p-6 border-b border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#7B1113] rounded-lg flex items-center justify-center">
-            <span className="material-symbols-outlined text-white">
-              admin_panel_settings
-            </span>
-          </div>
-          <div>
-            <h1 className="font-bold text-lg">Admin Portal</h1>
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-gray-400">{schoolName}</p>
-              {/* Connection indicator */}
-              <div
-                className={clsx(
-                  "h-1.5 w-1.5 rounded-full",
-                  isConnected ? "bg-green-500" : "bg-yellow-500"
-                )}
-                title={isConnected ? "Connected" : "Connecting..."}
-              />
+      <div className="p-4 border-b border-white/10">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 bg-[#7B1113] rounded-lg flex items-center justify-center shrink-0">
+              <span className="material-symbols-outlined text-white">
+                admin_panel_settings
+              </span>
+            </div>
+            <div className="min-w-0">
+              <h1 className="font-bold text-lg leading-tight">Admin Portal</h1>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-gray-400 truncate">{schoolName}</p>
+                {/* Connection indicator */}
+                <div
+                  className={clsx(
+                    "h-1.5 w-1.5 rounded-full shrink-0",
+                    isConnected ? "bg-green-500" : "bg-yellow-500"
+                  )}
+                  title={isConnected ? "Connected" : "Connecting..."}
+                />
+              </div>
             </div>
           </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-semibold rounded-lg transition-colors shrink-0 shadow-sm"
+            title="Sign Out"
+          >
+            <span className="material-symbols-outlined text-[16px]">logout</span>
+            Sign Out
+          </button>
         </div>
       </div>
 
@@ -197,7 +207,7 @@ export default function AdminSidebar({ adminName, adminRole, schoolName }: Admin
 
       {/* User section */}
       <div className="p-4 border-t border-white/10">
-        <div className="flex items-center gap-3 mb-3">
+        <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-[#7B1113] rounded-full flex items-center justify-center">
             <span className="text-white font-bold">
               {adminName.charAt(0).toUpperCase()}
@@ -208,13 +218,6 @@ export default function AdminSidebar({ adminName, adminRole, schoolName }: Admin
             <p className="text-xs text-gray-400">{roleLabels[adminRole] || adminRole}</p>
           </div>
         </div>
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-        >
-          <span className="material-symbols-outlined text-lg">logout</span>
-          Sign Out
-        </button>
       </div>
     </aside>
   );

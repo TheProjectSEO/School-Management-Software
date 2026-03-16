@@ -37,7 +37,7 @@ export function AppShell({ children, user, studentId }: AppShellProps) {
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <Sidebar user={user} showRealtimeNotifications={!!studentId} />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col min-h-0">
         {/* Mobile nav handles mobile header + drawer */}
         <MobileNav user={user} onLogout={handleLogout} showRealtimeNotifications={!!studentId} />
 
@@ -71,7 +71,7 @@ export function AppShell({ children, user, studentId }: AppShellProps) {
           </div>
         </header>
 
-        <main className={`flex-1 overflow-y-auto ${theme.layout.contentBg}`}>
+        <main className={`flex-1 overflow-y-auto overflow-x-hidden ${theme.layout.contentBg}`}>
           <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
             {children}
           </div>

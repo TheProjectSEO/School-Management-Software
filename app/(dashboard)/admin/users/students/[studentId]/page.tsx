@@ -24,6 +24,7 @@ async function getStudentDetails(studentId: string) {
       school_profiles (
         id,
         full_name,
+        email,
         phone,
         avatar_url
       ),
@@ -216,7 +217,7 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
     notFound();
   }
 
-  const profile = student.school_profiles as unknown as { full_name: string; phone?: string; avatar_url?: string };
+  const profile = student.school_profiles as unknown as { full_name: string; email?: string; phone?: string; avatar_url?: string };
   const section = student.sections as unknown as { name: string; grade_level: string } | null;
   const { sectionAdviser, courseTeachers } = student as unknown as {
     sectionAdviser: { full_name: string; avatar_url: string | null; employee_id?: string } | null;
@@ -281,6 +282,7 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
 
             <div className="space-y-4">
               <InfoRow label="LRN" value={student.lrn || "Not assigned"} />
+              <InfoRow label="Email" value={profile.email || "Not provided"} />
               <InfoRow label="Grade Level" value={`Grade ${student.grade_level || "-"}`} />
               <InfoRow label="Section" value={section?.name || "Not assigned"} />
               <InfoRow

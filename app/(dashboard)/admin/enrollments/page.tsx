@@ -265,19 +265,19 @@ export default function EnrollmentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Enrollments</h1>
-          <p className="text-gray-500 mt-1">Manage student course enrollments</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Enrollments</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage student course enrollments</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <ExportButton onExport={handleExport} />
           <Link
             href="/admin/enrollments/bulk"
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors"
           >
             <span className="material-symbols-outlined text-lg">group_add</span>
-            Bulk Enroll
+            <span className="hidden sm:inline">Bulk Enroll</span>
           </Link>
         </div>
       </div>

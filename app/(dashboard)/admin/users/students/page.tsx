@@ -597,26 +597,26 @@ export default function StudentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Students</h1>
-          <p className="text-gray-500 mt-1">Manage student accounts and information</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Students</h1>
+          <p className="text-sm text-gray-500 mt-1">Manage student accounts and information</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <ExportButton onExport={handleExport} />
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
           >
             <span className="material-symbols-outlined text-lg">person_add</span>
-            Add Student
+            <span className="hidden sm:inline">Add Student</span>
           </button>
           <Link
             href="/admin/users/import"
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors"
+            className="flex items-center gap-2 px-3 sm:px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors"
           >
             <span className="material-symbols-outlined text-lg">upload</span>
-            Import Students
+            <span className="hidden sm:inline">Import Students</span>
           </Link>
         </div>
       </div>
@@ -632,46 +632,46 @@ export default function StudentsPage() {
 
       {/* Bulk Actions */}
       {selectedStudents.length > 0 && (
-        <div className="bg-primary/5 border border-primary/20 rounded-xl p-4 flex items-center justify-between">
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 sm:p-4 flex flex-col sm:flex-row gap-3 sm:gap-0 sm:items-center sm:justify-between">
           <span className="text-sm text-primary font-medium">
             {selectedStudents.length} student(s) selected
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setShowSectionModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors"
             >
               <span className="material-symbols-outlined text-base">move_group</span>
-              Move to Section
+              <span className="hidden sm:inline">Move to Section</span>
             </button>
             <button
               onClick={() => setShowGradeModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-purple-600 bg-purple-50 rounded-lg hover:bg-purple-100 transition-colors"
             >
               <span className="material-symbols-outlined text-base">school</span>
-              Change Grade
+              <span className="hidden sm:inline">Change Grade</span>
             </button>
             {selectedStudents.some((s) => s.status === "active") && (
               <button
                 onClick={() => setShowDeactivateModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
               >
                 <span className="material-symbols-outlined text-base">block</span>
-                Deactivate
+                <span className="hidden sm:inline">Deactivate</span>
               </button>
             )}
             {selectedStudents.some((s) => s.status !== "active") && (
               <button
                 onClick={() => setShowReactivateModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-green-600 bg-green-50 rounded-lg hover:bg-green-100 transition-colors"
               >
                 <span className="material-symbols-outlined text-base">check_circle</span>
-                Reactivate
+                <span className="hidden sm:inline">Reactivate</span>
               </button>
             )}
             <button
               onClick={() => setSelectedStudents([])}
-              className="px-3 py-1.5 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+              className="px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             >
               Clear Selection
             </button>

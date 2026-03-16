@@ -47,10 +47,10 @@ export default function FilterBar({
         className
       )}
     >
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
         {/* Search Input */}
         {onSearch && (
-          <div className="flex-1 min-w-[200px] max-w-md">
+          <div className="w-full sm:flex-1 sm:min-w-[160px] sm:max-w-md">
             <div className="relative">
               <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
                 search
@@ -69,7 +69,7 @@ export default function FilterBar({
 
         {/* Filter Options */}
         {filters.map((filter) => (
-          <div key={filter.key} className="min-w-[140px]">
+          <div key={filter.key} className="min-w-[120px] sm:min-w-[140px]">
             {filter.type === "select" && (
               <select
                 value={values[filter.key] || ""}
@@ -100,7 +100,7 @@ export default function FilterBar({
           {onSearch && (
             <button
               onClick={handleSearch}
-              className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors"
+              className="px-3 sm:px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors"
             >
               Search
             </button>
@@ -108,7 +108,7 @@ export default function FilterBar({
           {onReset && (
             <button
               onClick={onReset}
-              className="px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+              className="px-3 sm:px-4 py-2 border border-gray-200 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
             >
               Reset
             </button>

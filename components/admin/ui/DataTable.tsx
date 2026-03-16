@@ -212,36 +212,34 @@ export default function DataTable<T extends object>({
 
       {/* Pagination */}
       {pagination && (
-        <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between">
-          <div className="text-sm text-gray-500">
+        <div className="px-3 sm:px-4 py-3 border-t border-gray-100 flex flex-col sm:flex-row gap-3 sm:gap-0 items-start sm:items-center sm:justify-between">
+          <div className="text-xs sm:text-sm text-gray-500">
             Showing{" "}
             <span className="font-medium">
               {(pagination.page - 1) * pagination.pageSize + 1}
             </span>{" "}
-            to{" "}
+            –{" "}
             <span className="font-medium">
               {Math.min(
                 pagination.page * pagination.pageSize,
                 pagination.total
               )}
             </span>{" "}
-            of <span className="font-medium">{pagination.total}</span> results
+            of <span className="font-medium">{pagination.total}</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <button
               onClick={() => onPageChange?.(pagination.page - 1)}
               disabled={pagination.page <= 1}
-              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-2.5 sm:px-3 py-1.5 border border-gray-200 rounded-lg text-xs sm:text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Previous
+              Prev
             </button>
             <div className="flex items-center gap-1">
               {(() => {
-                // Calculate the range of pages to show
                 const totalButtons = Math.min(5, pagination.totalPages);
                 let startPage = Math.max(1, pagination.page - Math.floor(totalButtons / 2));
                 const endPage = Math.min(pagination.totalPages, startPage + totalButtons - 1);
-                // Adjust start if we're near the end
                 startPage = Math.max(1, endPage - totalButtons + 1);
 
                 const pages: number[] = [];
@@ -254,7 +252,7 @@ export default function DataTable<T extends object>({
                     key={`page-${pageNum}`}
                     onClick={() => onPageChange?.(pageNum)}
                     className={clsx(
-                      "w-8 h-8 rounded-lg text-sm font-medium transition-colors",
+                      "w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-xs sm:text-sm font-medium transition-colors",
                       pageNum === pagination.page
                         ? "bg-primary text-white"
                         : "text-gray-600 hover:bg-gray-100"
@@ -268,7 +266,7 @@ export default function DataTable<T extends object>({
             <button
               onClick={() => onPageChange?.(pagination.page + 1)}
               disabled={pagination.page >= pagination.totalPages}
-              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-2.5 sm:px-3 py-1.5 border border-gray-200 rounded-lg text-xs sm:text-sm font-medium text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>

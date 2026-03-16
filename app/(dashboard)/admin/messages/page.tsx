@@ -57,6 +57,7 @@ interface User {
 export default function AdminMessagesPage() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
+  const [showMobileChat, setShowMobileChat] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageInput, setMessageInput] = useState("");
   const [isLoading, setIsLoading] = useState(true);
@@ -351,6 +352,7 @@ export default function AdminMessagesPage() {
     setShowSearch(false);
     setSearchQuery("");
     setSearchResults([]);
+    setShowMobileChat(true);
   };
 
   const formatTime = (timestamp: string) => {
@@ -385,9 +387,9 @@ export default function AdminMessagesPage() {
   return (
     <div className="h-[calc(100vh-8rem)] flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Messages</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Messages</h1>
           <p className="text-gray-500 mt-1">Communicate with teachers and students</p>
         </div>
         <button
@@ -402,7 +404,7 @@ export default function AdminMessagesPage() {
       {/* Main Content */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 min-h-0">
         {/* Conversations List */}
-        <div className="lg:col-span-1 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
+        <div className={`lg:col-span-1 bg-white rounded-xl border border-gray-100 shadow-sm flex-col overflow-hidden ${showMobileChat ? 'hidden lg:flex' : 'flex'}`}>
           <div className="p-4 border-b border-gray-100">
             <h2 className="font-semibold text-gray-900">Conversations</h2>
           </div>
@@ -424,7 +426,7 @@ export default function AdminMessagesPage() {
               conversations.map((conversation) => (
                 <button
                   key={conversation.partner_profile_id}
-                  onClick={() => setSelectedConversation(conversation)}
+                  onClick={() => { setSelectedConversation(conversation); setShowMobileChat(true); }}
                   className={`w-full p-4 text-left border-b border-gray-100 hover:bg-gray-50 transition-colors ${
                     selectedConversation?.partner_profile_id ===
                     conversation.partner_profile_id
@@ -489,12 +491,18 @@ export default function AdminMessagesPage() {
         </div>
 
         {/* Chat View */}
-        <div className="lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm flex flex-col overflow-hidden">
+        <div className={`lg:col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm flex-col overflow-hidden ${showMobileChat ? 'flex' : 'hidden lg:flex'}`}>
           {selectedConversation ? (
             <>
               {/* Chat Header */}
               <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                 <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowMobileChat(false)}
+                    className="lg:hidden mr-1 p-1.5 rounded-lg hover:bg-gray-100 transition-colors flex-shrink-0"
+                  >
+                    <span className="material-symbols-outlined">arrow_back</span>
+                  </button>
                   <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center">
                     {selectedConversation.partner_avatar_url ? (
                       <img

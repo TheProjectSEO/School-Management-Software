@@ -56,6 +56,7 @@ export function MessagesClient({
   profileId,
 }: MessagesClientProps) {
   const { isPlayful } = useStudentTheme();
+  const [showMobileChat, setShowMobileChat] = useState(false);
   const [conversations, setConversations] = useState(initialConversations);
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<RealtimeMessage[]>([]);
@@ -416,6 +417,7 @@ export function MessagesClient({
     setSelectedGroupChat(group);
     setSelectedConversation(null);
     fetchGroupMessages(group.id);
+    setShowMobileChat(true);
   };
 
   // Handle direct conversation selection
@@ -423,6 +425,7 @@ export function MessagesClient({
     setSelectedConversation(conversation);
     setSelectedGroupChat(null);
     setGroupMessages([]);
+    setShowMobileChat(true);
   };
 
   const handleSendMessage = async () => {
@@ -642,9 +645,9 @@ export function MessagesClient({
   return (
     <div className="flex flex-col h-[calc(100vh-180px)]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4 flex-shrink-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 flex-shrink-0 gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
             {isPlayful ? "\u{1F4AC} Messages" : "Messages"}
           </h1>
           <p className="text-slate-600 dark:text-slate-400 text-sm">
@@ -671,7 +674,7 @@ export function MessagesClient({
       {/* Main Content */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0 overflow-hidden">
         {/* Conversations List */}
-        <div className={`lg:col-span-1 flex flex-col max-h-full overflow-hidden ${
+        <div className={`lg:col-span-1 flex-col max-h-full overflow-hidden ${showMobileChat ? 'hidden lg:flex' : 'flex'} ${
           isPlayful
             ? "bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200"
             : "bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700"
@@ -878,7 +881,7 @@ export function MessagesClient({
         </div>
 
         {/* Chat View */}
-        <div className={`lg:col-span-2 flex flex-col max-h-full overflow-hidden ${
+        <div className={`lg:col-span-2 flex-col max-h-full overflow-hidden ${showMobileChat ? 'flex' : 'hidden lg:flex'} ${
           isPlayful
             ? "bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200"
             : "bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700"
@@ -888,6 +891,12 @@ export function MessagesClient({
               {/* Chat Header */}
               <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
                 <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowMobileChat(false)}
+                    className="lg:hidden mr-1 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors flex-shrink-0"
+                  >
+                    <span className="material-symbols-outlined">arrow_back</span>
+                  </button>
                   <div className="relative">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                       selectedConversation.partner_role === "student" ? "bg-blue-100 dark:bg-blue-900/30" : "bg-primary/10"
@@ -1046,6 +1055,12 @@ export function MessagesClient({
               {/* Group Chat Header */}
               <div className="p-4 border-b border-slate-200 dark:border-slate-700">
                 <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowMobileChat(false)}
+                    className="lg:hidden mr-1 p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors flex-shrink-0"
+                  >
+                    <span className="material-symbols-outlined">arrow_back</span>
+                  </button>
                   <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                     <span className="material-symbols-outlined text-purple-600 dark:text-purple-400">
                       groups

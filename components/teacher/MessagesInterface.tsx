@@ -88,6 +88,7 @@ export default function MessagesInterface({
   profileId,
   schoolId,
 }: MessagesInterfaceProps) {
+  const [showMobileChat, setShowMobileChat] = useState(false);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedConversation, setSelectedConversation] =
@@ -240,6 +241,7 @@ export default function MessagesInterface({
   const handleSelectConversation = (conversation: Conversation) => {
     setSelectedConversation(conversation);
     setSelectedGroupChat(null); // Deselect group chat
+    setShowMobileChat(true);
   };
 
   // Handle sending group message
@@ -369,6 +371,7 @@ export default function MessagesInterface({
       setShowNewConversation(false);
       setStudentSearch("");
       setSearchResults([]);
+      setShowMobileChat(true);
       return;
     }
 
@@ -390,6 +393,7 @@ export default function MessagesInterface({
     setShowNewConversation(false);
     setStudentSearch("");
     setSearchResults([]);
+    setShowMobileChat(true);
   };
 
   // Fetch messages for selected conversation
@@ -659,16 +663,16 @@ export default function MessagesInterface({
 
   if (isLoading) {
     return (
-      <div className="flex h-[600px] items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+      <div className="flex h-[calc(100vh-5rem)] md:h-[700px] items-center justify-center rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-[600px] overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
+    <div className="flex h-[calc(100vh-5rem)] md:h-[700px] overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
       {/* Conversations List */}
-      <div className="w-80 border-r border-slate-200 dark:border-slate-700 flex flex-col">
+      <div className={`w-full md:w-80 border-r border-slate-200 dark:border-slate-700 flex-col ${showMobileChat ? 'hidden md:flex' : 'flex'}`}>
         <div className="border-b border-slate-200 p-4 dark:border-slate-700">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-bold text-slate-900 dark:text-white">Messages</h2>
@@ -788,7 +792,7 @@ export default function MessagesInterface({
               groupChats.map((group) => (
                 <button
                   key={group.id}
-                  onClick={() => setSelectedGroupChat(group)}
+                  onClick={() => { setSelectedGroupChat(group); setShowMobileChat(true); }}
                   className={`w-full border-b border-slate-100 p-4 text-left transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-700 ${
                     selectedGroupChat?.id === group.id
                       ? "bg-slate-100 dark:bg-slate-700"
@@ -831,18 +835,26 @@ export default function MessagesInterface({
       </div>
 
       {/* Messages Area */}
-      <div className="flex flex-1 flex-col">
+      <div className={`flex-1 flex-col ${showMobileChat ? 'flex' : 'hidden md:flex'}`}>
         {selectedConversation ? (
           // Direct Message View
           <>
             {/* Header */}
-            <div className="border-b border-slate-200 p-4 dark:border-slate-700">
-              <h3 className="font-semibold text-slate-900 dark:text-white">
-                {selectedConversation.participantName}
-              </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
-                {selectedConversation.participantRole}
-              </p>
+            <div className="border-b border-slate-200 p-4 dark:border-slate-700 flex items-center gap-3">
+              <button
+                onClick={() => setShowMobileChat(false)}
+                className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex-shrink-0"
+              >
+                <span className="material-symbols-outlined">arrow_back</span>
+              </button>
+              <div>
+                <h3 className="font-semibold text-slate-900 dark:text-white">
+                  {selectedConversation.participantName}
+                </h3>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {selectedConversation.participantRole}
+                </p>
+              </div>
             </div>
 
             {/* Messages */}
@@ -950,6 +962,12 @@ export default function MessagesInterface({
             {/* Header */}
             <div className="border-b border-slate-200 p-4 dark:border-slate-700">
               <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowMobileChat(false)}
+                  className="md:hidden p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors flex-shrink-0"
+                >
+                  <span className="material-symbols-outlined">arrow_back</span>
+                </button>
                 <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
                   <span className="material-symbols-outlined text-purple-600 dark:text-purple-400">
                     groups

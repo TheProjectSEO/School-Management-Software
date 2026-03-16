@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { useLogin } from '@/hooks/useAuth';
 
 interface LoginFormProps {
@@ -11,6 +12,8 @@ interface LoginFormProps {
 
 export function LoginForm({ onSuccess, redirectTo }: LoginFormProps) {
   const { login, isLoading, error } = useLogin();
+  const searchParams = useSearchParams();
+  const credentialsChanged = searchParams.get('changed') === '1';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -45,6 +48,19 @@ export function LoginForm({ onSuccess, redirectTo }: LoginFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5">
+      {credentialsChanged && (
+        <div className="rounded-lg bg-green-50 border border-green-200 p-4">
+          <div className="flex items-center">
+            <svg className="h-5 w-5 text-green-500 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <p className="ml-3 text-sm font-medium text-green-800">
+              Your credentials have been updated. Please sign in again.
+            </p>
+          </div>
+        </div>
+      )}
+
       {displayError && (
         <div className="rounded-lg bg-red-50 border border-red-200 p-4">
           <div className="flex items-center">

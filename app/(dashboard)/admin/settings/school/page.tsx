@@ -40,12 +40,88 @@ export default function SchoolSettingsPage() {
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<"general" | "contact" | "branding">("general");
+  const [activeTab, setActiveTab] = useState<"general" | "contact" | "branding" | "account">("general");
   const [hasChanges, setHasChanges] = useState(false);
+
+  // My Account state
+  const [accountEmail, setAccountEmail] = useState<string>('');
+  const [accountSecurityView, setAccountSecurityView] = useState<'none' | 'password' | 'email'>('none');
+  const [accountPwForm, setAccountPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [accountEmailForm, setAccountEmailForm] = useState({ current: '', newEmail: '' });
+  const [accountSecurityError, setAccountSecurityError] = useState<string | null>(null);
+  const [accountSecurityLoading, setAccountSecurityLoading] = useState(false);
 
   useEffect(() => {
     fetchSettings();
+    fetchAccountInfo();
   }, []);
+
+  const fetchAccountInfo = async () => {
+    try {
+      const res = await authFetch('/api/auth/me');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.user?.email) setAccountEmail(data.user.email);
+      }
+    } catch {
+      // non-critical
+    }
+  };
+
+  const handleAccountSecuritySubmit = async (type: 'password' | 'email') => {
+    setAccountSecurityError(null);
+
+    if (type === 'password') {
+      if (!accountPwForm.current || !accountPwForm.next || !accountPwForm.confirm) {
+        setAccountSecurityError('All fields are required');
+        return;
+      }
+      if (accountPwForm.next.length < 8) {
+        setAccountSecurityError('Password must be at least 8 characters');
+        return;
+      }
+      if (accountPwForm.next !== accountPwForm.confirm) {
+        setAccountSecurityError('Passwords do not match');
+        return;
+      }
+    } else {
+      if (!accountEmailForm.current || !accountEmailForm.newEmail) {
+        setAccountSecurityError('All fields are required');
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(accountEmailForm.newEmail)) {
+        setAccountSecurityError('Invalid email format');
+        return;
+      }
+    }
+
+    setAccountSecurityLoading(true);
+    try {
+      const endpoint = type === 'password' ? '/api/auth/change-password' : '/api/auth/change-email';
+      const body = type === 'password'
+        ? { currentPassword: accountPwForm.current, newPassword: accountPwForm.next, confirmPassword: accountPwForm.confirm }
+        : { currentPassword: accountEmailForm.current, newEmail: accountEmailForm.newEmail };
+
+      const res = await authFetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setAccountSecurityError(data.error || 'Something went wrong');
+        return;
+      }
+
+      window.location.href = '/login?changed=1';
+    } catch {
+      setAccountSecurityError('Network error. Please try again.');
+    } finally {
+      setAccountSecurityLoading(false);
+    }
+  };
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -114,6 +190,7 @@ export default function SchoolSettingsPage() {
     { key: "general", label: "General", icon: "info" },
     { key: "contact", label: "Contact", icon: "contact_mail" },
     { key: "branding", label: "Branding", icon: "palette" },
+    { key: "account", label: "My Account", icon: "manage_accounts" },
   ];
 
   return (
@@ -463,6 +540,159 @@ export default function SchoolSettingsPage() {
                 <p className="text-sm text-gray-500 mt-3">
                   Brand colors are fixed to maintain MSU's official identity. Contact the system administrator for customization requests.
                 </p>
+              </div>
+            </div>
+          )}
+          {activeTab === "account" && (
+            <div className="space-y-6 max-w-lg">
+              <div>
+                <p className="text-sm text-gray-500 mb-1">Signed in as</p>
+                <p className="font-medium text-gray-900">{accountEmail || '—'}</p>
+              </div>
+
+              {accountSecurityError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+                  <p className="text-sm text-red-700">{accountSecurityError}</p>
+                </div>
+              )}
+
+              {/* Change Password */}
+              <div className="rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">Change Password</p>
+                    <p className="text-sm text-gray-500">Update your admin account password</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAccountSecurityView(accountSecurityView === 'password' ? 'none' : 'password');
+                      setAccountSecurityError(null);
+                      setAccountPwForm({ current: '', next: '', confirm: '' });
+                    }}
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    {accountSecurityView === 'password' ? 'Cancel' : 'Change'}
+                  </button>
+                </div>
+
+                {accountSecurityView === 'password' && (
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                      <input
+                        type="password"
+                        value={accountPwForm.current}
+                        onChange={(e) => setAccountPwForm({ ...accountPwForm, current: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        placeholder="Enter current password"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+                      <input
+                        type="password"
+                        value={accountPwForm.next}
+                        onChange={(e) => setAccountPwForm({ ...accountPwForm, next: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        placeholder="Min. 8 characters"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+                      <input
+                        type="password"
+                        value={accountPwForm.confirm}
+                        onChange={(e) => setAccountPwForm({ ...accountPwForm, confirm: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        placeholder="Repeat new password"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => { setAccountSecurityView('none'); setAccountSecurityError(null); }}
+                        className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAccountSecuritySubmit('password')}
+                        disabled={accountSecurityLoading}
+                        className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+                      >
+                        {accountSecurityLoading ? 'Saving...' : 'Update Password'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Change Email */}
+              <div className="rounded-lg border border-gray-200 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-gray-900">Change Email</p>
+                    <p className="text-sm text-gray-500">Update your admin login email</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAccountSecurityView(accountSecurityView === 'email' ? 'none' : 'email');
+                      setAccountSecurityError(null);
+                      setAccountEmailForm({ current: '', newEmail: '' });
+                    }}
+                    className="rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    {accountSecurityView === 'email' ? 'Cancel' : 'Change'}
+                  </button>
+                </div>
+
+                {accountSecurityView === 'email' && (
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Current Password</label>
+                      <input
+                        type="password"
+                        value={accountEmailForm.current}
+                        onChange={(e) => setAccountEmailForm({ ...accountEmailForm, current: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        placeholder="Enter current password to confirm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">New Email Address</label>
+                      <input
+                        type="email"
+                        value={accountEmailForm.newEmail}
+                        onChange={(e) => setAccountEmailForm({ ...accountEmailForm, newEmail: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                        placeholder="new@email.com"
+                      />
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      You will be signed out after changing your email.
+                    </p>
+                    <div className="flex justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => { setAccountSecurityView('none'); setAccountSecurityError(null); }}
+                        className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleAccountSecuritySubmit('email')}
+                        disabled={accountSecurityLoading}
+                        className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+                      >
+                        {accountSecurityLoading ? 'Saving...' : 'Update Email'}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}

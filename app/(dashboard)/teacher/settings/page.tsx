@@ -29,6 +29,13 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Security state
+  const [securityView, setSecurityView] = useState<'none' | 'password' | 'email'>('none');
+  const [pwForm, setPwForm] = useState({ current: '', next: '', confirm: '' });
+  const [emailForm, setEmailForm] = useState({ current: '', newEmail: '' });
+  const [securityError, setSecurityError] = useState<string | null>(null);
+  const [securityLoading, setSecurityLoading] = useState(false);
+
   // Form state
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -186,6 +193,61 @@ export default function SettingsPage() {
       </div>
     );
   }
+
+  const handleSecuritySubmit = async (type: 'password' | 'email') => {
+    setSecurityError(null);
+
+    if (type === 'password') {
+      if (!pwForm.current || !pwForm.next || !pwForm.confirm) {
+        setSecurityError('All fields are required');
+        return;
+      }
+      if (pwForm.next.length < 8) {
+        setSecurityError('Password must be at least 8 characters');
+        return;
+      }
+      if (pwForm.next !== pwForm.confirm) {
+        setSecurityError('Passwords do not match');
+        return;
+      }
+    } else {
+      if (!emailForm.current || !emailForm.newEmail) {
+        setSecurityError('All fields are required');
+        return;
+      }
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailForm.newEmail)) {
+        setSecurityError('Invalid email format');
+        return;
+      }
+    }
+
+    setSecurityLoading(true);
+    try {
+      const endpoint = type === 'password' ? '/api/auth/change-password' : '/api/auth/change-email';
+      const body = type === 'password'
+        ? { currentPassword: pwForm.current, newPassword: pwForm.next, confirmPassword: pwForm.confirm }
+        : { currentPassword: emailForm.current, newEmail: emailForm.newEmail };
+
+      const res = await authFetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setSecurityError(data.error || 'Something went wrong');
+        return;
+      }
+
+      window.location.href = '/login?changed=1';
+    } catch {
+      setSecurityError('Network error. Please try again.');
+    } finally {
+      setSecurityLoading(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -486,36 +548,163 @@ export default function SettingsPage() {
           Security
         </h2>
 
+        {securityError && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+            <p className="text-sm text-red-700 dark:text-red-400">{securityError}</p>
+          </div>
+        )}
+
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-slate-900 dark:text-white">
-                Change Password
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Update your account password
-              </p>
+          {/* Change Password Row */}
+          <div>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-slate-900 dark:text-white">Change Password</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Update your account password</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSecurityView(securityView === 'password' ? 'none' : 'password');
+                  setSecurityError(null);
+                  setPwForm({ current: '', next: '', confirm: '' });
+                }}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                {securityView === 'password' ? 'Cancel' : 'Change'}
+              </button>
             </div>
-            <button
-              type="button"
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
-            >
-              Change
-            </button>
+
+            {securityView === 'password' && (
+              <div className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-600 dark:bg-slate-700/40">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Current Password</label>
+                  <input
+                    type="password"
+                    value={pwForm.current}
+                    onChange={(e) => setPwForm({ ...pwForm, current: e.target.value })}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                    placeholder="Enter current password"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">New Password</label>
+                  <input
+                    type="password"
+                    value={pwForm.next}
+                    onChange={(e) => setPwForm({ ...pwForm, next: e.target.value })}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                    placeholder="Min. 8 characters"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={pwForm.confirm}
+                    onChange={(e) => setPwForm({ ...pwForm, confirm: e.target.value })}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                    placeholder="Repeat new password"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setSecurityView('none'); setSecurityError(null); }}
+                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSecuritySubmit('password')}
+                    disabled={securityLoading}
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-[#5a0c0e] disabled:opacity-50"
+                  >
+                    {securityLoading ? 'Saving...' : 'Update Password'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="font-medium text-slate-900 dark:text-white">
-                Two-Factor Authentication
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                Add an extra layer of security
-              </p>
+          {/* Change Email Row */}
+          <div className="border-t border-slate-200 pt-4 dark:border-slate-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-slate-900 dark:text-white">Change Email</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Update your login email address</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setSecurityView(securityView === 'email' ? 'none' : 'email');
+                  setSecurityError(null);
+                  setEmailForm({ current: '', newEmail: '' });
+                }}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+              >
+                {securityView === 'email' ? 'Cancel' : 'Change'}
+              </button>
             </div>
-            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-400">
-              Coming Soon
-            </span>
+
+            {securityView === 'email' && (
+              <div className="mt-4 space-y-3 rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-600 dark:bg-slate-700/40">
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">Current Password</label>
+                  <input
+                    type="password"
+                    value={emailForm.current}
+                    onChange={(e) => setEmailForm({ ...emailForm, current: e.target.value })}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                    placeholder="Enter current password to confirm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">New Email Address</label>
+                  <input
+                    type="email"
+                    value={emailForm.newEmail}
+                    onChange={(e) => setEmailForm({ ...emailForm, newEmail: e.target.value })}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:border-slate-600 dark:bg-slate-800 dark:text-white"
+                    placeholder="new@email.com"
+                  />
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  You will be signed out after changing your email and must sign in again.
+                </p>
+                <div className="flex justify-end gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setSecurityView('none'); setSecurityError(null); }}
+                    className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSecuritySubmit('email')}
+                    disabled={securityLoading}
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-[#5a0c0e] disabled:opacity-50"
+                  >
+                    {securityLoading ? 'Saving...' : 'Update Email'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 2FA Row */}
+          <div className="border-t border-slate-200 pt-4 dark:border-slate-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-slate-900 dark:text-white">Two-Factor Authentication</p>
+                <p className="text-sm text-slate-500 dark:text-slate-400">Add an extra layer of security</p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 dark:bg-slate-700 dark:text-slate-400">
+                Coming Soon
+              </span>
+            </div>
           </div>
         </div>
       </div>

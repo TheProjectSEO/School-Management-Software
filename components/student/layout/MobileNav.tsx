@@ -65,10 +65,10 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
   return (
     <>
       {/* Mobile Header */}
-      <header className={`flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 lg:hidden ${isPlayful ? theme.layout.mobileBg : 'bg-white dark:bg-[#1a2634]'}`}>
+      <header className={`flex items-center justify-between p-4 lg:hidden ${isPlayful ? `${theme.layout.mobileBg} border-b border-slate-200 dark:border-slate-700` : 'bg-[#7B1113]'}`}>
         <div className="flex items-center gap-3">
           <BrandLogo size="sm" />
-          <span className={`text-sm font-bold ${isPlayful ? 'text-pink-600' : 'text-primary'}`}>
+          <span className={`text-sm font-bold ${isPlayful ? 'text-pink-600' : 'text-white'}`}>
             {isPlayful ? `Hi, ${firstName}!` : 'MSU'}
           </span>
         </div>
@@ -78,7 +78,7 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
             className={`group flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors shadow-sm ${
               isPlayful
                 ? 'bg-pink-500 hover:bg-pink-600 text-white'
-                : 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white'
+                : 'bg-white/20 hover:bg-white/30 text-white'
             }`}
             title="Log Out"
           >
@@ -91,7 +91,7 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
           </button>
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700"
+            className={`p-2 rounded-lg transition-colors ${isPlayful ? 'hover:bg-slate-100 dark:hover:bg-slate-700' : 'text-white hover:bg-white/20'}`}
           >
             <span className="material-symbols-outlined">
               {isOpen ? "close" : "menu"}

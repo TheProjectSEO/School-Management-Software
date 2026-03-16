@@ -44,11 +44,11 @@ export default function TeacherShell({ children, teacherData }: TeacherShellProp
 
       <div className="flex flex-1 flex-col md:ml-64 min-w-0">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 bg-white dark:bg-card-dark border-b border-slate-200 dark:border-slate-700 shrink-0">
+        <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 bg-[#7B1113] shrink-0">
           {/* Hamburger — mobile only */}
           <button
             onClick={() => setSidebarOpen(true)}
-            className="md:hidden p-2 rounded-lg text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className="md:hidden p-2 rounded-lg text-white hover:bg-white/20 transition-colors"
             aria-label="Open menu"
           >
             <span className="material-symbols-outlined">menu</span>
@@ -58,13 +58,13 @@ export default function TeacherShell({ children, teacherData }: TeacherShellProp
 
           {/* User + Logout */}
           <div className="flex items-center gap-2">
-            <span className="hidden sm:block text-sm font-medium text-slate-600 dark:text-slate-300 truncate max-w-[160px]">
+            <span className="hidden sm:block text-sm font-medium text-white/90 truncate max-w-[160px]">
               {displayName}
             </span>
             <button
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className="group flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              className="group flex items-center gap-2 px-3 py-2 text-sm font-medium text-white/90 hover:text-white hover:bg-white/20 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
             >
               <span className={`material-symbols-outlined text-[18px] transition-transform duration-300 ${isLoggingOut ? 'animate-spin' : 'group-hover:rotate-180'}`}>
                 {isLoggingOut ? 'autorenew' : 'logout'}

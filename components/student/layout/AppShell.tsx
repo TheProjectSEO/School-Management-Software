@@ -42,10 +42,10 @@ export function AppShell({ children, user, studentId }: AppShellProps) {
         <MobileNav user={user} onLogout={handleLogout} showRealtimeNotifications={!!studentId} />
 
         {/* Desktop topbar — hidden on mobile (MobileNav covers it) */}
-        <header className={`hidden lg:flex items-center justify-between h-14 px-6 border-b border-slate-200 dark:border-slate-700 shrink-0 sticky top-0 z-30 ${isPlayful ? theme.layout.mobileBg : 'bg-white dark:bg-card-dark'}`}>
+        <header className={`hidden lg:flex items-center justify-between h-14 px-6 shrink-0 sticky top-0 z-30 ${isPlayful ? `${theme.layout.mobileBg} border-b border-slate-200 dark:border-slate-700` : 'bg-[#7B1113]'}`}>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-slate-600 dark:text-slate-300 truncate max-w-[160px]">
+            <span className={`text-sm font-medium truncate max-w-[160px] ${isPlayful ? 'text-slate-600 dark:text-slate-300' : 'text-white/90'}`}>
               {isPlayful ? `Hi, ${displayName.split(' ')[0]}!` : displayName}
             </span>
             <button
@@ -54,7 +54,7 @@ export function AppShell({ children, user, studentId }: AppShellProps) {
               className={`group flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                 isPlayful
                   ? 'text-purple-600 hover:bg-pink-100 hover:text-pink-700'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                  : 'text-white/90 hover:text-white hover:bg-white/20'
               }`}
             >
               {isPlayful ? (

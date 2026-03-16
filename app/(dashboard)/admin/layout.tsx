@@ -85,11 +85,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           {/* Main content — offset by sidebar width on md+ */}
           <div className="flex flex-1 flex-col md:ml-64 min-w-0">
             {/* Top bar */}
-            <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 bg-bg-light border-b border-slate-200 shrink-0">
+            <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 bg-[#7B1113] shrink-0">
               {/* Hamburger — mobile only */}
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="md:hidden p-2 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors"
+                className="md:hidden p-2 rounded-lg text-white hover:bg-white/20 transition-colors"
                 aria-label="Open menu"
               >
                 <span className="material-symbols-outlined">menu</span>
@@ -99,13 +99,13 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
               {/* User + Logout */}
               <div className="flex items-center gap-2">
-                <span className="hidden sm:block text-sm font-medium text-slate-600 truncate max-w-[160px]">
+                <span className="hidden sm:block text-sm font-medium text-white/90 truncate max-w-[160px]">
                   {adminName}
                 </span>
                 <button
                   onClick={handleLogout}
                   disabled={isLoggingOut}
-                  className="group flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="group flex items-center gap-2 px-3 py-2 text-sm font-medium text-white/90 hover:text-white hover:bg-white/20 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <span className={`material-symbols-outlined text-[18px] transition-transform duration-300 ${isLoggingOut ? 'animate-spin' : 'group-hover:rotate-180'}`}>
                     {isLoggingOut ? 'autorenew' : 'logout'}

@@ -17,7 +17,7 @@ interface Student {
   lrn: string;
   grade_level: string;
   section_name?: string;
-  status: "active" | "inactive" | "suspended";
+  status: "active" | "inactive" | "suspended" | "graduated" | "transferred";
   created_at: string;
 }
 
@@ -72,6 +72,11 @@ export default function StudentsPage() {
     sectionId: "",
     phone: "+63 ",
     temporaryPassword: "",
+    birthDate: "",
+    gender: "",
+    address: "",
+    guardianName: "",
+    guardianPhone: "",
   });
 
   const [lrnError, setLrnError] = useState("");
@@ -436,6 +441,11 @@ export default function StudentsPage() {
           sectionId: "",
           phone: "",
           temporaryPassword: "",
+          birthDate: "",
+          gender: "",
+          address: "",
+          guardianName: "",
+          guardianPhone: "",
         });
         fetchStudents();
       } else {
@@ -459,6 +469,8 @@ export default function StudentsPage() {
         { value: "active", label: "Active" },
         { value: "inactive", label: "Inactive" },
         { value: "suspended", label: "Suspended" },
+        { value: "graduated", label: "Graduated" },
+        { value: "transferred", label: "Transferred" },
       ],
     },
     {
@@ -734,6 +746,11 @@ export default function StudentsPage() {
             sectionId: "",
             phone: "+63 ",
             temporaryPassword: "",
+            birthDate: "",
+            gender: "",
+            address: "",
+            guardianName: "",
+            guardianPhone: "",
           });
         }}
         onSubmit={handleAddStudent}
@@ -878,6 +895,75 @@ export default function StudentsPage() {
               placeholder="Leave empty to auto-generate"
             />
             <p className="text-xs text-gray-500 mt-1">If left empty, a secure password will be generated automatically</p>
+          </div>
+
+          <div className="border-t border-gray-200 pt-4">
+            <p className="text-sm font-medium text-gray-700 mb-3">Personal Information (Optional)</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date of Birth
+                </label>
+                <input
+                  type="date"
+                  value={formData.birthDate}
+                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Gender
+                </label>
+                <select
+                  value={formData.gender}
+                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="">Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Address
+              </label>
+              <input
+                type="text"
+                value={formData.address}
+                onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                placeholder="Street, Barangay, City"
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Guardian Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.guardianName}
+                  onChange={(e) => setFormData({ ...formData, guardianName: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="Parent or guardian name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Guardian Phone
+                </label>
+                <input
+                  type="tel"
+                  value={formData.guardianPhone}
+                  onChange={(e) => setFormData({ ...formData, guardianPhone: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                  placeholder="+63 9XX XXX XXXX"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">

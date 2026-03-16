@@ -2,7 +2,7 @@
 
 import { clsx } from "clsx";
 
-type Status = "active" | "inactive" | "suspended" | "pending" | "completed" | "dropped";
+type Status = "active" | "inactive" | "suspended" | "pending" | "completed" | "dropped" | "graduated" | "transferred";
 
 interface UserStatusBadgeProps {
   status: Status;
@@ -48,6 +48,18 @@ const statusConfig: Record<
     bgColor: "bg-orange-50",
     textColor: "text-orange-700",
     dotColor: "bg-orange-500",
+  },
+  graduated: {
+    label: "Graduated",
+    bgColor: "bg-purple-50",
+    textColor: "text-purple-700",
+    dotColor: "bg-purple-500",
+  },
+  transferred: {
+    label: "Transferred",
+    bgColor: "bg-sky-50",
+    textColor: "text-sky-700",
+    dotColor: "bg-sky-500",
   },
 };
 

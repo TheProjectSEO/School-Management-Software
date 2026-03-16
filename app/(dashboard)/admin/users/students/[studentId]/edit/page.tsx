@@ -20,6 +20,11 @@ interface StudentData {
   full_name: string;
   phone: string;
   email?: string;
+  birth_date?: string;
+  gender?: string;
+  address?: string;
+  guardian_name?: string;
+  guardian_phone?: string;
 }
 
 interface Section {
@@ -36,12 +41,18 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
   const [resettingPassword, setResettingPassword] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
+  const [showEmailChangeModal, setShowEmailChangeModal] = useState(false);
   const [newPassword, setNewPassword] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const [pendingNewEmail, setPendingNewEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
+  const [originalEmail, setOriginalEmail] = useState("");
   const [generatedPassword, setGeneratedPassword] = useState<string | null>(null);
   const [accountCreated, setAccountCreated] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [sections, setSections] = useState<Section[]>([]);
+  const [lrnError, setLrnError] = useState("");
   const [formData, setFormData] = useState<StudentData>({
     id: "",
     profile_id: "",
@@ -52,7 +63,26 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
     full_name: "",
     phone: "",
     email: "",
+    birth_date: "",
+    gender: "",
+    address: "",
+    guardian_name: "",
+    guardian_phone: "",
   });
+
+  const validateLRN = (lrn: string): boolean => {
+    if (!lrn) {
+      setLrnError("");
+      return true;
+    }
+    const lrnPattern = /^\d{4}-MSU-\d{4,}$/;
+    if (!lrnPattern.test(lrn)) {
+      setLrnError("Invalid format. Must be YYYY-MSU-#### (e.g., 2026-MSU-0010)");
+      return false;
+    }
+    setLrnError("");
+    return true;
+  };
 
   useEffect(() => {
     async function loadParams() {
@@ -67,12 +97,12 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
 
     async function fetchData() {
       try {
-        // Fetch student data
         const response = await authFetch(`/api/admin/users/students/${studentId}`);
         if (!response.ok) {
           throw new Error("Failed to fetch student");
         }
         const data = await response.json();
+        const studentEmail = data.email || data.profile?.email || "";
         setFormData({
           id: data.id,
           profile_id: data.profile_id,
@@ -82,10 +112,15 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
           status: data.status || "active",
           full_name: data.full_name || "",
           phone: data.phone || "",
-          email: data.email || data.profile?.email || "",
+          email: studentEmail,
+          birth_date: data.birth_date || "",
+          gender: data.gender || "",
+          address: data.address || "",
+          guardian_name: data.guardian_name || "",
+          guardian_phone: data.guardian_phone || "",
         });
+        setOriginalEmail(studentEmail);
 
-        // Fetch sections
         const sectionsResponse = await authFetch("/api/admin/sections");
         if (sectionsResponse.ok) {
           const sectionsData = await sectionsResponse.json();
@@ -103,11 +138,15 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (formData.lrn && !validateLRN(formData.lrn)) {
+      return;
+    }
+
     setSaving(true);
     setError(null);
 
     try {
-      // Update student details via PUT
       const response = await authFetch(`/api/admin/users/students/${studentId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -117,11 +156,20 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
           sectionId: formData.section_id || null,
           fullName: formData.full_name,
           phone: formData.phone,
+          birthDate: formData.birth_date || null,
+          gender: formData.gender || null,
+          address: formData.address || null,
+          guardianName: formData.guardian_name || null,
+          guardianPhone: formData.guardian_phone || null,
         }),
       });
 
-      // Update status via PATCH if needed
-      if (response.ok && formData.status) {
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "Failed to update student");
+      }
+
+      if (formData.status) {
         await authFetch(`/api/admin/users/students/${studentId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -129,15 +177,48 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
         });
       }
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || "Failed to update student");
-      }
-
       router.push(`/admin/users/students/${studentId}`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleEmailChangeConfirm = async () => {
+    if (!adminPassword) {
+      setError("Please enter your admin password");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await authFetch(`/api/admin/users/students/${studentId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: pendingNewEmail,
+          adminPassword,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        if (data.code === "INVALID_PASSWORD") {
+          throw new Error("Invalid admin password. Please try again.");
+        }
+        throw new Error(data.error || "Failed to update email");
+      }
+
+      setFormData((prev) => ({ ...prev, email: pendingNewEmail }));
+      setOriginalEmail(pendingNewEmail);
+      setShowEmailChangeModal(false);
+      setAdminPassword("");
+      setPendingNewEmail("");
+      setSuccessMessage("Email updated successfully");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update email");
     } finally {
       setSaving(false);
     }
@@ -162,7 +243,6 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
       const data = await response.json();
 
       if (!response.ok) {
-        // Check if the error is because there's no auth account
         if (data.code === "NO_AUTH_ACCOUNT") {
           setShowCreateAccountModal(true);
           setResettingPassword(false);
@@ -250,6 +330,11 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
             {error}
           </div>
         )}
+        {successMessage && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-600 rounded-lg">
+            {successMessage}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -274,9 +359,46 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
                 type="text"
                 required
                 value={formData.lrn}
-                onChange={(e) => setFormData({ ...formData, lrn: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData({ ...formData, lrn: value });
+                  validateLRN(value);
+                }}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
+                  lrnError ? "border-red-500" : "border-gray-200"
+                }`}
               />
+              {lrnError && (
+                <p className="text-sm text-red-500 mt-1">{lrnError}</p>
+              )}
+            </div>
+
+            {/* Email field with Edit button */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email Address
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="email"
+                  disabled
+                  value={formData.email || ""}
+                  className="flex-1 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-600 cursor-not-allowed"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingNewEmail(formData.email || "");
+                    setAdminPassword("");
+                    setShowEmailChangeModal(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-primary border border-primary rounded-lg hover:bg-primary/5 transition-colors whitespace-nowrap"
+                >
+                  <span className="material-symbols-outlined text-base">edit</span>
+                  Edit
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-1">Email is used for login authentication</p>
             </div>
 
             <div>
@@ -352,6 +474,78 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
             </div>
           </div>
 
+          {/* Personal Information */}
+          <div className="border-t border-gray-100 pt-6">
+            <h3 className="text-sm font-semibold text-gray-700 mb-4">Personal Information</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date of Birth
+                </label>
+                <input
+                  type="date"
+                  value={formData.birth_date || ""}
+                  onChange={(e) => setFormData({ ...formData, birth_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Gender
+                </label>
+                <select
+                  value={formData.gender || ""}
+                  onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                >
+                  <option value="">Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                </select>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Address
+                </label>
+                <input
+                  type="text"
+                  value={formData.address || ""}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="Street, Barangay, City"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Guardian Name
+                </label>
+                <input
+                  type="text"
+                  value={formData.guardian_name || ""}
+                  onChange={(e) => setFormData({ ...formData, guardian_name: e.target.value })}
+                  placeholder="Parent or guardian name"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Guardian Phone
+                </label>
+                <input
+                  type="tel"
+                  value={formData.guardian_phone || ""}
+                  onChange={(e) => setFormData({ ...formData, guardian_phone: e.target.value })}
+                  placeholder="+63 9XX XXX XXXX"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
             <Link
               href={`/admin/users/students/${studentId}`}
@@ -361,7 +555,7 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
             </Link>
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || !!lrnError}
               className="px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-hover disabled:opacity-50 flex items-center gap-2"
             >
               {saving && (
@@ -446,6 +640,101 @@ export default function StudentEditPage({ params }: StudentEditPageProps) {
           )}
         </div>
       </div>
+
+      {/* Email Change Modal */}
+      {showEmailChangeModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="fixed inset-0 bg-black/50" onClick={() => !saving && setShowEmailChangeModal(false)} />
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <span className="material-symbols-outlined text-primary">email</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Change Email Address</h3>
+                  <p className="text-sm text-gray-500">Admin password required for security</p>
+                </div>
+              </div>
+
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg text-sm">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Current Email
+                  </label>
+                  <input
+                    type="email"
+                    disabled
+                    value={originalEmail}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    New Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    value={pendingNewEmail}
+                    onChange={(e) => setPendingNewEmail(e.target.value)}
+                    placeholder="new@email.com"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    disabled={saving}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Your Admin Password <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="password"
+                    value={adminPassword}
+                    onChange={(e) => setAdminPassword(e.target.value)}
+                    placeholder="Enter your admin password"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    disabled={saving}
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowEmailChangeModal(false);
+                    setAdminPassword("");
+                    setPendingNewEmail("");
+                    setError(null);
+                  }}
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEmailChangeConfirm}
+                  disabled={saving || !pendingNewEmail || !adminPassword}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary-hover disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {saving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Update Email"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation Modal */}
       {showConfirmModal && (

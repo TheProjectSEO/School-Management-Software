@@ -34,6 +34,12 @@ export interface StudentListItem {
 
 export interface StudentDetails extends StudentListItem {
   phone?: string;
+  birth_date?: string;
+  gender?: string;
+  address?: string;
+  guardian_name?: string;
+  guardian_phone?: string;
+  status?: string;
   profile?: {
     id: string;
     auth_user_id: string;
@@ -63,6 +69,11 @@ export interface UpdateStudentInput {
   full_name?: string;
   phone?: string;
   avatar_url?: string;
+  birth_date?: string;
+  gender?: string;
+  address?: string;
+  guardian_name?: string;
+  guardian_phone?: string;
 }
 
 export interface TeacherListFilters {
@@ -308,7 +319,8 @@ export async function getStudentById(id: string): Promise<StudentDetails | null>
           auth_user_id,
           full_name,
           phone,
-          avatar_url
+          avatar_url,
+          email
         ),
         section:sections(
           id,
@@ -350,11 +362,18 @@ export async function getStudentById(id: string): Promise<StudentDetails | null>
       section_id: data.section_id,
       lrn: data.lrn || '',
       grade_level: data.grade_level || '',
+      status: data.status,
       full_name:
         data.profile?.[0]?.full_name || data.profile?.full_name || 'Unknown',
+      email: data.profile?.[0]?.email || data.profile?.email,
       phone: data.profile?.[0]?.phone || data.profile?.phone,
       avatar_url: data.profile?.[0]?.avatar_url || data.profile?.avatar_url,
       section_name: data.section?.[0]?.name || data.section?.name,
+      birth_date: data.birth_date,
+      gender: data.gender,
+      address: data.address,
+      guardian_name: data.guardian_name,
+      guardian_phone: data.guardian_phone,
       created_at: data.created_at,
       updated_at: data.updated_at,
       profile: data.profile?.[0] || data.profile,
@@ -394,6 +413,14 @@ export async function updateStudent(
       studentUpdates.grade_level = updates.grade_level;
     if (updates.section_id !== undefined)
       studentUpdates.section_id = updates.section_id;
+    if (updates.birth_date !== undefined)
+      studentUpdates.birth_date = updates.birth_date;
+    if (updates.gender !== undefined) studentUpdates.gender = updates.gender;
+    if (updates.address !== undefined) studentUpdates.address = updates.address;
+    if (updates.guardian_name !== undefined)
+      studentUpdates.guardian_name = updates.guardian_name;
+    if (updates.guardian_phone !== undefined)
+      studentUpdates.guardian_phone = updates.guardian_phone;
 
     if (updates.full_name !== undefined)
       profileUpdates.full_name = updates.full_name;
@@ -929,7 +956,7 @@ export async function createStudent(
  */
 export async function updateStudentStatus(
   id: string,
-  status: 'active' | 'inactive' | 'graduated' | 'transferred'
+  status: 'active' | 'inactive' | 'suspended' | 'graduated' | 'transferred'
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // Use admin client to bypass RLS
@@ -1381,6 +1408,71 @@ export async function updateTeacherEmail(
     return { success: true };
   } catch (error) {
     console.error('Unexpected error in updateTeacherEmail:', error);
+    return { success: false, error: 'An unexpected error occurred' };
+  }
+}
+
+/**
+ * Update student email (requires admin password verification)
+ * This updates the email in Supabase auth and school_profiles
+ */
+export async function updateStudentEmail(
+  studentId: string,
+  newEmail: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = createAdminClient();
+
+    // Get the student's profile_id
+    const { data: student, error: studentError } = await supabase
+      .from('students')
+      .select('profile_id')
+      .eq('id', studentId)
+      .single();
+
+    if (studentError || !student) {
+      return { success: false, error: 'Student not found' };
+    }
+
+    // Get the auth_user_id from school_profiles
+    const { data: profile, error: profileError } = await supabase
+      .from('school_profiles')
+      .select('auth_user_id')
+      .eq('id', student.profile_id)
+      .single();
+
+    if (profileError || !profile) {
+      return { success: false, error: 'Profile not found' };
+    }
+
+    if (!profile.auth_user_id) {
+      return { success: false, error: 'Student does not have an auth account. Create one first via password reset.' };
+    }
+
+    // Update the email in Supabase auth
+    const { error: updateError } = await supabase.auth.admin.updateUserById(
+      profile.auth_user_id,
+      { email: newEmail }
+    );
+
+    if (updateError) {
+      console.error('Error updating email in auth:', updateError);
+      return { success: false, error: updateError.message };
+    }
+
+    // Also update school_profiles.email so the UI reflects the change
+    const { error: profileUpdateError } = await supabase
+      .from('school_profiles')
+      .update({ email: newEmail, updated_at: new Date().toISOString() })
+      .eq('id', student.profile_id);
+
+    if (profileUpdateError) {
+      console.error('Error updating school_profiles email (non-fatal):', profileUpdateError);
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error('Unexpected error in updateStudentEmail:', error);
     return { success: false, error: 'An unexpected error occurred' };
   }
 }

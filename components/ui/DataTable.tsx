@@ -107,8 +107,8 @@ export default function DataTable<T extends object>({
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div className="overflow-x-auto -mx-px">
+        <table className="w-full min-w-[600px]">
           <thead className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-700">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
@@ -116,7 +116,7 @@ export default function DataTable<T extends object>({
                   <th
                     key={header.id}
                     className={cn(
-                      "px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider",
+                      "px-3 sm:px-4 py-3 text-left text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider",
                       header.column.getCanSort() && "cursor-pointer select-none hover:bg-slate-100 dark:hover:bg-slate-800"
                     )}
                     onClick={header.column.getToggleSortingHandler()}
@@ -179,7 +179,7 @@ export default function DataTable<T extends object>({
                   )}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
+                    <td key={cell.id} className="px-3 sm:px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()
@@ -195,8 +195,8 @@ export default function DataTable<T extends object>({
 
       {/* Pagination */}
       {pagination && (
-        <div className="px-4 py-3 border-t border-slate-200 dark:border-slate-700 flex items-center justify-between">
-          <div className="text-sm text-slate-500 dark:text-slate-400">
+        <div className="px-3 sm:px-4 py-3 border-t border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row gap-3 sm:gap-0 items-start sm:items-center sm:justify-between">
+          <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
             Showing{" "}
             <span className="font-medium">
               {(pagination.page - 1) * pagination.pageSize + 1}

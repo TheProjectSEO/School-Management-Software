@@ -186,9 +186,9 @@ export default function GradebookTable({
   return (
     <div
       ref={tableRef}
-      className="overflow-auto max-h-[calc(100vh-400px)]"
+      className="overflow-auto max-h-[calc(100vh-400px)] -mx-px"
     >
-      <table className="w-full border-collapse">
+      <table className="w-full min-w-[700px] border-collapse">
         <thead className="sticky top-0 z-20">
           {/* Type Header Row */}
           <tr className="bg-slate-100 dark:bg-slate-800">

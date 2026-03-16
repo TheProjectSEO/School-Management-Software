@@ -176,8 +176,8 @@ function GradesTab({
     <div className="space-y-6">
       {/* Grades Table */}
       <div className="rounded-xl border border-slate-200 bg-white shadow-sm dark:bg-[#1a2634] dark:border-slate-700 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="overflow-x-auto -mx-px">
+          <table className="w-full min-w-[480px]">
             <thead className="bg-primary text-white">
               <tr>
                 <th className="text-left py-3 px-4 font-semibold text-sm">Course</th>

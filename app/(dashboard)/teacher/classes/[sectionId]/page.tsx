@@ -194,20 +194,20 @@ async function SectionDetailsContent({ sectionId }: { sectionId: string }) {
             No students enrolled in this section yet.
           </p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto -mx-px">
+            <table className="w-full min-w-[480px]">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-700">
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600 dark:text-slate-400">
+                  <th className="text-left py-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400">
                     Student Name
                   </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600 dark:text-slate-400">
+                  <th className="text-left py-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400">
                     LRN
                   </th>
-                  <th className="text-left py-3 px-4 text-sm font-semibold text-slate-600 dark:text-slate-400">
+                  <th className="text-left py-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400">
                     Grade Level
                   </th>
-                  <th className="text-right py-3 px-4 text-sm font-semibold text-slate-600 dark:text-slate-400">
+                  <th className="text-right py-3 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400">
                     Actions
                   </th>
                 </tr>
@@ -220,7 +220,7 @@ async function SectionDetailsContent({ sectionId }: { sectionId: string }) {
                       index % 2 === 0 ? 'bg-slate-50/50 dark:bg-slate-800/50' : ''
                     }`}
                   >
-                    <td className="py-3 px-4">
+                    <td className="py-3 px-3 sm:px-4">
                       <div className="flex items-center gap-3">
                         {student.profile.avatar_url ? (
                           <img
@@ -240,13 +240,13 @@ async function SectionDetailsContent({ sectionId }: { sectionId: string }) {
                         </span>
                       </div>
                     </td>
-                    <td className="py-3 px-4 text-slate-600 dark:text-slate-400">
+                    <td className="py-3 px-3 sm:px-4 text-slate-600 dark:text-slate-400">
                       {student.lrn || '-'}
                     </td>
-                    <td className="py-3 px-4 text-slate-600 dark:text-slate-400">
+                    <td className="py-3 px-3 sm:px-4 text-slate-600 dark:text-slate-400">
                       Grade {student.grade_level}
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3 px-3 sm:px-4 text-right">
                       <Link
                         href={`/teacher/students/${student.id}`}
                         className="inline-flex items-center gap-1 px-3 py-1.5 text-sm rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 transition-colors"

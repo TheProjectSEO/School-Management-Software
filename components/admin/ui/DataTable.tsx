@@ -124,8 +124,8 @@ export default function DataTable<T extends object>({
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full">
+      <div className="overflow-x-auto -mx-px">
+        <table className="w-full min-w-[600px]">
           <thead className="bg-primary/5 border-b-2 border-primary/20">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
@@ -133,7 +133,7 @@ export default function DataTable<T extends object>({
                   <th
                     key={header.id}
                     className={clsx(
-                      "px-4 py-3 text-left text-xs font-semibold text-primary/70 uppercase tracking-wider",
+                      "px-3 sm:px-4 py-3 text-left text-xs font-semibold text-primary/70 uppercase tracking-wider",
                       header.column.getCanSort() && "cursor-pointer select-none"
                     )}
                     onClick={header.column.getToggleSortingHandler()}
@@ -196,7 +196,7 @@ export default function DataTable<T extends object>({
                   )}
                 >
                   {row.getVisibleCells().map((cell) => (
-                    <td key={cell.id} className="px-4 py-3 text-sm text-gray-700">
+                    <td key={cell.id} className="px-3 sm:px-4 py-3 text-sm text-gray-700">
                       {flexRender(
                         cell.column.columnDef.cell,
                         cell.getContext()

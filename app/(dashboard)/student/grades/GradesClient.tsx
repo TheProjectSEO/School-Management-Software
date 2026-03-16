@@ -196,7 +196,8 @@ export default function GradesClient({
                   ? "border-pink-200"
                   : "border-slate-200 dark:border-slate-700"
               }`}>
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto -mx-px">
+                <table className="w-full min-w-[480px] text-sm">
                   <thead className={`${
                     isPlayful
                       ? "bg-gradient-to-r from-pink-100 to-purple-100"
@@ -228,6 +229,7 @@ export default function GradesClient({
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </>
           )}
@@ -286,7 +288,8 @@ export default function GradesClient({
               <div className={`rounded-xl border overflow-hidden ${
                 isPlayful ? "border-pink-200" : "border-slate-200 dark:border-slate-700"
               }`}>
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto -mx-px">
+                <table className="w-full min-w-[480px] text-sm">
                   <thead className={`${
                     isPlayful
                       ? "bg-gradient-to-r from-pink-100 to-purple-100"
@@ -359,6 +362,7 @@ export default function GradesClient({
                     </tfoot>
                   )}
                 </table>
+                </div>
               </div>
 
               {/* DepEd passing note */}

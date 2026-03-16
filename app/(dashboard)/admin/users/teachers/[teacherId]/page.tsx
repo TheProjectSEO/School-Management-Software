@@ -327,8 +327,8 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
                 No course assignments
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="overflow-x-auto -mx-px">
+                <table className="w-full min-w-[400px] text-sm">
                   <thead>
                     <tr className="border-b border-gray-100">
                       <th className="text-left py-2 px-3 font-medium text-gray-500">Course</th>
@@ -418,8 +418,8 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
                 No schedule available - assign courses first
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="overflow-x-auto -mx-px">
+                <table className="w-full min-w-[400px] text-sm">
                   <thead>
                     <tr className="border-b border-gray-100">
                       <th className="text-left py-2 px-3 font-medium text-gray-500">Day</th>

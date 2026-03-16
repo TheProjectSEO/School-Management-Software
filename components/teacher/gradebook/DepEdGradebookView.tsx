@@ -246,8 +246,8 @@ export default function DepEdGradebookView({
 
       {/* Grade Table */}
       <Card className="p-0 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm border-collapse">
+        <div className="overflow-x-auto -mx-px">
+          <table className="w-full min-w-[700px] text-sm border-collapse">
             <thead>
               {/* Component group header */}
               <tr className="bg-slate-100 dark:bg-slate-800/60">

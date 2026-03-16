@@ -94,15 +94,17 @@ export function RecordingsClient({
             exit={{ opacity: 0, y: -20 }}
             className={`mb-6 ${theme.spacing.borderRadius} overflow-hidden ${theme.effects.shadows ? 'shadow-2xl' : 'border border-gray-200'} bg-black`}
           >
-            <video
-              key={selectedRecording.id}
-              controls
-              className="w-full"
-              style={{ maxHeight: '500px' }}
-              src={selectedRecording.recording_url}
-            >
-              Your browser does not support video playback.
-            </video>
+            <div className="w-full aspect-video">
+              <video
+                key={selectedRecording.id}
+                controls
+                playsInline
+                className="w-full h-full object-contain"
+                src={selectedRecording.recording_url}
+              >
+                Your browser does not support video playback.
+              </video>
+            </div>
 
             {/* Video Info */}
             <div className="bg-white p-4">

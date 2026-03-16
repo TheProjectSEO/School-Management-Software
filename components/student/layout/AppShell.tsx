@@ -45,6 +45,16 @@ export function AppShell({ children, user, studentId }: AppShellProps) {
         <header className={`hidden lg:flex items-center justify-between h-14 px-6 shrink-0 sticky top-0 z-30 ${isPlayful ? `${theme.layout.mobileBg} border-b border-slate-200 dark:border-slate-700` : 'bg-[#7B1113]'}`}>
           <div className="flex-1" />
           <div className="flex items-center gap-2">
+            {/* Avatar */}
+            {user?.avatar ? (
+              <div className={`w-8 h-8 rounded-full overflow-hidden border shrink-0 ${isPlayful ? 'border-pink-300' : 'border-white/40'}`}>
+                <img src={user.avatar} alt={displayName} className="w-full h-full object-cover" />
+              </div>
+            ) : (
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none ${isPlayful ? 'bg-pink-100 text-pink-700 border border-pink-300' : 'bg-white/25 border border-white/40 text-white'}`}>
+                {displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || 'ST'}
+              </div>
+            )}
             <span className={`text-sm font-medium truncate max-w-[160px] ${isPlayful ? 'text-slate-600 dark:text-slate-300' : 'text-white/90'}`}>
               {isPlayful ? `Hi, ${displayName.split(' ')[0]}!` : displayName}
             </span>

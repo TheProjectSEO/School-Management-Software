@@ -65,17 +65,31 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
   return (
     <>
       {/* Mobile Header */}
-      <header className={`flex items-center justify-between p-4 lg:hidden ${isPlayful ? `${theme.layout.mobileBg} border-b border-slate-200 dark:border-slate-700` : 'bg-[#7B1113]'}`}>
-        <div className="flex items-center gap-3">
+      <header className={`flex items-center justify-between px-4 py-3 lg:hidden ${isPlayful ? `${theme.layout.mobileBg} border-b border-slate-200 dark:border-slate-700` : 'bg-[#7B1113]'}`}>
+        {/* Logo + name */}
+        <div className="flex items-center gap-2 min-w-0">
           <BrandLogo size="sm" />
           <span className={`text-sm font-bold ${isPlayful ? 'text-pink-600' : 'text-white'}`}>
             {isPlayful ? `Hi, ${firstName}!` : 'MSU'}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+
+        {/* Right: profile + logout + menu */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {/* Profile avatar */}
+          {user?.avatar ? (
+            <div className={`w-8 h-8 rounded-full overflow-hidden border shrink-0 ${isPlayful ? 'border-pink-300' : 'border-white/40'}`}>
+              <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
+            </div>
+          ) : (
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 select-none ${isPlayful ? 'bg-pink-100 text-pink-700 border border-pink-300' : 'bg-white/25 border border-white/40 text-white'}`}>
+              {(user?.name || 'ST').split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
+            </div>
+          )}
+
           <button
             onClick={onLogout}
-            className={`group flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors shadow-sm ${
+            className={`group flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
               isPlayful
                 ? 'bg-pink-500 hover:bg-pink-600 text-white'
                 : 'bg-white/20 hover:bg-white/30 text-white'
@@ -87,7 +101,7 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
             ) : (
               <span className="material-symbols-outlined text-[16px] transition-transform duration-300 group-hover:rotate-180">logout</span>
             )}
-            {isPlayful ? 'Bye!' : 'Log Out'}
+            <span className="hidden xs:inline">{isPlayful ? 'Bye!' : 'Log Out'}</span>
           </button>
           <button
             onClick={() => setIsOpen(!isOpen)}

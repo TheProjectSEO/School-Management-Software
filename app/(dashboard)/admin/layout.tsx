@@ -3,6 +3,7 @@
 import { authFetch } from "@/lib/utils/authFetch";
 
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { AdminGuard } from '@/components/auth/RoleGuard';
 import { useAuth } from '@/hooks/useAuth';
 import AdminSidebar from '@/components/admin/layout/AdminSidebar';
@@ -85,27 +86,35 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           {/* Main content — offset by sidebar width on md+ */}
           <div className="flex flex-1 flex-col md:ml-64 min-w-0">
             {/* Top bar */}
-            <header className="sticky top-0 z-30 flex items-center justify-between h-14 px-4 bg-[#7B1113] shrink-0">
-              {/* Hamburger — mobile only */}
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="md:hidden p-2 rounded-lg text-white hover:bg-white/20 transition-colors"
-                aria-label="Open menu"
-              >
-                <span className="material-symbols-outlined">menu</span>
-              </button>
+            <header className="sticky top-0 z-30 flex items-center h-14 px-4 bg-[#7B1113] shrink-0 gap-3">
+              {/* Hamburger + Logo — mobile only */}
+              <div className="flex items-center gap-2 md:hidden">
+                <button
+                  onClick={() => setSidebarOpen(true)}
+                  className="p-2 rounded-lg text-white hover:bg-white/20 transition-colors"
+                  aria-label="Open menu"
+                >
+                  <span className="material-symbols-outlined">menu</span>
+                </button>
+                <Image src="/brand/logo.png" alt="MSU" width={32} height={32} className="h-8 w-auto object-contain" />
+                <span className="text-white font-bold text-sm tracking-wide">MSU</span>
+              </div>
 
               <div className="flex-1" />
 
-              {/* User + Logout */}
+              {/* Profile + Logout */}
               <div className="flex items-center gap-2">
-                <span className="hidden sm:block text-sm font-medium text-white/90 truncate max-w-[160px]">
+                {/* Profile circle */}
+                <div className="w-8 h-8 rounded-full bg-white/25 border border-white/40 flex items-center justify-center text-white font-bold text-xs shrink-0 select-none">
+                  {adminName.slice(0, 2).toUpperCase()}
+                </div>
+                <span className="hidden sm:block text-sm font-medium text-white/90 truncate max-w-[140px]">
                   {adminName}
                 </span>
                 <button
                   onClick={handleLogout}
                   disabled={isLoggingOut}
-                  className="group flex items-center gap-2 px-3 py-2 text-sm font-medium text-white/90 hover:text-white hover:bg-white/20 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="group flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-medium text-white/90 hover:text-white hover:bg-white/20 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <span className={`material-symbols-outlined text-[18px] transition-transform duration-300 ${isLoggingOut ? 'animate-spin' : 'group-hover:rotate-180'}`}>
                     {isLoggingOut ? 'autorenew' : 'logout'}

@@ -93,7 +93,7 @@ async function getTeacherDetails(teacherId: string) {
           day: days[dayIndex],
           time: timeSlots[timeIndex],
           subject: course.name,
-          section: `Grade ${section.grade_level} - ${section.name}`,
+          section: /^grade\s/i.test(section.name.trim()) ? section.name : `Grade ${section.grade_level} - ${section.name}`,
         });
       }
     });
@@ -349,7 +349,7 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
                             </div>
                           </td>
                           <td className="py-2 px-3">
-                            Grade {section?.grade_level} - {section?.name}
+                            {section && (/^grade\s/i.test(section.name.trim()) ? section.name : `Grade ${section.grade_level} - ${section.name}`)}
                           </td>
                           <td className="py-2 px-3">
                             {assignment.is_active ? (

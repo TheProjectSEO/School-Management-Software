@@ -514,7 +514,19 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
     );
   }
 
-  const availableSectionsForAdviser = sections.filter((s) => !s.has_adviser);
+  // Deduplicate sections by id (guards against duplicate rows returned from the API)
+  const uniqueSections = sections.filter(
+    (s, i, arr) => arr.findIndex((x) => x.id === s.id) === i
+  );
+
+  // If a section name already starts with "Grade", don't add a second grade prefix
+  const formatSectionLabel = (name: string, grade_level: string, enrolled_count: number) => {
+    const hasGradePrefix = /^grade\s/i.test(name.trim());
+    const label = hasGradePrefix ? name : `Grade ${grade_level} - ${name}`;
+    return `${label} (${enrolled_count} students)`;
+  };
+
+  const availableSectionsForAdviser = uniqueSections.filter((s) => !s.has_adviser);
 
   return (
     <div className="space-y-6">
@@ -795,7 +807,11 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
                           </div>
                         </td>
                         <td className="py-2 px-3">
-                          Grade {assignment.section?.grade_level} - {assignment.section?.name}
+                          {assignment.section && (
+                            /^grade\s/i.test(assignment.section.name.trim())
+                              ? assignment.section.name
+                              : `Grade ${assignment.section.grade_level} - ${assignment.section.name}`
+                          )}
                         </td>
                         <td className="py-2 px-3">
                           {assignment.is_primary ? (
@@ -908,9 +924,9 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
                     className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   >
                     <option value="">Select a section</option>
-                    {sections.map((section) => (
+                    {uniqueSections.map((section) => (
                       <option key={section.id} value={section.id}>
-                        Grade {section.grade_level} - {section.name} ({section.enrolled_count} students)
+                        {formatSectionLabel(section.name, section.grade_level, section.enrolled_count)}
                       </option>
                     ))}
                   </select>
@@ -971,7 +987,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
                     <option value="">Select a section</option>
                     {availableSectionsForAdviser.map((section) => (
                       <option key={section.id} value={section.id}>
-                        Grade {section.grade_level} - {section.name} ({section.enrolled_count} students)
+                        {formatSectionLabel(section.name, section.grade_level, section.enrolled_count)}
                       </option>
                     ))}
                   </select>

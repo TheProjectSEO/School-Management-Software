@@ -25,15 +25,15 @@ export default function StatCard({
   return (
     <div
       className={clsx(
-        "bg-white rounded-xl p-6 shadow-sm border border-gray-100 transition-all",
-        onClick && "cursor-pointer hover:shadow-md hover:border-gray-200"
+        "bg-white rounded-xl p-6 shadow-sm border border-gray-100 border-l-4 border-l-primary/70 transition-all",
+        onClick && "cursor-pointer hover:shadow-md hover:border-l-primary"
       )}
       onClick={onClick}
     >
       <div className="flex items-center justify-between">
         <div>
           <p className="text-sm text-gray-500 font-medium">{label}</p>
-          <p className="text-3xl font-bold text-gray-900 mt-1">
+          <p className="text-3xl font-bold text-primary mt-1">
             {typeof value === "number" ? value.toLocaleString() : value}
           </p>
           {change && (

@@ -43,7 +43,7 @@ export default function FilterBar({
   return (
     <div
       className={clsx(
-        "bg-white rounded-xl p-4 shadow-sm border border-gray-100",
+        "bg-white rounded-xl p-4 shadow-sm border border-gray-100 border-l-4 border-l-primary",
         className
       )}
     >

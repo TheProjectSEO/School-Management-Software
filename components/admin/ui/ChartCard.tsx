@@ -19,11 +19,11 @@ export default function ChartCard({
 }: ChartCardProps) {
   return (
     <div
-      className={`bg-white rounded-xl p-6 shadow-sm border border-gray-100 ${className}`}
+      className={`bg-white rounded-xl p-6 shadow-sm border border-gray-100 border-t-4 border-t-primary/60 ${className}`}
     >
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 pb-3 border-b border-primary/10">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+          <h3 className="text-lg font-semibold text-primary/90">{title}</h3>
           {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
         </div>
         {action && <div>{action}</div>}

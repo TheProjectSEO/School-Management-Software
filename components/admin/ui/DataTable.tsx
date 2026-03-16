@@ -126,14 +126,14 @@ export default function DataTable<T extends object>({
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-100">
+          <thead className="bg-primary/5 border-b-2 border-primary/20">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
                     className={clsx(
-                      "px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider",
+                      "px-4 py-3 text-left text-xs font-semibold text-primary/70 uppercase tracking-wider",
                       header.column.getCanSort() && "cursor-pointer select-none"
                     )}
                     onClick={header.column.getToggleSortingHandler()}

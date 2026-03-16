@@ -246,8 +246,8 @@ export default async function AdminDashboardPage() {
     <div className="space-y-6">
       {/* Header with quick action icon buttons */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
+        <div className="border-l-4 border-l-primary pl-3">
+          <h1 className="text-xl sm:text-2xl font-bold text-primary">Dashboard</h1>
           <p className="text-sm text-gray-500 mt-1">Welcome to the MSU Admin Portal</p>
         </div>
         <div className="flex items-center gap-2">

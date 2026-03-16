@@ -50,9 +50,11 @@ export function FormModal({
       {/* Modal */}
       <div className={`relative w-full ${sizeClasses[size]} mx-0 sm:mx-4`}>
         <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-2xl overflow-hidden">
+          {/* Maroon accent bar */}
+          <div className="h-1 bg-primary" />
           {/* Header */}
-          <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
-            <h2 className="text-lg sm:text-xl font-bold text-gray-900">{title}</h2>
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-primary/10">
+            <h2 className="text-lg sm:text-xl font-bold text-primary">{title}</h2>
             <button
               onClick={onClose}
               disabled={loading}

@@ -46,8 +46,8 @@ const summaryConfig: {
     key: 'enrollment',
     label: 'Enrollment Trends',
     icon: 'trending_up',
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100',
+    color: 'text-primary',
+    bgColor: 'bg-primary/10',
     modalTitle: 'Enrollment Trends',
   },
   {
@@ -91,7 +91,7 @@ export default function AdminSummaryCardsGrid({
       label: 'Total Students',
       value: stats.totalStudents,
       icon: 'school',
-      color: 'bg-blue-500',
+      color: 'bg-primary',
       href: '/admin/users/students',
     },
     {
@@ -204,7 +204,7 @@ export default function AdminSummaryCardsGrid({
           <button
             key={key}
             onClick={() => setOpenWidget(key)}
-            className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-gray-300 transition-all text-left cursor-pointer"
+            className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md hover:border-primary/30 hover:bg-primary/[0.02] transition-all text-left cursor-pointer"
           >
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-lg ${bgColor} flex items-center justify-center flex-shrink-0`}>

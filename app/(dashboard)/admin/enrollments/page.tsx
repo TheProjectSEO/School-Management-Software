@@ -266,8 +266,8 @@ export default function EnrollmentsPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Enrollments</h1>
+        <div className="border-l-4 border-l-primary pl-3">
+          <h1 className="text-xl sm:text-2xl font-bold text-primary">Enrollments</h1>
           <p className="text-sm text-gray-500 mt-1">Manage student course enrollments</p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">

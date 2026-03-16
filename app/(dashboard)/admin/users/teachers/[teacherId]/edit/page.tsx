@@ -81,6 +81,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
   const [adminPassword, setAdminPassword] = useState("");
   const [originalEmail, setOriginalEmail] = useState("");
   const [newEmail, setNewEmail] = useState("");
+  const [pendingNewEmail, setPendingNewEmail] = useState("");
   const [accountCreated, setAccountCreated] = useState(false);
   const [formData, setFormData] = useState<TeacherData>({
     id: "",
@@ -256,13 +257,6 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    // Check if email has changed - require admin password
-    if (formData.email !== originalEmail && formData.email) {
-      setShowEmailChangeModal(true);
-      return;
-    }
-
     await saveTeacherData();
   };
 
@@ -284,9 +278,9 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
         payload.hireDate = formData.hire_date;
       }
 
-      // Include email and admin password if email is being changed
-      if (includeEmail && formData.email !== originalEmail) {
-        payload.email = formData.email;
+      // Include email and admin password if email is being changed (from modal)
+      if (includeEmail && pendingNewEmail) {
+        payload.email = pendingNewEmail;
         payload.adminPassword = password;
       }
 
@@ -307,6 +301,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
       setSuccessMessage("Teacher information updated successfully");
       setShowEmailChangeModal(false);
       setAdminPassword("");
+      setPendingNewEmail("");
       await fetchTeacher();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save");
@@ -573,22 +568,27 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Email
                 </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className={`w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary ${
-                    formData.email !== originalEmail ? "border-amber-300 bg-amber-50" : ""
-                  }`}
-                />
-                {formData.email !== originalEmail && formData.email ? (
-                  <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-sm">lock</span>
-                    Changing email requires admin password verification
-                  </p>
-                ) : (
-                  <p className="text-xs text-gray-500 mt-1">Email is used for login authentication</p>
-                )}
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 flex items-center gap-2 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50">
+                    <span className="material-symbols-outlined text-gray-400 text-lg">mail</span>
+                    <span className="text-sm text-gray-700 flex-1 truncate">
+                      {originalEmail || <span className="text-gray-400 italic">No email set</span>}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingNewEmail(originalEmail);
+                      setAdminPassword("");
+                      setShowEmailChangeModal(true);
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-primary border border-primary rounded-lg hover:bg-primary/5 transition-colors whitespace-nowrap"
+                  >
+                    <span className="material-symbols-outlined text-base">edit</span>
+                    Edit
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Email is used for login authentication</p>
               </div>
 
               <div>
@@ -1164,17 +1164,34 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
                 <p className="text-sm text-amber-800">
                   <span className="material-symbols-outlined text-sm align-middle mr-1">warning</span>
-                  Changing the email will affect how <strong>{formData.full_name}</strong> logs in. Please verify your admin password to continue.
+                  Changing the email will affect how <strong>{formData.full_name}</strong> logs in. Admin password required.
                 </p>
               </div>
-              <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600">
-                  <span className="font-medium">Current email:</span> {originalEmail || "(none)"}
-                </p>
-                <p className="text-sm text-gray-600 mt-1">
-                  <span className="font-medium">New email:</span> {formData.email}
-                </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Current Email
+                </label>
+                <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600">
+                  {originalEmail || <span className="italic text-gray-400">(none)</span>}
+                </div>
               </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  New Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={pendingNewEmail}
+                  onChange={(e) => setPendingNewEmail(e.target.value)}
+                  placeholder="Enter new email address"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  disabled={saving}
+                  autoFocus
+                />
+              </div>
+
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Your Admin Password <span className="text-red-500">*</span>
@@ -1187,7 +1204,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                   disabled={saving}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && adminPassword) {
+                    if (e.key === "Enter" && adminPassword && pendingNewEmail) {
                       handleEmailChangeConfirm();
                     }
                   }}
@@ -1198,6 +1215,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
                   onClick={() => {
                     setShowEmailChangeModal(false);
                     setAdminPassword("");
+                    setPendingNewEmail("");
                   }}
                   disabled={saving}
                   className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
@@ -1206,7 +1224,7 @@ export default function TeacherEditPage({ params }: TeacherEditPageProps) {
                 </button>
                 <button
                   onClick={handleEmailChangeConfirm}
-                  disabled={saving || !adminPassword}
+                  disabled={saving || !adminPassword || !pendingNewEmail || pendingNewEmail === originalEmail}
                   className="flex-1 px-4 py-2 text-sm font-medium text-white bg-amber-600 rounded-lg hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {saving ? (

@@ -25,6 +25,70 @@ interface Section {
 
 const GRADE_LEVELS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"];
 
+interface SectionFormData {
+  name: string;
+  grade_level: string;
+  capacity: string;
+}
+
+function SectionFormFields({
+  formData,
+  setFormData,
+}: {
+  formData: SectionFormData;
+  setFormData: (data: SectionFormData) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Section Name <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          required
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          placeholder="e.g., Section A"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Grade Level <span className="text-red-500">*</span>
+        </label>
+        <select
+          required
+          value={formData.grade_level}
+          onChange={(e) => setFormData({ ...formData, grade_level: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
+        >
+          <option value="">Select Grade Level</option>
+          {GRADE_LEVELS.map((g) => (
+            <option key={g} value={g}>
+              Grade {g}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Capacity
+        </label>
+        <input
+          type="number"
+          min="1"
+          max="100"
+          value={formData.capacity}
+          onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          placeholder="e.g., 40"
+        />
+      </div>
+    </div>
+  );
+}
+
 export default function SectionsPage() {
   const router = useRouter();
   const [sections, setSections] = useState<Section[]>([]);
@@ -402,126 +466,27 @@ export default function SectionsPage() {
       {/* Add Section Modal */}
       <FormModal
         isOpen={showAddModal}
-        onClose={() => {
-          setShowAddModal(false);
-          resetForm();
-        }}
+        onClose={() => { setShowAddModal(false); resetForm(); }}
         onSubmit={handleAddSection}
         title="Add New Section"
         submitLabel="Add Section"
         loading={actionLoading}
         size="md"
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Section Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="e.g., Section A"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Grade Level <span className="text-red-500">*</span>
-            </label>
-            <select
-              required
-              value={formData.grade_level}
-              onChange={(e) => setFormData({ ...formData, grade_level: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
-            >
-              <option value="">Select Grade Level</option>
-              {GRADE_LEVELS.map((g) => (
-                <option key={g} value={g}>
-                  Grade {g}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Capacity
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="100"
-              value={formData.capacity}
-              onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="e.g., 40"
-            />
-          </div>
-        </div>
+        <SectionFormFields formData={formData} setFormData={setFormData} />
       </FormModal>
 
       {/* Edit Section Modal */}
       <FormModal
         isOpen={showEditModal}
-        onClose={() => {
-          setShowEditModal(false);
-          setSelectedSection(null);
-          resetForm();
-        }}
+        onClose={() => { setShowEditModal(false); setSelectedSection(null); resetForm(); }}
         onSubmit={handleEditSection}
         title="Edit Section"
         submitLabel="Save Changes"
         loading={actionLoading}
         size="md"
       >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Section Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="e.g., Section A"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Grade Level <span className="text-red-500">*</span>
-            </label>
-            <select
-              required
-              value={formData.grade_level}
-              onChange={(e) => setFormData({ ...formData, grade_level: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white"
-            >
-              <option value="">Select Grade Level</option>
-              {GRADE_LEVELS.map((g) => (
-                <option key={g} value={g}>
-                  Grade {g}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Capacity
-            </label>
-            <input
-              type="number"
-              min="1"
-              max="100"
-              value={formData.capacity}
-              onChange={(e) => setFormData({ ...formData, capacity: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              placeholder="e.g., 40"
-            />
-          </div>
-        </div>
+        <SectionFormFields formData={formData} setFormData={setFormData} />
       </FormModal>
 
       {/* Delete Modal — blocked if section has dependencies, safe otherwise */}

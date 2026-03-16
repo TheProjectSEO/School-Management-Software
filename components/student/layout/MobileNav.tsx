@@ -75,7 +75,7 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
         <div className="flex items-center gap-2">
           <button
             onClick={onLogout}
-            className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors shadow-sm ${
+            className={`group flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors shadow-sm ${
               isPlayful
                 ? 'bg-pink-500 hover:bg-pink-600 text-white'
                 : 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white'
@@ -83,9 +83,9 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
             title="Log Out"
           >
             {isPlayful ? (
-              <span className="text-sm leading-none">{'\u{1F44B}'}</span>
+              <span className="text-sm leading-none group-hover:animate-bounce">{'\u{1F44B}'}</span>
             ) : (
-              <span className="material-symbols-outlined text-[16px]">logout</span>
+              <span className="material-symbols-outlined text-[16px] transition-transform duration-300 group-hover:rotate-180">logout</span>
             )}
             {isPlayful ? 'Bye!' : 'Log Out'}
           </button>

@@ -51,16 +51,20 @@ export function AppShell({ children, user, studentId }: AppShellProps) {
             <button
               onClick={handleLogout}
               disabled={isLoggingOut}
-              className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+              className={`group flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                 isPlayful
                   ? 'text-purple-600 hover:bg-pink-100 hover:text-pink-700'
-                  : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                  : 'text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
               }`}
             >
               {isPlayful ? (
-                <span className="text-base leading-none">{'\u{1F44B}'}</span>
+                <span className={`text-base leading-none transition-transform duration-300 ${isLoggingOut ? 'animate-bounce' : 'group-hover:animate-bounce'}`}>
+                  {'\u{1F44B}'}
+                </span>
               ) : (
-                <span className="material-symbols-outlined text-[18px]">logout</span>
+                <span className={`material-symbols-outlined text-[18px] transition-transform duration-300 ${isLoggingOut ? 'animate-spin' : 'group-hover:rotate-180'}`}>
+                  {isLoggingOut ? 'autorenew' : 'logout'}
+                </span>
               )}
               {isLoggingOut ? 'Bye...' : isPlayful ? 'Bye Bye!' : 'Log Out'}
             </button>

@@ -105,9 +105,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 <button
                   onClick={handleLogout}
                   disabled={isLoggingOut}
-                  className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="group flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <span className="material-symbols-outlined text-[18px]">logout</span>
+                  <span className={`material-symbols-outlined text-[18px] transition-transform duration-300 ${isLoggingOut ? 'animate-spin' : 'group-hover:rotate-180'}`}>
+                    {isLoggingOut ? 'autorenew' : 'logout'}
+                  </span>
                   <span className="hidden sm:block">
                     {isLoggingOut ? 'Signing out...' : 'Sign Out'}
                   </span>

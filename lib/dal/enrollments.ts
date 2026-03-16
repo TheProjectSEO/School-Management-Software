@@ -330,64 +330,91 @@ export async function createEnrollment(
 }
 
 export async function bulkEnroll(
-  params: CreateEnrollmentInput[] | { courseId: string; sectionId: string; studentIds: string[]; academicYearId?: string }
-): Promise<{ success: boolean; created: number; errors: string[] }> {
+  params: CreateEnrollmentInput[] | { courseId: string; sectionId: string; studentIds: string[]; schoolId?: string; academicYearId?: string }
+): Promise<{ success: number; failed: number; errors: { studentId: string; studentName: string; message: string }[] }> {
   try {
     const supabase = createServiceClient();
-    const errors: string[] = [];
-    let created = 0;
+    const errorList: { studentId: string; studentName: string; message: string }[] = [];
+    let successCount = 0;
 
-    // Handle object format with studentIds array
+    // Normalize to unified format
+    type EnrollItem = { studentId: string; courseId: string; sectionId: string; schoolId?: string };
+    let items: EnrollItem[] = [];
+
     if (!Array.isArray(params)) {
-      const { courseId, sectionId, studentIds, academicYearId } = params;
-
-      for (const studentId of studentIds) {
-        const { error } = await supabase.from('enrollments').insert({
-          student_id: studentId,
-          course_id: courseId,
-          section_id: sectionId,
-          status: 'pending',
-          enrolled_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-
-        if (error) {
-          errors.push(`Failed to enroll student ${studentId}: ${error.message}`);
-        } else {
-          created++;
-        }
-      }
+      const { courseId, sectionId, studentIds, schoolId } = params;
+      items = studentIds.map(id => ({ studentId: id, courseId, sectionId, schoolId }));
     } else {
-      // Handle array format
-      for (const enrollment of params) {
-        const studentId = enrollment.student_id || enrollment.studentId;
-        const courseId = enrollment.course_id || enrollment.courseId;
-        const sectionId = enrollment.section_id || enrollment.sectionId;
+      items = (params as CreateEnrollmentInput[]).map(e => ({
+        studentId: (e.student_id || e.studentId)!,
+        courseId: (e.course_id || e.courseId)!,
+        sectionId: (e.section_id || e.sectionId)!,
+        schoolId: e.school_id,
+      }));
+    }
 
-        const { error } = await supabase.from('enrollments').insert({
-          student_id: studentId,
-          course_id: courseId,
-          section_id: sectionId,
-          school_id: enrollment.school_id,
-          status: enrollment.status || 'pending',
-          enrolled_at: new Date().toISOString(),
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+    // Fetch student names for error reporting
+    const studentIds = items.map(i => i.studentId).filter(Boolean);
+    const { data: studentProfiles } = await supabase
+      .from('students')
+      .select('id, profile_id')
+      .in('id', studentIds);
+    const profileIds = (studentProfiles || []).map(s => s.profile_id).filter(Boolean);
+    const { data: profiles } = await supabase
+      .from('school_profiles')
+      .select('id, full_name')
+      .in('id', profileIds);
+    const profileNameMap = new Map((profiles || []).map(p => [p.id, p.full_name]));
+    const studentNameMap = new Map(
+      (studentProfiles || []).map(s => [s.id, profileNameMap.get(s.profile_id) || 'Unknown'])
+    );
+
+    // Check for existing enrollments to avoid duplicates
+    const { data: existing } = await supabase
+      .from('enrollments')
+      .select('student_id, course_id')
+      .in('student_id', studentIds)
+      .eq('course_id', items[0]?.courseId || '');
+    const alreadyEnrolled = new Set(
+      (existing || []).map(e => `${e.student_id}:${e.course_id}`)
+    );
+
+    for (const item of items) {
+      const key = `${item.studentId}:${item.courseId}`;
+      const studentName = studentNameMap.get(item.studentId) || 'Unknown';
+
+      if (alreadyEnrolled.has(key)) {
+        errorList.push({ studentId: item.studentId, studentName, message: 'Already enrolled in this course' });
+        continue;
+      }
+
+      const { error } = await supabase.from('enrollments').insert({
+        student_id: item.studentId,
+        course_id: item.courseId,
+        section_id: item.sectionId,
+        school_id: item.schoolId || null,
+        status: 'active',
+        enrolled_at: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
+
+      if (error) {
+        const isDupe = error.message?.includes('duplicate') || error.code === '23505';
+        errorList.push({
+          studentId: item.studentId,
+          studentName,
+          message: isDupe ? 'Already enrolled in this course' : error.message,
         });
-
-        if (error) {
-          errors.push(`Failed to enroll student ${studentId}: ${error.message}`);
-        } else {
-          created++;
-        }
+      } else {
+        successCount++;
       }
     }
 
-    return { success: errors.length === 0, created, errors };
+    return { success: successCount, failed: errorList.length, errors: errorList };
   } catch (error) {
     console.error('Unexpected error in bulkEnroll:', error);
-    return { success: false, created: 0, errors: ['An unexpected error occurred'] };
+    return { success: 0, failed: 0, errors: [{ studentId: '', studentName: '', message: 'An unexpected error occurred' }] };
   }
 }
 

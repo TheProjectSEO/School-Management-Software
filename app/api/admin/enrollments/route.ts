@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hasPermission, getCurrentAdmin } from "@/lib/dal/admin";
+import { hasPermission, getCurrentAdmin, requireAdminAPI } from "@/lib/dal/admin";
 import {
   listEnrollments,
   listGroupedStudentEnrollments,
@@ -112,10 +112,15 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Get school_id from admin context
+      const adminAuth = await requireAdminAPI("enrollments:create");
+      const schoolId = adminAuth.success ? adminAuth.admin.schoolId : undefined;
+
       const result = await bulkEnroll({
         courseId,
         sectionId,
         studentIds,
+        schoolId,
         academicYearId,
       });
 

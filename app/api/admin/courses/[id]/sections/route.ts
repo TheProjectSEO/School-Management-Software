@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminAPI } from "@/lib/dal/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-// GET /api/admin/courses/[id]/sections - Get sections assigned to a course
+// GET /api/admin/courses/[id]/sections - Get sections relevant to a course
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -14,49 +14,57 @@ export async function GET(
     const { id: courseId } = await params;
     const supabase = createAdminClient();
 
-    // Sections relate to courses via teacher_assignments, not a direct FK
-    const { data: assignments, error: assignError } = await supabase
-      .from("teacher_assignments")
-      .select("section_id")
-      .eq("course_id", courseId);
+    // Get the course to find its grade_level
+    const { data: course } = await supabase
+      .from("courses")
+      .select("id, grade_level")
+      .eq("id", courseId)
+      .eq("school_id", auth.admin.schoolId)
+      .maybeSingle();
 
-    if (assignError) {
-      console.error("Error fetching teacher_assignments:", assignError);
-      return NextResponse.json({ error: "Failed to fetch sections" }, { status: 500 });
-    }
-
-    const sectionIds = [...new Set((assignments || []).map((a) => a.section_id).filter(Boolean))];
-
-    if (sectionIds.length === 0) {
-      return NextResponse.json([]);
-    }
-
-    // Get section details
-    const { data: sections, error } = await supabase
+    // Build sections query — all sections for this school
+    let sectionsQuery = supabase
       .from("sections")
       .select("id, name, grade_level, capacity")
-      .in("id", sectionIds)
+      .eq("school_id", auth.admin.schoolId)
+      .order("grade_level")
       .order("name");
+
+    // Filter by grade_level if the course has one
+    if (course?.grade_level) {
+      sectionsQuery = sectionsQuery.eq("grade_level", course.grade_level);
+    }
+
+    const { data: sections, error } = await sectionsQuery;
 
     if (error) {
       console.error("Error fetching sections:", error);
       return NextResponse.json({ error: "Failed to fetch sections" }, { status: 500 });
     }
 
-    // Get enrollment counts for each section
-    const sectionsWithCounts = await Promise.all(
-      (sections || []).map(async (section) => {
-        const { count } = await supabase
-          .from("students")
-          .select("*", { count: "exact", head: true })
-          .eq("section_id", section.id);
+    if (!sections || sections.length === 0) {
+      return NextResponse.json([]);
+    }
 
-        return {
-          ...section,
-          enrolled_count: count || 0,
-        };
-      })
-    );
+    // Get enrolled student counts per section for this course
+    const sectionIds = sections.map(s => s.id);
+    const { data: enrollmentCounts } = await supabase
+      .from("enrollments")
+      .select("section_id")
+      .eq("course_id", courseId)
+      .in("section_id", sectionIds)
+      .eq("status", "active");
+
+    const countMap: Record<string, number> = {};
+    for (const e of enrollmentCounts || []) {
+      countMap[e.section_id] = (countMap[e.section_id] || 0) + 1;
+    }
+
+    const sectionsWithCounts = sections.map(section => ({
+      ...section,
+      enrolled_count: countMap[section.id] || 0,
+      capacity: section.capacity || 50,
+    }));
 
     return NextResponse.json(sectionsWithCounts);
   } catch (error) {

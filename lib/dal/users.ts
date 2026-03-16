@@ -1364,6 +1364,16 @@ export async function updateTeacherEmail(
       return { success: false, error: updateError.message };
     }
 
+    // Also update school_profiles.email so the UI reflects the change
+    const { error: profileUpdateError } = await supabase
+      .from('school_profiles')
+      .update({ email: newEmail, updated_at: new Date().toISOString() })
+      .eq('id', teacher.profile_id);
+
+    if (profileUpdateError) {
+      console.error('Error updating school_profiles email (non-fatal):', profileUpdateError);
+    }
+
     return { success: true };
   } catch (error) {
     console.error('Unexpected error in updateTeacherEmail:', error);

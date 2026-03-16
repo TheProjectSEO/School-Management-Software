@@ -187,7 +187,7 @@ export function LiveSessionClient({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
         {/* Video Room - Full width on mobile, 2/3 on desktop */}
         <div className="lg:col-span-2">
-          <div className={`${theme.spacing.borderRadius} overflow-hidden ${theme.effects.shadows ? 'shadow-xl' : 'border border-gray-200'}`} style={{ height: '500px' }}>
+          <div className={`${theme.spacing.borderRadius} overflow-hidden ${theme.effects.shadows ? 'shadow-xl' : 'border border-gray-200'} h-[280px] sm:h-[400px] lg:h-[500px]`}>
             <LiveSessionRoom
               roomUrl={roomUrl}
               token={token}
@@ -213,7 +213,7 @@ export function LiveSessionClient({
       </div>
 
       {/* Q&A Panel */}
-      <div style={{ height: '400px' }}>
+      <div className="h-[300px] sm:h-[400px]">
         <QAPanel sessionId={sessionId} gradeLevel={gradeLevel} />
       </div>
     </div>

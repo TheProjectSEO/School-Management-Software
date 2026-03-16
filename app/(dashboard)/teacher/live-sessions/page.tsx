@@ -287,14 +287,14 @@ export default function LiveSessionsPage() {
 
   return (
     <div className="p-4 sm:p-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Live Sessions</h1>
           <p className="text-gray-600 mt-1">Manage your virtual classroom sessions</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
+          className="w-full sm:w-auto px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
         >
           + Schedule Session
         </button>
@@ -318,8 +318,8 @@ export default function LiveSessionsPage() {
           </div>
         ) : (
           sessions.map((session) => (
-            <div key={session.id} className="bg-white rounded-lg border p-6">
-              <div className="flex items-start justify-between">
+            <div key={session.id} className="bg-white rounded-lg border p-4 sm:p-6">
+              <div className="flex flex-col sm:flex-row items-start gap-4">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className="text-xl font-semibold">{session.title}</h3>
@@ -336,7 +336,7 @@ export default function LiveSessionsPage() {
                   {session.description && (
                     <p className="text-gray-700 mb-3">{session.description}</p>
                   )}
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
                     <span className="flex items-center gap-1">
                       <span className="material-symbols-outlined text-base">schedule</span>
                       {new Date(session.scheduled_start).toLocaleString()}
@@ -356,11 +356,11 @@ export default function LiveSessionsPage() {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2">
+                <div className="flex flex-col gap-2 w-full sm:w-auto shrink-0">
                   {session.status === 'scheduled' && (
                     <button
                       onClick={() => startSession(session.id)}
-                      className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                      className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
                     >
                       <span className="material-symbols-outlined">play_circle</span>
                       Start Session
@@ -373,7 +373,7 @@ export default function LiveSessionsPage() {
                           onClick={() => {
                             if (session.join_url) window.open(session.join_url, '_blank');
                           }}
-                          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                          className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
                         >
                           <span className="material-symbols-outlined">video_call</span>
                           Join Room
@@ -381,7 +381,7 @@ export default function LiveSessionsPage() {
                       )}
                       <button
                         onClick={() => endSession(session.id)}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                        className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-2"
                       >
                         <span className="material-symbols-outlined">stop_circle</span>
                         End Session
@@ -392,14 +392,14 @@ export default function LiveSessionsPage() {
                     <>
                       <button
                         onClick={() => copyJoinLink(session)}
-                        className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center gap-2"
+                        className="w-full sm:w-auto px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2"
                       >
                         <span className="material-symbols-outlined">content_copy</span>
                         Copy Join Link
                       </button>
                       <button
                         onClick={() => shareToStudents(session)}
-                        className="px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center gap-2"
+                        className="w-full sm:w-auto px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2"
                         disabled={!session.course?.id}
                       >
                         <span className="material-symbols-outlined">campaign</span>
@@ -417,7 +417,7 @@ export default function LiveSessionsPage() {
                         <>
                           <button
                             onClick={() => window.open(session.recording_url!, '_blank')}
-                            className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+                            className="w-full sm:w-auto px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2"
                           >
                             <span className="material-symbols-outlined">play_circle</span>
                             Watch Recording
@@ -430,7 +430,7 @@ export default function LiveSessionsPage() {
                           {session.has_transcript ? (
                             <button
                               onClick={() => viewTranscript(session.id)}
-                              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                              className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
                             >
                               <span className="material-symbols-outlined">description</span>
                               View Transcript
@@ -438,7 +438,7 @@ export default function LiveSessionsPage() {
                           ) : (
                             <button
                               onClick={() => generateTranscript(session.id)}
-                              className="px-4 py-2 border border-purple-200 text-purple-700 rounded-lg hover:bg-purple-50 flex items-center gap-2"
+                              className="w-full sm:w-auto px-4 py-2 border border-purple-200 text-purple-700 rounded-lg hover:bg-purple-50 flex items-center justify-center gap-2"
                             >
                               <span className="material-symbols-outlined">subtitles</span>
                               Generate Transcript
@@ -448,7 +448,7 @@ export default function LiveSessionsPage() {
                       ) : (
                         <button
                           onClick={() => processRecording(session.id)}
-                          className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center gap-2"
+                          className="w-full sm:w-auto px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center justify-center gap-2"
                         >
                           <span className="material-symbols-outlined">sync</span>
                           Process Recording
@@ -481,7 +481,7 @@ export default function LiveSessionsPage() {
           <div className="bg-white dark:bg-slate-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+                <h2 className="text-lg sm:text-2xl font-bold text-slate-900 dark:text-slate-100">
                   Session Transcript
                 </h2>
                 {transcriptData && (
@@ -644,7 +644,7 @@ function CreateSessionModal({
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold">Schedule Live Session</h2>
+            <h2 className="text-xl sm:text-2xl font-bold">Schedule Live Session</h2>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
               <span className="material-symbols-outlined">close</span>
             </button>

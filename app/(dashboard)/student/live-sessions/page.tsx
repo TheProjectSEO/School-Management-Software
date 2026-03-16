@@ -152,7 +152,7 @@ export default async function LiveSessionsPage() {
   }
 
   return (
-    <div className="p-6 lg:p-10">
+    <div>
       <div className="mx-auto max-w-4xl space-y-6">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">
@@ -234,7 +234,7 @@ export default async function LiveSessionsPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 flex items-center gap-3">
+                <div className="mt-4 flex flex-wrap items-center gap-3">
                   {session.status === "live" && session.daily_room_url && (
                     <JoinLiveButton sessionId={session.id} isPlayful={isPlayful} />
                   )}

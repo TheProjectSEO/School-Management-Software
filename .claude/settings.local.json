@@ -25,7 +25,8 @@
       "Bash(tree:*)",
       "Bash(find:*)",
       "Bash(xcopy /E /I /Y \"apps\\\\admin\\\\app\\\\\\(admin\\)\\\\*\" \"apps\\\\web\\\\app\\\\\\(dashboard\\)\\\\admin\"\")",
-      "Bash(edit \")"
+      "Bash(edit \")",
+      "Bash(npx -y @vercel/mcp-server --help 2>&1 | head -20)"
     ]
   }
 }

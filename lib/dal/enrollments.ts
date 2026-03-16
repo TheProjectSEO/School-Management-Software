@@ -310,7 +310,6 @@ export async function createEnrollment(
         section_id: sectionId,
         school_id: schoolId,
         status: input.status || 'pending',
-        enrolled_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -394,7 +393,6 @@ export async function bulkEnroll(
         section_id: item.sectionId,
         school_id: item.schoolId || null,
         status: 'active',
-        enrolled_at: new Date().toISOString(),
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       });

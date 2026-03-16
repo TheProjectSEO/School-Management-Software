@@ -577,7 +577,8 @@ export async function getTeacherById(id: string): Promise<TeacherDetails | null>
           auth_user_id,
           full_name,
           phone,
-          avatar_url
+          avatar_url,
+          email
         ),
         school:schools(
           id,
@@ -621,6 +622,7 @@ export async function getTeacherById(id: string): Promise<TeacherDetails | null>
       is_active: data.is_active,
       full_name:
         data.profile?.[0]?.full_name || data.profile?.full_name || 'Unknown',
+      email: data.profile?.[0]?.email || data.profile?.email,
       phone: data.profile?.[0]?.phone || data.profile?.phone,
       avatar_url: data.profile?.[0]?.avatar_url || data.profile?.avatar_url,
       created_at: data.created_at,
@@ -1106,6 +1108,7 @@ export async function createTeacher(
         .insert({
           auth_user_id: authUserId,
           full_name: fullName,
+          email: input.email || null,
           phone: input.phone,
           role: 'teacher',
           created_at: new Date().toISOString(),
@@ -1267,11 +1270,12 @@ export async function createAuthAccountForProfile(
       return { success: false, error: authError.message };
     }
 
-    // Update the profile with the auth user ID
+    // Update the profile with the auth user ID and email
     const { error: updateError } = await supabase
       .from('school_profiles')
       .update({
         auth_user_id: authUser.user.id,
+        email,
         updated_at: new Date().toISOString(),
       })
       .eq('id', profileId);

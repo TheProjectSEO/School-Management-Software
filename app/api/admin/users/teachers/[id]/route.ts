@@ -61,6 +61,13 @@ export async function PUT(
     const body = await request.json();
 
     // Handle email change separately (requires admin password)
+    if (body.email !== undefined && body.adminPassword === undefined) {
+      return NextResponse.json(
+        { error: 'Admin password is required to change email', code: 'ADMIN_PASSWORD_REQUIRED' },
+        { status: 400 }
+      );
+    }
+
     if (body.email !== undefined && body.adminPassword !== undefined) {
       // Verify admin password first
       const verifyResult = await verifyAdminPassword(admin.email, body.adminPassword);

@@ -118,7 +118,7 @@ export default async function ReportCardDetailPage({
   const { id } = await params;
 
   return (
-    <div className="p-6">
+    <div>
       <Suspense
         fallback={
           <div className="flex items-center justify-center py-12">

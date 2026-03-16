@@ -213,7 +213,7 @@ export default function AssessmentBuilderPage() {
 
   if (error || !assessment) {
     return (
-      <div className="p-6">
+      <div>
         <div className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 p-4 rounded-lg">
           {error || 'Assessment not found'}
         </div>
@@ -306,7 +306,7 @@ export default function AssessmentBuilderPage() {
       </div>
 
       {/* Content */}
-      <div className="p-6 max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         {activeTab === 'settings' && (
           <div className="bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 p-6 space-y-6">
             <div>

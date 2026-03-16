@@ -8,7 +8,7 @@ export const metadata: Metadata = {
 
 export default function StudentAccountsPage() {
   return (
-    <div className="max-w-7xl mx-auto p-6">
+    <div>
       <StudentAccountsDashboard />
     </div>
   );

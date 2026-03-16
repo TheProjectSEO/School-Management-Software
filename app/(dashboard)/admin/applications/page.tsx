@@ -160,7 +160,7 @@ export default function ApplicationsPage() {
   }
 
   return (
-    <main className="p-6">
+    <main>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-semibold">Applications</h1>

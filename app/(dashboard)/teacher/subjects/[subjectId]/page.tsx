@@ -216,7 +216,7 @@ export default function SubjectDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div>
         <LoadingSpinner size="lg" />
       </div>
     )

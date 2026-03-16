@@ -15,7 +15,7 @@ export default async function GradingPage() {
   }
 
   return (
-    <div className="p-6">
+    <div>
       <GradingQueuePage teacherId={teacherProfile.id} />
     </div>
   )

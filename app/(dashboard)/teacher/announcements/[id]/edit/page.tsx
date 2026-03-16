@@ -180,7 +180,7 @@ export default function EditAnnouncementPage() {
 
   if (isLoading) {
     return (
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="max-w-4xl mx-auto">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded w-48" />
           <div className="h-64 bg-slate-200 dark:bg-slate-700 rounded" />

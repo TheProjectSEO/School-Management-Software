@@ -149,7 +149,7 @@ export default async function ProgressPage() {
     <>
       {/* Page Heading */}
       <div className="mb-8 flex flex-col gap-2">
-        <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white lg:text-4xl">
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-white lg:text-4xl">
           {isPlayful ? '\u{1F4CA} My Progress' : 'Progress + Mastery'}
         </h1>
         <p className="text-base text-slate-500 dark:text-slate-400">
@@ -250,7 +250,7 @@ export default async function ProgressPage() {
       </div>
 
       {/* Two Column Layout */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:gap-6 lg:gap-8 lg:grid-cols-3">
         {/* Center Panel: Mastery & Modules */}
         <div className="flex flex-col gap-8 lg:col-span-2">
           {/* Mastery Chart Section */}
@@ -359,7 +359,7 @@ export default async function ProgressPage() {
                 ))}
               </div>
             ) : (
-              <div className={`${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl border border-slate-200 bg-white dark:bg-[#1a2634] dark:border-slate-700'} p-8 text-center`}>
+              <div className={`${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl border border-slate-200 bg-white dark:bg-[#1a2634] dark:border-slate-700'} p-5 sm:p-8 text-center`}>
                 <span className="material-symbols-outlined text-6xl text-slate-300 dark:text-slate-600 mb-4">
                   library_books
                 </span>

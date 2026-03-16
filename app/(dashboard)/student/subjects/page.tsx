@@ -100,7 +100,7 @@ export default async function SubjectsPage({ searchParams }: PageProps) {
       {/* Header */}
       <div className="flex flex-wrap justify-between items-end gap-4 mb-8">
         <div>
-          <h1 className={`text-3xl md:text-4xl font-bold leading-tight tracking-tight ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+          <h1 className={`text-2xl sm:text-3xl md:text-4xl font-bold leading-tight tracking-tight ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
             {isPlayful ? '\u{1F4DA} My Subjects' : 'My Subjects'}
           </h1>
           <p className={`text-base mt-2 ${isPlayful ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}`}>

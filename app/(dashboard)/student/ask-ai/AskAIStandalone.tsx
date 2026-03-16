@@ -190,7 +190,7 @@ export default function AskAIStandalone() {
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-6 ${isPlayful ? "bg-gradient-to-br from-pink-200 to-purple-200" : "bg-gradient-to-br from-[#7B1113]/20 to-[#5a0c0e]/20"}`}>
-              <span className={`material-symbols-outlined text-5xl ${isPlayful ? "text-purple-500" : "text-primary"}`}>
+              <span className={`material-symbols-outlined text-4xl sm:text-5xl ${isPlayful ? "text-purple-500" : "text-primary"}`}>
                 psychology
               </span>
             </div>

@@ -126,7 +126,7 @@ export default async function SubmissionPage({
       {/* Score Card */}
       {isGraded ? (
         <div
-          className={`rounded-xl p-8 border-2 mb-8 ${
+          className={`rounded-xl p-4 sm:p-8 border-2 mb-8 ${
             percentage >= 70
               ? "bg-gradient-to-br from-msu-green/10 to-msu-green/5 dark:from-msu-green/20 dark:to-msu-green/5 border-msu-green/30"
               : percentage >= 50
@@ -284,7 +284,7 @@ export default async function SubmissionPage({
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-4 pt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 pt-4">
               <div className="text-center p-4 rounded-lg bg-msu-green/10">
                 <p className="text-2xl font-bold text-msu-green">{score}</p>
                 <p className="text-xs text-slate-600 dark:text-slate-400">Points Earned</p>

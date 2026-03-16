@@ -276,7 +276,7 @@ export default function LiveSessionsPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
+      <div className="p-4 sm:p-8">
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading sessions...</p>
@@ -286,10 +286,10 @@ export default function LiveSessionsPage() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Live Sessions</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Live Sessions</h1>
           <p className="text-gray-600 mt-1">Manage your virtual classroom sessions</p>
         </div>
         <button
@@ -704,7 +704,7 @@ function CreateSessionModal({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Start Time *

@@ -733,7 +733,7 @@ export function MessagesClient({
             {activeTab === "direct" ? (
               // Direct Messages List
               conversations.length === 0 ? (
-                <div className="p-8 text-center text-slate-500">
+                <div className="p-5 sm:p-8 text-center text-slate-500">
                   <span className="material-symbols-outlined text-5xl mb-3">chat</span>
                   <p>{isPlayful ? "\u{1F4AD} No chats yet!" : "No conversations yet"}</p>
                   <p className="text-sm mt-1">
@@ -821,7 +821,7 @@ export function MessagesClient({
             ) : (
               // Group Chats List
               groupChats.length === 0 ? (
-                <div className="p-8 text-center text-slate-500">
+                <div className="p-5 sm:p-8 text-center text-slate-500">
                   <span className="material-symbols-outlined text-5xl mb-3">groups</span>
                   <p>{isPlayful ? "\u{1F465} No group chats yet!" : "No section group chats yet"}</p>
                   <p className="text-sm mt-1">

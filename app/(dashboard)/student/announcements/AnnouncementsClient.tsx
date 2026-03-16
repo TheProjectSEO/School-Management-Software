@@ -164,7 +164,7 @@ export function AnnouncementsClient({
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-8 -mx-4 sm:-mx-6 lg:-mx-8 -my-8 min-h-[calc(100vh-4rem)]">
+    <div className="flex flex-col lg:flex-row gap-4 sm:gap-6 lg:gap-8 -mx-4 sm:-mx-6 lg:-mx-8 -my-8 min-h-[calc(100vh-4rem)]">
       {/* Sidebar */}
       <aside className={`hidden lg:flex w-64 flex-col shrink-0 gap-6 sticky top-0 self-start h-auto py-8 px-6 border-r ${
         isPlayful
@@ -251,7 +251,7 @@ export function AnnouncementsClient({
         <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-bold text-primary dark:text-white tracking-tight">
+              <h1 className="text-2xl sm:text-3xl font-bold text-primary dark:text-white tracking-tight">
                 {isPlayful ? "\u{1F4E2} News" : "Announcements"}
               </h1>
               {unreadCount > 0 && (

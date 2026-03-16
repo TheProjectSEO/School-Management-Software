@@ -142,7 +142,7 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
         {/* Heading */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div className="flex flex-col gap-2">
-            <h1 className={`text-3xl md:text-4xl font-black leading-tight tracking-tight ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+            <h1 className={`text-2xl sm:text-3xl md:text-4xl font-black leading-tight tracking-tight ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
               {isPlayful ? '\u{1F4DD} My Tests' : 'Assessments'}
             </h1>
             <p className={`text-base font-normal ${isPlayful ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}`}>
@@ -238,7 +238,7 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
       </div>
 
       {/* Main Content Area */}
-      <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-4 sm:gap-6 lg:gap-8">
         {/* Immediate Action Section */}
         {immediateAssessments.length > 0 ? (
           <div className="flex flex-col gap-4">
@@ -357,11 +357,11 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
                 </>
               )}
             </h3>
-            <div className={`p-8 text-center ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700'}`}>
+            <div className={`p-5 sm:p-8 text-center ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700'}`}>
               {isPlayful ? (
-                <span className="text-5xl mb-2 block">{'\u2705'}</span>
+                <span className="text-4xl sm:text-5xl mb-2 block">{'\u2705'}</span>
               ) : (
-                <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-700 mb-2">
+                <span className="material-symbols-outlined text-4xl sm:text-5xl text-slate-300 dark:text-slate-700 mb-2">
                   check_circle
                 </span>
               )}
@@ -433,11 +433,11 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
             <h3 className={`text-xl font-bold flex items-center gap-2 mt-4 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
               {isPlayful ? '\u{1F4C5} Coming Up!' : 'Upcoming'}
             </h3>
-            <div className={`p-8 text-center ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700'}`}>
+            <div className={`p-5 sm:p-8 text-center ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700'}`}>
               {isPlayful ? (
-                <span className="text-5xl mb-2 block">{'\u{1F4C5}'}</span>
+                <span className="text-4xl sm:text-5xl mb-2 block">{'\u{1F4C5}'}</span>
               ) : (
-                <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-700 mb-2">
+                <span className="material-symbols-outlined text-4xl sm:text-5xl text-slate-300 dark:text-slate-700 mb-2">
                   event
                 </span>
               )}
@@ -517,11 +517,11 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
             <h3 className={`text-xl font-bold flex items-center gap-2 mt-4 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
               {isPlayful ? '\u2B50 Your Results!' : 'Recent Feedback'}
             </h3>
-            <div className={`p-8 text-center ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700'}`}>
+            <div className={`p-5 sm:p-8 text-center ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50' : 'rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700'}`}>
               {isPlayful ? (
-                <span className="text-5xl mb-2 block">{'\u2B50'}</span>
+                <span className="text-4xl sm:text-5xl mb-2 block">{'\u2B50'}</span>
               ) : (
-                <span className="material-symbols-outlined text-5xl text-slate-300 dark:text-slate-700 mb-2">
+                <span className="material-symbols-outlined text-4xl sm:text-5xl text-slate-300 dark:text-slate-700 mb-2">
                   rate_review
                 </span>
               )}

@@ -377,11 +377,11 @@ export default function DownloadsClient({ downloads, stats }: DownloadsClientPro
   return (
     <>
       {/* Header Section */}
-      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-8 mb-10">
+      <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 sm:gap-6 lg:gap-8 mb-6 sm:mb-10">
         <div className="flex-1 max-w-2xl">
           <div className="flex items-center gap-3 mb-2">
             <span className={isPlayful ? "material-symbols-outlined text-pink-500 text-4xl" : "material-symbols-outlined text-primary text-4xl"}>offline_pin</span>
-            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white tracking-tight">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-slate-900 dark:text-white tracking-tight">
               {isPlayful ? "\u{1F4E5} My Downloads" : "Offline Learning Manager"}
             </h1>
           </div>
@@ -480,7 +480,7 @@ export default function DownloadsClient({ downloads, stats }: DownloadsClientPro
       }>
         {/* Tabs */}
         <div className="border-b border-slate-200 dark:border-slate-700 px-6 pt-2">
-          <div className="flex gap-8 overflow-x-auto">
+          <div className="flex gap-4 sm:gap-8 overflow-x-auto">
             <button
               onClick={() => setActiveTab("all")}
               className={`relative pb-4 pt-2 text-sm tracking-wide transition-colors ${

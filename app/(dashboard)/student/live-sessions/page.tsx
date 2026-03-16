@@ -60,7 +60,7 @@ export default async function LiveSessionsPage() {
 
   if (!student) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8">
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-8">
         <div className="mx-auto max-w-2xl rounded-xl bg-white p-6 shadow-sm">
           <h1 className="text-xl font-semibold text-slate-900">Live Sessions</h1>
           <p className="mt-2 text-sm text-slate-600">

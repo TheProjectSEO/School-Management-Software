@@ -1,9 +1,7 @@
 "use client";
 
-import { authFetch } from "@/lib/utils/authFetch";
-
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
 import { useAdminNotifications } from "@/components/admin/providers/AdminNotificationProvider";
 
@@ -11,6 +9,8 @@ interface AdminSidebarProps {
   adminName: string;
   adminRole: string;
   schoolName: string;
+  isOpen: boolean;
+  onClose: () => void;
 }
 
 interface NavItem {
@@ -91,9 +91,8 @@ const roleLabels: Record<string, string> = {
   support: "Support Staff",
 };
 
-export default function AdminSidebar({ adminName, adminRole, schoolName }: AdminSidebarProps) {
+export default function AdminSidebar({ adminName, adminRole, schoolName, isOpen, onClose }: AdminSidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const { unreadMessageCount, pendingApplicationsCount, isConnected } = useAdminNotifications();
 
   const getBadgeCount = (key?: "messages" | "applications"): number | undefined => {
@@ -103,122 +102,118 @@ export default function AdminSidebar({ adminName, adminRole, schoolName }: Admin
     return undefined;
   };
 
-  const handleLogout = async () => {
-    try {
-      // Call logout API to clear JWT cookies
-      const response = await authFetch('/api/auth/logout', {
-        method: 'POST',
-      });
-
-      if (response.ok) {
-        router.push('/login');
-        router.refresh();
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Fallback: still try to redirect
-      router.push('/login');
-      router.refresh();
-    }
-  };
-
   return (
-    <aside className="fixed left-0 top-0 h-screen w-64 bg-[#101822] text-white flex flex-col">
-      {/* Header */}
-      <div className="p-4 border-b border-white/10">
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 bg-[#7B1113] rounded-lg flex items-center justify-center shrink-0">
-              <span className="material-symbols-outlined text-white">
-                admin_panel_settings
-              </span>
-            </div>
-            <div className="min-w-0">
-              <h1 className="font-bold text-lg leading-tight">Admin Portal</h1>
-              <div className="flex items-center gap-2">
-                <p className="text-xs text-gray-400 truncate">{schoolName}</p>
-                {/* Connection indicator */}
-                <div
-                  className={clsx(
-                    "h-1.5 w-1.5 rounded-full shrink-0",
-                    isConnected ? "bg-green-500" : "bg-yellow-500"
-                  )}
-                  title={isConnected ? "Connected" : "Connecting..."}
-                />
+    <>
+      {/* Mobile backdrop */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={onClose}
+        />
+      )}
+
+      <aside
+        className={clsx(
+          "fixed left-0 top-0 z-50 h-screen w-64 bg-[#101822] text-white flex flex-col transition-transform duration-300",
+          "md:translate-x-0",
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        )}
+      >
+        {/* Header */}
+        <div className="p-4 border-b border-white/10">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 bg-[#7B1113] rounded-lg flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-white">
+                  admin_panel_settings
+                </span>
+              </div>
+              <div className="min-w-0">
+                <h1 className="font-bold text-lg leading-tight">Admin Portal</h1>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-gray-400 truncate">{schoolName}</p>
+                  <div
+                    className={clsx(
+                      "h-1.5 w-1.5 rounded-full shrink-0",
+                      isConnected ? "bg-green-500" : "bg-yellow-500"
+                    )}
+                    title={isConnected ? "Connected" : "Connecting..."}
+                  />
+                </div>
               </div>
             </div>
+            {/* Close button — mobile only */}
+            <button
+              onClick={onClose}
+              className="md:hidden p-1.5 rounded-lg hover:bg-white/10 transition-colors shrink-0"
+            >
+              <span className="material-symbols-outlined text-lg">close</span>
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-semibold rounded-lg transition-colors shrink-0 shadow-sm"
-            title="Sign Out"
-          >
-            <span className="material-symbols-outlined text-[16px]">logout</span>
-            Sign Out
-          </button>
         </div>
-      </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 py-4 overflow-y-auto">
-        <div className="space-y-6 px-3">
-          {navGroups.map((group) => (
-            <div key={group.title}>
-              <h3 className="px-4 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                {group.title}
-              </h3>
-              <ul className="space-y-1">
-                {group.items.map((item) => {
-                  const isActive =
-                    item.href === "/admin"
-                      ? pathname === "/admin"
-                      : pathname.startsWith(item.href);
-                  const badge = getBadgeCount(item.badgeKey);
+        {/* Navigation — scrollbar hidden */}
+        <nav className="flex-1 py-4 overflow-y-auto scrollbar-hide">
+          <div className="space-y-6 px-3">
+            {navGroups.map((group) => (
+              <div key={group.title}>
+                <h3 className="px-4 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                  {group.title}
+                </h3>
+                <ul className="space-y-1">
+                  {group.items.map((item) => {
+                    const isActive =
+                      item.href === "/admin"
+                        ? pathname === "/admin"
+                        : pathname.startsWith(item.href);
+                    const badge = getBadgeCount(item.badgeKey);
 
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        className={clsx(
-                          "flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors relative",
-                          isActive
-                            ? "bg-[#7B1113] text-white"
-                            : "text-gray-300 hover:bg-white/10"
-                        )}
-                      >
-                        <span className="material-symbols-outlined text-xl">
-                          {item.icon}
-                        </span>
-                        <span className="text-sm font-medium flex-1">{item.label}</span>
-                        {badge && badge > 0 && (
-                          <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
-                            {badge > 99 ? "99+" : badge}
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          onClick={onClose}
+                          className={clsx(
+                            "flex items-center gap-3 px-4 py-2.5 rounded-lg transition-colors relative",
+                            isActive
+                              ? "bg-[#7B1113] text-white"
+                              : "text-gray-300 hover:bg-white/10"
+                          )}
+                        >
+                          <span className="material-symbols-outlined text-xl">
+                            {item.icon}
                           </span>
-                        )}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          ))}
-        </div>
-      </nav>
+                          <span className="text-sm font-medium flex-1">{item.label}</span>
+                          {badge && badge > 0 && (
+                            <span className="flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
+                              {badge > 99 ? "99+" : badge}
+                            </span>
+                          )}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </nav>
 
-      {/* User section */}
-      <div className="p-4 border-t border-white/10">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-[#7B1113] rounded-full flex items-center justify-center">
-            <span className="text-white font-bold">
-              {adminName.charAt(0).toUpperCase()}
-            </span>
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">{adminName}</p>
-            <p className="text-xs text-gray-400">{roleLabels[adminRole] || adminRole}</p>
+        {/* User section */}
+        <div className="p-4 border-t border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-[#7B1113] rounded-full flex items-center justify-center shrink-0">
+              <span className="text-white font-bold">
+                {adminName.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{adminName}</p>
+              <p className="text-xs text-gray-400">{roleLabels[adminRole] || adminRole}</p>
+            </div>
           </div>
         </div>
-      </div>
-    </aside>
+      </aside>
+    </>
   );
 }

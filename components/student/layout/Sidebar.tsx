@@ -39,11 +39,10 @@ interface SidebarProps {
     role: string;
     avatar?: string;
   };
-  onLogout?: () => void;
   showRealtimeNotifications?: boolean;
 }
 
-export function Sidebar({ user, onLogout, showRealtimeNotifications }: SidebarProps) {
+export function Sidebar({ user, showRealtimeNotifications }: SidebarProps) {
   const pathname = usePathname();
   const { theme, isPlayful } = useStudentTheme();
 
@@ -67,31 +66,13 @@ export function Sidebar({ user, onLogout, showRealtimeNotifications }: SidebarPr
       <div className="flex h-full flex-col justify-between p-4">
         <div className="flex flex-col gap-6">
           {/* Logo Section */}
-          <div className="flex items-center justify-between pt-2 pb-2 gap-2">
-            <div className="flex flex-col items-center flex-1">
-              <BrandLogo size="lg" className="mb-3" priority />
-              <div className="text-center">
-                <h1 className="text-xs font-bold tracking-widest text-primary uppercase leading-tight">
-                  Mindanao State<br />University
-                </h1>
-              </div>
+          <div className="flex flex-col items-center pt-2 pb-2">
+            <BrandLogo size="lg" className="mb-3" priority />
+            <div className="text-center">
+              <h1 className="text-xs font-bold tracking-widest text-primary uppercase leading-tight">
+                Mindanao State<br />University
+              </h1>
             </div>
-            <button
-              onClick={onLogout}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold rounded-lg transition-colors shrink-0 shadow-sm self-start ${
-                isPlayful
-                  ? 'bg-pink-500 hover:bg-pink-600 text-white'
-                  : 'bg-red-600 hover:bg-red-700 active:bg-red-800 text-white'
-              }`}
-              title="Log Out"
-            >
-              {isPlayful ? (
-                <span className="text-sm leading-none">{'\u{1F44B}'}</span>
-              ) : (
-                <span className="material-symbols-outlined text-[16px]">logout</span>
-              )}
-              {isPlayful ? 'Bye!' : 'Log Out'}
-            </button>
           </div>
 
           {/* User Profile */}
@@ -127,7 +108,7 @@ export function Sidebar({ user, onLogout, showRealtimeNotifications }: SidebarPr
           </div>
 
           {/* Navigation */}
-          <nav className="flex flex-col gap-2">
+          <nav className="flex flex-col gap-2 overflow-y-auto scrollbar-hide">
             {navItems.map((item) => {
               const active = isActive(item.href);
               const navOverride = theme.nav.items[item.href];

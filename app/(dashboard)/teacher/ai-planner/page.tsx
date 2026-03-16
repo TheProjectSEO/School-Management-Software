@@ -65,6 +65,8 @@ export default function AIPlannerPage() {
   const [moduleDraft, setModuleDraft] = useState<ModuleDraft | null>(null)
   const [assessmentDraft, setAssessmentDraft] = useState<AssessmentDraft | null>(null)
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
+  const [showSuccessModal, setShowSuccessModal] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
   const [courseLessons, setCourseLessons] = useState<CourseLesson[]>([])
   const [loadingLessons, setLoadingLessons] = useState(false)
 
@@ -220,6 +222,8 @@ export default function AIPlannerPage() {
         alert(data.error || 'Failed to save module')
       } else {
         setSaveStatus('Module saved successfully.')
+        setSuccessMessage(`Module "${moduleDraft.title}" has been saved successfully with ${moduleDraft.lessons.length} lesson${moduleDraft.lessons.length !== 1 ? 's' : ''}.`)
+        setShowSuccessModal(true)
       }
     } catch (error) {
       console.error('Save module error:', error)
@@ -252,6 +256,8 @@ export default function AIPlannerPage() {
         alert(data.error || 'Failed to save assessment')
       } else {
         setSaveStatus('Assessment saved successfully.')
+        setSuccessMessage(`Assessment "${assessmentDraft.title}" has been saved successfully with ${assessmentDraft.questions.length} question${assessmentDraft.questions.length !== 1 ? 's' : ''}.`)
+        setShowSuccessModal(true)
       }
     } catch (error) {
       console.error('Save assessment error:', error)
@@ -261,6 +267,25 @@ export default function AIPlannerPage() {
 
   return (
     <div className="space-y-6">
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowSuccessModal(false)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 text-center">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="material-symbols-outlined text-green-600 text-3xl">check_circle</span>
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Saved Successfully!</h3>
+            <p className="text-slate-500 text-sm mb-6">{successMessage}</p>
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full py-2.5 px-4 bg-primary text-white font-semibold rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">

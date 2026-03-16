@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/service'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/session'
 
 export type TeacherProfile = {
@@ -419,10 +420,23 @@ export async function getSectionDetails(sectionId: string, teacherId: string): P
   if (profileIds.length > 0) {
     const { data: profiles } = await supabase
       .from('school_profiles')
-      .select('id, full_name, avatar_url')
+      .select('id, full_name, avatar_url, auth_user_id')
       .in('id', profileIds)
     if (profiles) {
-      profiles.forEach(p => { profileMap[p.id] = { full_name: p.full_name, avatar_url: p.avatar_url } })
+      const adminClient = createAdminClient()
+      for (const p of profiles) {
+        let name = p.full_name as string | null
+        // Fallback: if full_name is empty/null, try auth.users metadata
+        if (!name && p.auth_user_id) {
+          try {
+            const { data: authData } = await adminClient.auth.admin.getUserById(p.auth_user_id)
+            name = authData?.user?.user_metadata?.full_name || authData?.user?.email || null
+          } catch {
+            // ignore
+          }
+        }
+        profileMap[p.id] = { full_name: name || 'Unknown', avatar_url: p.avatar_url }
+      }
     }
   }
 

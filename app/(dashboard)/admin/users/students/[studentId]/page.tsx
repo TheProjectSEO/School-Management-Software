@@ -98,12 +98,113 @@ async function getStudentDetails(studentId: string) {
     .order("created_at", { ascending: false })
     .limit(10);
 
+  // Get section adviser
+  let sectionAdviser: { full_name: string; avatar_url: string | null; employee_id?: string } | null = null;
+  if (student.section_id) {
+    const { data: adviserRow } = await supabase
+      .from("section_advisers")
+      .select("teacher_profile_id")
+      .eq("section_id", student.section_id)
+      .limit(1)
+      .maybeSingle();
+
+    if (adviserRow?.teacher_profile_id) {
+      const { data: teacherProfile } = await supabase
+        .from("teacher_profiles")
+        .select("employee_id, profile_id")
+        .eq("id", adviserRow.teacher_profile_id)
+        .maybeSingle();
+
+      if (teacherProfile?.profile_id) {
+        const { data: adviserSchoolProfile } = await supabase
+          .from("school_profiles")
+          .select("full_name, avatar_url")
+          .eq("id", teacherProfile.profile_id)
+          .maybeSingle();
+
+        if (adviserSchoolProfile) {
+          sectionAdviser = {
+            full_name: adviserSchoolProfile.full_name,
+            avatar_url: adviserSchoolProfile.avatar_url,
+            employee_id: teacherProfile.employee_id ?? undefined,
+          };
+        }
+      }
+    }
+  }
+
+  // Get teachers assigned to this student's courses
+  const courseIds = (enrollments || [])
+    .map((e) => {
+      const c = e.courses as unknown as { id: string } | null;
+      return c?.id;
+    })
+    .filter(Boolean) as string[];
+
+  let courseTeachers: { name: string; avatar_url: string | null; course_name: string; employee_id?: string }[] = [];
+  if (courseIds.length > 0) {
+    const { data: assignments } = await supabase
+      .from("teacher_assignments")
+      .select("course_id, teacher_profile_id")
+      .in("course_id", courseIds);
+
+    if (assignments && assignments.length > 0) {
+      const teacherProfileIds = [...new Set(assignments.map((a) => a.teacher_profile_id).filter(Boolean))];
+      const { data: teacherProfiles } = await supabase
+        .from("teacher_profiles")
+        .select("id, profile_id, employee_id")
+        .in("id", teacherProfileIds);
+
+      const profileIds2 = (teacherProfiles || []).map((t) => t.profile_id).filter(Boolean);
+      const { data: teacherSchoolProfiles } = await supabase
+        .from("school_profiles")
+        .select("id, full_name, avatar_url")
+        .in("id", profileIds2);
+
+      const profileMap2: Record<string, { full_name: string; avatar_url: string | null }> = {};
+      (teacherSchoolProfiles || []).forEach((p) => {
+        profileMap2[p.id] = { full_name: p.full_name, avatar_url: p.avatar_url };
+      });
+
+      const teacherMap: Record<string, { name: string; avatar_url: string | null; employee_id?: string }> = {};
+      (teacherProfiles || []).forEach((t) => {
+        const sp = profileMap2[t.profile_id];
+        if (sp) {
+          teacherMap[t.id] = { name: sp.full_name, avatar_url: sp.avatar_url, employee_id: t.employee_id ?? undefined };
+        }
+      });
+
+      const { data: coursesForTeachers } = await supabase
+        .from("courses")
+        .select("id, name")
+        .in("id", courseIds);
+      const courseNameMap: Record<string, string> = {};
+      (coursesForTeachers || []).forEach((c) => { courseNameMap[c.id] = c.name; });
+
+      const seen = new Set<string>();
+      for (const a of assignments) {
+        const teacher = teacherMap[a.teacher_profile_id];
+        if (teacher && !seen.has(a.teacher_profile_id)) {
+          seen.add(a.teacher_profile_id);
+          courseTeachers.push({
+            name: teacher.name,
+            avatar_url: teacher.avatar_url,
+            employee_id: teacher.employee_id,
+            course_name: courseNameMap[a.course_id] || "Unknown Course",
+          });
+        }
+      }
+    }
+  }
+
   return {
     ...student,
     enrollments: enrollments || [],
     grades: grades || [],
     attendanceStats,
     activity: activity || [],
+    sectionAdviser,
+    courseTeachers,
   };
 }
 
@@ -117,6 +218,10 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
 
   const profile = student.school_profiles as unknown as { full_name: string; phone?: string; avatar_url?: string };
   const section = student.sections as unknown as { name: string; grade_level: string } | null;
+  const { sectionAdviser, courseTeachers } = student as unknown as {
+    sectionAdviser: { full_name: string; avatar_url: string | null; employee_id?: string } | null;
+    courseTeachers: { name: string; avatar_url: string | null; course_name: string; employee_id?: string }[];
+  };
 
   const attendanceRate = student.attendanceStats.total > 0
     ? ((student.attendanceStats.present + student.attendanceStats.late) / student.attendanceStats.total * 100).toFixed(1)
@@ -192,6 +297,55 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
                 })}
               />
             </div>
+          </div>
+
+          {/* Adviser & Teachers */}
+          <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Adviser & Teachers</h3>
+            {sectionAdviser && (
+              <div className="mb-4">
+                <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-2">Section Adviser</p>
+                <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-lg border border-primary/10">
+                  {sectionAdviser.avatar_url ? (
+                    <img src={sectionAdviser.avatar_url} alt={sectionAdviser.full_name} className="w-9 h-9 rounded-full object-cover" />
+                  ) : (
+                    <div className="w-9 h-9 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm text-white font-bold">{sectionAdviser.full_name.charAt(0).toUpperCase()}</span>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{sectionAdviser.full_name}</p>
+                    {sectionAdviser.employee_id && (
+                      <p className="text-xs text-gray-500">{sectionAdviser.employee_id}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            {courseTeachers.length > 0 ? (
+              <div>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Subject Teachers</p>
+                <div className="space-y-2">
+                  {courseTeachers.map((teacher, i) => (
+                    <div key={i} className="flex items-center gap-3 p-2.5 bg-gray-50 rounded-lg">
+                      {teacher.avatar_url ? (
+                        <img src={teacher.avatar_url} alt={teacher.name} className="w-8 h-8 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-bold text-gray-600">{teacher.name.charAt(0).toUpperCase()}</span>
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{teacher.name}</p>
+                        <p className="text-xs text-gray-500 truncate">{teacher.course_name}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : !sectionAdviser ? (
+              <p className="text-sm text-gray-400 text-center py-4">No adviser or teachers assigned</p>
+            ) : null}
           </div>
 
           {/* Attendance Summary */}

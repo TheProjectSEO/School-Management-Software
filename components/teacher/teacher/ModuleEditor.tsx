@@ -197,24 +197,24 @@ export default function ModuleEditor({ module, subjectId }: ModuleEditorProps) {
     <>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
             <button
               onClick={() => router.push(`/teacher/subjects/${subjectId}`)}
-              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors shrink-0"
             >
               <span className="material-symbols-outlined">arrow_back</span>
             </button>
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
+            <div className="min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1 truncate">
                 Module Editor
               </h1>
-              <p className="text-slate-600 dark:text-slate-400">
+              <p className="text-slate-600 dark:text-slate-400 text-sm">
                 Edit module content and settings
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
             {module.is_published ? (
               <Badge variant="success">Published</Badge>
             ) : (
@@ -224,7 +224,7 @@ export default function ModuleEditor({ module, subjectId }: ModuleEditorProps) {
               <span className="material-symbols-outlined text-lg">
                 {isPreview ? 'edit' : 'visibility'}
               </span>
-              {isPreview ? 'Edit' : 'Preview'}
+              <span className="hidden sm:inline">{isPreview ? 'Edit' : 'Preview'}</span>
             </Button>
             <Button variant="outline" onClick={handleSaveDraft} disabled={isLoading}>
               {isLoading ? (
@@ -232,7 +232,7 @@ export default function ModuleEditor({ module, subjectId }: ModuleEditorProps) {
               ) : (
                 <span className="material-symbols-outlined text-lg">save</span>
               )}
-              Save Draft
+              <span className="hidden sm:inline">Save Draft</span>
             </Button>
             <Button onClick={handlePublish} disabled={isLoading}>
               {isLoading ? (
@@ -240,7 +240,7 @@ export default function ModuleEditor({ module, subjectId }: ModuleEditorProps) {
               ) : (
                 <span className="material-symbols-outlined text-lg">publish</span>
               )}
-              Publish
+              <span className="hidden sm:inline">Publish</span>
             </Button>
           </div>
         </div>

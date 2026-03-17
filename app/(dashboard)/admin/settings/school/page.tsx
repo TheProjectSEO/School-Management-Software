@@ -196,12 +196,12 @@ export default function SchoolSettingsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">School Settings</h1>
-          <p className="text-gray-500 mt-1">Manage your school's profile and information</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">School Settings</h1>
+          <p className="text-gray-500 mt-1 text-sm sm:text-base">Manage your school's profile and information</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           {hasChanges && (
             <span className="text-sm text-orange-600 flex items-center gap-1">
               <span className="material-symbols-outlined text-lg">warning</span>

@@ -161,12 +161,12 @@ export default function ApplicationsPage() {
 
   return (
     <main>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-semibold">Applications</h1>
-          <p className="text-gray-600">Review and manage incoming applications.</p>
+          <h1 className="text-xl sm:text-2xl font-semibold">Applications</h1>
+          <p className="text-gray-600 text-sm sm:text-base">Review and manage incoming applications.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <select
             className="border rounded px-3 py-2 text-sm"
             value={filter}

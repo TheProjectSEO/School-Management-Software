@@ -301,16 +301,16 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
             Assessments
           </h1>
-          <p className="text-slate-600 dark:text-slate-400">
+          <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base">
             Manage quizzes, tests, and assignments
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <Suspense fallback={
             <button disabled className="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-primary/50 text-white font-semibold cursor-not-allowed">
               <span className="material-symbols-outlined text-lg">add</span>

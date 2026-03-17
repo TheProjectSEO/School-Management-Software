@@ -244,7 +244,7 @@ export default function SubjectDetailPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Breadcrumb */}
       <nav className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
         <Link href="/teacher" className="hover:text-primary transition-colors">
@@ -294,7 +294,7 @@ export default function SubjectDetailPage() {
           )}
 
           {/* Stats */}
-          <div className="flex gap-6">
+          <div className="flex flex-wrap gap-4 sm:gap-6">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-primary">article</span>
               <span className="text-slate-900 dark:text-slate-100 font-semibold">
@@ -396,32 +396,33 @@ export default function SubjectDetailPage() {
                     )}
 
                     {/* Actions */}
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1 flex-wrap mt-1">
                       <Link
                         href={`/teacher/subjects/${subjectId}/modules/${module.id}`}
-                        className="text-sm text-primary hover:text-primary-hover font-medium transition-colors"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 rounded-md transition-colors"
                       >
-                        View Details
+                        <span className="material-symbols-outlined text-sm">open_in_new</span>
+                        View
                       </Link>
-                      <span className="text-slate-300 dark:text-slate-600">|</span>
                       <button
                         onClick={() => openEditModal(module)}
-                        className="text-sm text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-md transition-colors"
                       >
+                        <span className="material-symbols-outlined text-sm">edit</span>
                         Edit
                       </button>
-                      <span className="text-slate-300 dark:text-slate-600">|</span>
                       <button
                         onClick={() => handleTogglePublish(module)}
-                        className="text-sm text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${module.is_published ? 'text-amber-700 bg-amber-50 hover:bg-amber-100 dark:text-amber-400 dark:bg-amber-900/20 dark:hover:bg-amber-900/30' : 'text-green-700 bg-green-50 hover:bg-green-100 dark:text-green-400 dark:bg-green-900/20 dark:hover:bg-green-900/30'}`}
                       >
+                        <span className="material-symbols-outlined text-sm">{module.is_published ? 'unpublished' : 'publish'}</span>
                         {module.is_published ? 'Unpublish' : 'Publish'}
                       </button>
-                      <span className="text-slate-300 dark:text-slate-600">|</span>
                       <button
                         onClick={() => openDeleteModal(module)}
-                        className="text-sm text-red-600 hover:text-red-700 transition-colors"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 rounded-md transition-colors"
                       >
+                        <span className="material-symbols-outlined text-sm">delete</span>
                         Delete
                       </button>
                     </div>

@@ -59,7 +59,7 @@ export default function LessonNavigation({
   };
 
   return (
-    <div className="mx-4 sm:mx-6 lg:mx-8 bg-white dark:bg-slate-800 rounded-xl p-6 border border-slate-200 dark:border-slate-700">
+    <div className="bg-white dark:bg-slate-800 rounded-xl p-4 sm:p-6 border border-slate-200 dark:border-slate-700">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           {prevLesson ? (

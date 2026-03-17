@@ -276,7 +276,7 @@ export default function LiveSessionsPage() {
 
   if (loading) {
     return (
-      <div className="p-4 sm:p-8">
+      <div className="space-y-6">
         <div className="text-center py-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading sessions...</p>

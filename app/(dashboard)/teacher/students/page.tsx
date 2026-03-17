@@ -185,15 +185,13 @@ export default function StudentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-slate-100 mb-2">
-            Students
-          </h1>
-          <p className="text-slate-600 dark:text-slate-400">
-            View and manage students in your classes
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
+          Students
+        </h1>
+        <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base">
+          View and manage students in your classes
+        </p>
       </div>
 
       {/* Students List */}

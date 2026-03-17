@@ -115,9 +115,9 @@ export default async function ModulePage({
   const prevLesson = lessons[currentLessonIndex - 1] || null;
 
   return (
-    <div className="flex flex-col gap-6 -mx-4 sm:-mx-6 lg:-mx-8">
+    <div className="flex flex-col gap-6">
       {/* Breadcrumb */}
-      <div className="mx-4 sm:mx-6 lg:mx-8 flex flex-wrap gap-2 items-center text-sm">
+      <div className="flex flex-wrap gap-2 items-center text-sm">
         <Link href="/student" className={`font-medium transition-colors ${isPlayful ? 'text-purple-400 hover:text-pink-500' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}>
           {isPlayful ? '\u{1F3E0} Home' : 'Home'}
         </Link>
@@ -133,192 +133,274 @@ export default async function ModulePage({
         <span className={`font-medium ${isPlayful ? 'text-pink-600' : 'text-primary dark:text-msu-gold'}`}>{module.title}</span>
       </div>
 
-      {/* Video Player or Content */}
-      <div className="mx-4 sm:mx-6 lg:mx-8">
-        {currentLesson.content_type === "video" && videoSource ? (
-          <VideoPlayer
-            videoUrl={videoSource.url}
-            playerType={videoSource.type}
-            lessonId={currentLesson.id}
-            studentId={student.id}
-            courseId={subjectId}
-            initialProgress={lessonWithProgress?.progress_percent || 0}
-            nextLessonUrl={nextLesson ? `/student/subjects/${subjectId}/modules/${moduleId}?lesson=${nextLesson.id}` : null}
-            isCompleted={lessonWithProgress?.completed || false}
-          />
-        ) : currentLesson.attachments?.find(a => a.file_type?.includes('pdf') || a.file_type?.includes('presentation') || a.file_type?.includes('powerpoint')) ? (
-          // Show PDF/Presentation preview for lessons with document attachments
-          (() => {
-            const docAttachment = currentLesson.attachments.find(a => a.file_type?.includes('pdf') || a.file_type?.includes('presentation') || a.file_type?.includes('powerpoint'))
-            if (!docAttachment) return null
-            return (
-              <PDFViewer
-                fileUrl={docAttachment.file_url}
-                fileTitle={docAttachment.title}
-                fileType={docAttachment.file_type || ''}
-                fileId={docAttachment.id}
-                isPlayful={isPlayful}
-              />
-            )
-          })()
-        ) : (
-          <div className="w-full aspect-video bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden flex items-center justify-center border border-slate-200 dark:border-slate-700">
-            <div className="text-center p-8">
-              <span className="material-symbols-outlined text-6xl text-slate-400 dark:text-slate-600 mb-4 block">
-                {currentLesson.content_type === "video" && "videocam_off"}
-                {currentLesson.content_type === "reading" && "menu_book"}
-                {currentLesson.content_type === "quiz" && "quiz"}
-                {currentLesson.content_type === "activity" && "assignment"}
-                {!["reading", "quiz", "activity", "video"].includes(currentLesson.content_type) &&
-                  "description"}
-              </span>
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
-                {currentLesson.content_type === "video" && "Video Not Available"}
-                {currentLesson.content_type === "reading" && "Reading Material"}
-                {currentLesson.content_type === "quiz" && "Quiz"}
-                {currentLesson.content_type === "activity" && "Activity"}
-                {!["reading", "quiz", "activity", "video"].includes(currentLesson.content_type) &&
-                  "Content"}
-              </h3>
-              <p className="text-sm text-slate-500 dark:text-slate-400">
-                {currentLesson.content_type === "video"
-                  ? "The video for this lesson is still being processed. Please check back later."
-                  : "Scroll down to view the lesson content."}
-              </p>
-            </div>
-          </div>
-        )}
+      {/* Two-column desktop layout: main content + lessons sidebar */}
+      <div className="flex flex-col xl:flex-row gap-6 items-start">
 
-        {/* Lesson Info */}
-        <div className="flex items-start justify-between mt-4">
+        {/* Main content column */}
+        <div className="flex flex-col gap-6 flex-1 min-w-0">
+
+          {/* Video Player or Content */}
           <div>
-            <h1 className={`text-2xl font-bold mb-1 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
-              {isPlayful ? `\u{1F4D6} ${currentLesson.title}` : currentLesson.title}
-            </h1>
-            <div className={`flex items-center gap-4 text-sm ${isPlayful ? 'text-purple-500' : 'text-slate-500 dark:text-slate-400'}`}>
-              {currentLesson.duration_minutes && (
-                <div className="flex items-center gap-1">
-                  {isPlayful ? <span>{'\u23F0'}</span> : <span className="material-symbols-outlined text-[16px]">schedule</span>}
-                  <span>{currentLesson.duration_minutes} min</span>
-                </div>
-              )}
-              <div className="flex items-center gap-1">
-                {!isPlayful && (
-                  <span className="material-symbols-outlined text-[16px]">
-                    {currentLesson.content_type === "video" && "play_circle"}
+            {currentLesson.content_type === "video" && videoSource ? (
+              <VideoPlayer
+                videoUrl={videoSource.url}
+                playerType={videoSource.type}
+                lessonId={currentLesson.id}
+                studentId={student.id}
+                courseId={subjectId}
+                initialProgress={lessonWithProgress?.progress_percent || 0}
+                nextLessonUrl={nextLesson ? `/student/subjects/${subjectId}/modules/${moduleId}?lesson=${nextLesson.id}` : null}
+                isCompleted={lessonWithProgress?.completed || false}
+              />
+            ) : currentLesson.attachments?.find(a => a.file_type?.includes('pdf') || a.file_type?.includes('presentation') || a.file_type?.includes('powerpoint')) ? (
+              (() => {
+                const docAttachment = currentLesson.attachments.find(a => a.file_type?.includes('pdf') || a.file_type?.includes('presentation') || a.file_type?.includes('powerpoint'))
+                if (!docAttachment) return null
+                return (
+                  <PDFViewer
+                    fileUrl={docAttachment.file_url}
+                    fileTitle={docAttachment.title}
+                    fileType={docAttachment.file_type || ''}
+                    fileId={docAttachment.id}
+                    isPlayful={isPlayful}
+                  />
+                )
+              })()
+            ) : (
+              <div className="w-full aspect-video bg-slate-100 dark:bg-slate-800 rounded-xl overflow-hidden flex items-center justify-center border border-slate-200 dark:border-slate-700">
+                <div className="text-center p-8">
+                  <span className="material-symbols-outlined text-6xl text-slate-400 dark:text-slate-600 mb-4 block">
+                    {currentLesson.content_type === "video" && "videocam_off"}
                     {currentLesson.content_type === "reading" && "menu_book"}
                     {currentLesson.content_type === "quiz" && "quiz"}
                     {currentLesson.content_type === "activity" && "assignment"}
+                    {!["reading", "quiz", "activity", "video"].includes(currentLesson.content_type) &&
+                      "description"}
                   </span>
-                )}
-                {isPlayful ? (
-                  <span>
-                    {currentLesson.content_type === "video" && "\u{1F3AC} Video"}
-                    {currentLesson.content_type === "reading" && "\u{1F4D6} Reading"}
-                    {currentLesson.content_type === "quiz" && "\u{1F4DD} Quiz"}
-                    {currentLesson.content_type === "activity" && "\u270F\uFE0F Activity"}
-                    {!["video", "reading", "quiz", "activity"].includes(currentLesson.content_type) && "\u{1F4CB} Content"}
-                  </span>
-                ) : (
-                  <span className="capitalize">{currentLesson.content_type}</span>
-                )}
-              </div>
-              {lessonWithProgress?.completed && (
-                <div className={`flex items-center gap-1 ${isPlayful ? 'text-green-600' : 'text-msu-green'}`}>
-                  {isPlayful ? <span>{'\u2705'}</span> : <span className="material-symbols-outlined text-[16px]">check_circle</span>}
-                  <span>{isPlayful ? 'Done!' : 'Completed'}</span>
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2">
+                    {currentLesson.content_type === "video" && "Video Not Available"}
+                    {currentLesson.content_type === "reading" && "Reading Material"}
+                    {currentLesson.content_type === "quiz" && "Quiz"}
+                    {currentLesson.content_type === "activity" && "Activity"}
+                    {!["reading", "quiz", "activity", "video"].includes(currentLesson.content_type) &&
+                      "Content"}
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {currentLesson.content_type === "video"
+                      ? "The video for this lesson is still being processed. Please check back later."
+                      : "Scroll down to view the lesson content."}
+                  </p>
                 </div>
-              )}
+              </div>
+            )}
+
+            {/* Lesson Info */}
+            <div className="flex items-start justify-between gap-3 mt-4">
+              <div className="min-w-0 flex-1">
+                <h1 className={`text-xl sm:text-2xl font-bold mb-1 break-words ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+                  {isPlayful ? `\u{1F4D6} ${currentLesson.title}` : currentLesson.title}
+                </h1>
+                <div className={`flex flex-wrap items-center gap-x-4 gap-y-1 text-sm ${isPlayful ? 'text-purple-500' : 'text-slate-500 dark:text-slate-400'}`}>
+                  {currentLesson.duration_minutes && (
+                    <div className="flex items-center gap-1">
+                      {isPlayful ? <span>{'\u23F0'}</span> : <span className="material-symbols-outlined text-[16px]">schedule</span>}
+                      <span>{currentLesson.duration_minutes} min</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-1">
+                    {!isPlayful && (
+                      <span className="material-symbols-outlined text-[16px]">
+                        {currentLesson.content_type === "video" && "play_circle"}
+                        {currentLesson.content_type === "reading" && "menu_book"}
+                        {currentLesson.content_type === "quiz" && "quiz"}
+                        {currentLesson.content_type === "activity" && "assignment"}
+                      </span>
+                    )}
+                    {isPlayful ? (
+                      <span>
+                        {currentLesson.content_type === "video" && "\u{1F3AC} Video"}
+                        {currentLesson.content_type === "reading" && "\u{1F4D6} Reading"}
+                        {currentLesson.content_type === "quiz" && "\u{1F4DD} Quiz"}
+                        {currentLesson.content_type === "activity" && "\u270F\uFE0F Activity"}
+                        {!["video", "reading", "quiz", "activity"].includes(currentLesson.content_type) && "\u{1F4CB} Content"}
+                      </span>
+                    ) : (
+                      <span className="capitalize">{currentLesson.content_type}</span>
+                    )}
+                  </div>
+                  {lessonWithProgress?.completed && (
+                    <div className={`flex items-center gap-1 ${isPlayful ? 'text-green-600' : 'text-msu-green'}`}>
+                      {isPlayful ? <span>{'\u2705'}</span> : <span className="material-symbols-outlined text-[16px]">check_circle</span>}
+                      <span>{isPlayful ? 'Done!' : 'Completed'}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <button className={`p-2 transition-all shadow-sm ${isPlayful ? 'rounded-xl bg-pink-50 border-2 border-pink-200 text-pink-400 hover:text-pink-600 hover:border-pink-400' : 'rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary'}`}>
+                  {isPlayful ? <span className="text-xl">{'\u{1F516}'}</span> : <span className="material-symbols-outlined">bookmark_border</span>}
+                </button>
+                <button className={`p-2 transition-all shadow-sm ${isPlayful ? 'rounded-xl bg-purple-50 border-2 border-purple-200 text-purple-400 hover:text-purple-600 hover:border-purple-400' : 'rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary'}`}>
+                  {isPlayful ? <span className="text-xl">{'\u{1F517}'}</span> : <span className="material-symbols-outlined">share</span>}
+                </button>
+              </div>
+            </div>
+
+            {/* Lesson Reactions */}
+            <div className="mt-4">
+              <LessonReactions
+                lessonId={currentLesson.id}
+                studentId={student.id}
+                gradeLevel={gradeLevel}
+              />
             </div>
           </div>
-          <div className="flex gap-2">
-            <button className={`p-2 transition-all shadow-sm ${isPlayful ? 'rounded-xl bg-pink-50 border-2 border-pink-200 text-pink-400 hover:text-pink-600 hover:border-pink-400' : 'rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary'}`}>
-              {isPlayful ? <span className="text-xl">{'\u{1F516}'}</span> : <span className="material-symbols-outlined">bookmark_border</span>}
-            </button>
-            <button className={`p-2 transition-all shadow-sm ${isPlayful ? 'rounded-xl bg-purple-50 border-2 border-purple-200 text-purple-400 hover:text-purple-600 hover:border-purple-400' : 'rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:text-primary hover:border-primary'}`}>
-              {isPlayful ? <span className="text-xl">{'\u{1F517}'}</span> : <span className="material-symbols-outlined">share</span>}
-            </button>
+
+          {/* Lesson Content */}
+          {currentLesson.content && (
+            <div className={`p-6 ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-white' : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700'}`}>
+              <h3 className={`text-lg font-bold mb-4 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+                {isPlayful ? '\u{1F4DD} Lesson Description' : 'Lesson Description'}
+              </h3>
+              <div
+                className="prose prose-slate dark:prose-invert max-w-none"
+                dangerouslySetInnerHTML={{ __html: currentLesson.content }}
+              />
+            </div>
+          )}
+
+          {/* Lesson Attachments */}
+          {currentLesson.attachments && currentLesson.attachments.length > 0 && (
+            <LessonAttachments
+              attachments={
+                (currentLesson.attachments || []).filter((a) => {
+                  if (a.file_type?.includes('pdf') || a.file_type?.includes('presentation') || a.file_type?.includes('powerpoint')) {
+                    const docIndex = (currentLesson.attachments || []).findIndex(att =>
+                      att.file_type?.includes('pdf') ||
+                      att.file_type?.includes('presentation') ||
+                      att.file_type?.includes('powerpoint')
+                    )
+                    return (currentLesson.attachments || []).indexOf(a) !== docIndex
+                  }
+                  return true
+                })
+              }
+              isPlayful={isPlayful}
+            />
+          )}
+
+          {/* Lesson Navigation */}
+          <LessonNavigation
+            currentLesson={currentLesson}
+            nextLesson={nextLesson}
+            prevLesson={prevLesson}
+            subjectId={subjectId}
+            moduleId={moduleId}
+            studentId={student.id}
+            courseId={subjectId}
+            isCompleted={lessonWithProgress?.completed || false}
+          />
+
+          {/* Ask AI Panel */}
+          <AskAIPanel
+            lessonId={currentLesson.id}
+            courseId={subjectId}
+            lessonTitle={currentLesson.title}
+            courseName={subject.name}
+            videoUrl={currentLesson.video_url || undefined}
+          />
+
+          {/* Notes Panel */}
+          <NotesPanel
+            studentId={student.id}
+            courseId={subjectId}
+            lessonId={currentLesson.id}
+            lessonTitle={currentLesson.title}
+          />
+
+          {/* Back Link — shown at bottom on mobile/tablet */}
+          <div className="xl:hidden mb-4">
+            <Link
+              href={`/student/subjects/${subjectId}`}
+              className={`inline-flex items-center gap-2 text-sm font-medium transition-colors ${isPlayful ? 'text-purple-400 hover:text-pink-500' : 'text-slate-500 hover:text-primary'}`}
+            >
+              {isPlayful ? <span>{'\u{1F519}'}</span> : <span className="material-symbols-outlined text-[18px]">arrow_back</span>}
+              Back to {subject.name}
+            </Link>
           </div>
         </div>
 
-        {/* Lesson Reactions */}
-        <div className="mt-4">
-          <LessonReactions
-            lessonId={currentLesson.id}
-            studentId={student.id}
-            gradeLevel={gradeLevel}
-          />
+        {/* Lessons Sidebar — sticky on desktop, hidden on mobile (shown via main column on small screens) */}
+        <div className="hidden xl:flex xl:flex-col gap-4 w-80 shrink-0 sticky top-6">
+          <div className={`p-5 ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-white' : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700'}`}>
+            <h3 className={`text-base font-bold mb-3 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+              {isPlayful ? `\u{1F4CB} ${module.title}` : module.title}
+            </h3>
+            <div className="space-y-1.5">
+              {lessons.map((lesson, index) => {
+                const isCurrent = lesson.id === currentLesson.id;
+                return (
+                  <Link
+                    key={lesson.id}
+                    href={`/student/subjects/${subjectId}/modules/${moduleId}?lesson=${lesson.id}`}
+                    className={`flex items-center gap-3 p-2.5 transition-all ${
+                      isPlayful
+                        ? isCurrent
+                          ? "rounded-xl bg-pink-100 border-2 border-pink-400"
+                          : "rounded-xl bg-purple-50/50 border-2 border-purple-100 hover:border-pink-300"
+                        : isCurrent
+                          ? "rounded-lg bg-primary/10 border-2 border-primary"
+                          : "rounded-lg bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 hover:border-primary"
+                    }`}
+                  >
+                    <div
+                      className={`flex-none size-7 rounded-md flex items-center justify-center font-bold text-sm ${
+                        isPlayful
+                          ? isCurrent
+                            ? "bg-pink-500 text-white rounded-lg"
+                            : "bg-purple-100 text-purple-600 rounded-lg"
+                          : isCurrent
+                            ? "bg-primary text-white"
+                            : "bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300"
+                      }`}
+                    >
+                      {index + 1}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h4
+                        className={`text-sm font-semibold line-clamp-2 leading-tight ${
+                          isPlayful
+                            ? isCurrent ? "text-pink-700" : "text-purple-900"
+                            : isCurrent ? "text-primary dark:text-msu-gold" : "text-slate-900 dark:text-white"
+                        }`}
+                      >
+                        {lesson.title}
+                      </h4>
+                      {lesson.duration_minutes && (
+                        <span className={`text-xs ${isPlayful ? 'text-purple-400' : 'text-slate-500 dark:text-slate-400'}`}>
+                          {lesson.duration_minutes} min
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+
+          <Link
+            href={`/student/subjects/${subjectId}`}
+            className={`inline-flex items-center gap-2 text-sm font-medium transition-colors ${isPlayful ? 'text-purple-400 hover:text-pink-500' : 'text-slate-500 hover:text-primary'}`}
+          >
+            {isPlayful ? <span>{'\u{1F519}'}</span> : <span className="material-symbols-outlined text-[18px]">arrow_back</span>}
+            Back to {subject.name}
+          </Link>
         </div>
+
       </div>
 
-      {/* Lesson Content */}
-      {currentLesson.content && (
-        <div className={`mx-4 sm:mx-6 lg:mx-8 p-6 ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-white' : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700'}`}>
-          <h3 className={`text-lg font-bold mb-4 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
-            {isPlayful ? '\u{1F4DD} Lesson Description' : 'Lesson Description'}
-          </h3>
-          <div
-            className="prose prose-slate dark:prose-invert max-w-none"
-            dangerouslySetInnerHTML={{ __html: currentLesson.content }}
-          />
-        </div>
-      )}
-
-      {/* Lesson Attachments */}
-      {currentLesson.attachments && currentLesson.attachments.length > 0 && (
-        <div className="mx-4 sm:mx-6 lg:mx-8">
-          <LessonAttachments
-            attachments={
-              // Filter out the first PDF/Presentation (already shown in Reading Material section above)
-              (currentLesson.attachments || []).filter((a, i) => {
-                if (a.file_type?.includes('pdf') || a.file_type?.includes('presentation') || a.file_type?.includes('powerpoint')) {
-                  // Skip the first PDF or presentation only
-                  const docIndex = (currentLesson.attachments || []).findIndex(att =>
-                    att.file_type?.includes('pdf') ||
-                    att.file_type?.includes('presentation') ||
-                    att.file_type?.includes('powerpoint')
-                  )
-                  return (currentLesson.attachments || []).indexOf(a) !== docIndex
-                }
-                return true
-              })
-            }
-            isPlayful={isPlayful}
-          />
-        </div>
-      )}
-
-      {/* Lesson Navigation */}
-      <LessonNavigation
-        currentLesson={currentLesson}
-        nextLesson={nextLesson}
-        prevLesson={prevLesson}
-        subjectId={subjectId}
-        moduleId={moduleId}
-        studentId={student.id}
-        courseId={subjectId}
-        isCompleted={lessonWithProgress?.completed || false}
-      />
-
-      {/* Ask AI Panel */}
-      <AskAIPanel
-        lessonId={currentLesson.id}
-        courseId={subjectId}
-        lessonTitle={currentLesson.title}
-        courseName={subject.name}
-        videoUrl={currentLesson.video_url || undefined}
-      />
-
-      {/* Notes Panel - Fixed sidebar */}
-      <NotesPanel
-        studentId={student.id}
-        courseId={subjectId}
-        lessonId={currentLesson.id}
-        lessonTitle={currentLesson.title}
-      />
-
-      {/* All Lessons in Module */}
-      <div className={`mx-4 sm:mx-6 lg:mx-8 p-6 ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-white' : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700'}`}>
+      {/* All Lessons in Module — shown on mobile/tablet below main content */}
+      <div className={`xl:hidden p-6 ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-white' : 'bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700'}`}>
         <h3 className={`text-lg font-bold mb-4 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
           {isPlayful ? `\u{1F4CB} Lessons in ${module.title}` : `Lessons in ${module.title}`}
         </h3>
@@ -393,17 +475,6 @@ export default async function ModulePage({
             );
           })}
         </div>
-      </div>
-
-      {/* Back Link */}
-      <div className="mx-4 sm:mx-6 lg:mx-8 mb-8">
-        <Link
-          href={`/student/subjects/${subjectId}`}
-          className={`inline-flex items-center gap-2 text-sm font-medium transition-colors ${isPlayful ? 'text-purple-400 hover:text-pink-500' : 'text-slate-500 hover:text-primary'}`}
-        >
-          {isPlayful ? <span>{'\u{1F519}'}</span> : <span className="material-symbols-outlined text-[18px]">arrow_back</span>}
-          Back to {subject.name}
-        </Link>
       </div>
     </div>
   );

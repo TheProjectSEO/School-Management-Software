@@ -300,6 +300,8 @@ export async function releaseSubmission(
     .from('submissions')
     .update({
       status: 'released',
+      released_at: new Date().toISOString(),
+      released_by: teacherProfileId,
     })
     .eq('id', submissionId)
     .eq('status', 'graded')

@@ -196,7 +196,7 @@ export default async function SubjectsPage({ searchParams }: PageProps) {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+        <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-3 scrollbar-hide sm:grid sm:grid-cols-2 xl:grid-cols-3 sm:gap-5 sm:overflow-visible sm:snap-none sm:pb-0">
           {subjects.map((subject) => {
             const statusLabel =
               subject.progress >= 100
@@ -216,7 +216,7 @@ export default async function SubjectsPage({ searchParams }: PageProps) {
               <Link
                 key={subject.id}
                 href={`/student/subjects/${subject.id}`}
-                className="group block"
+                className="group block snap-center shrink-0 w-[80vw] sm:w-auto"
               >
                 <div
                   className={`flex flex-col overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 ${

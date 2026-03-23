@@ -104,11 +104,11 @@ async function SubjectsContent({ sort, grade }: { sort: string; grade: string })
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+    <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-3 scrollbar-hide sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-5 sm:overflow-visible sm:snap-none sm:pb-0">
       {subjects.map((subject, index) => {
         const subjectTheme = getSubjectTheme(subject.name, index);
         return (
-          <Link key={subject.id} href={`/teacher/subjects/${subject.id}`} className="group block">
+          <Link key={subject.id} href={`/teacher/subjects/${subject.id}`} className="group block snap-center shrink-0 w-[80vw] sm:w-auto">
             <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 h-full">
 
               {/* ── Flashcard Top (colored) ── */}

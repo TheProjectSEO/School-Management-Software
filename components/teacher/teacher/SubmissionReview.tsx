@@ -7,6 +7,7 @@ import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import { SubmissionDetail } from '@/lib/dal/assessments'
 import { authFetch } from "@/lib/utils/authFetch";
+import FeedbackTemplatesPanel from '@/components/teacher/feedback/FeedbackTemplatesPanel';
 
 interface SubmissionReviewProps {
   submission: SubmissionDetail
@@ -454,6 +455,12 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
               rows={8}
               className="w-full px-4 py-3 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
+            <div className="mt-3 border-t border-slate-200 dark:border-slate-700 pt-3">
+              <FeedbackTemplatesPanel
+                compact
+                onSelectTemplate={(content) => setFeedback(content)}
+              />
+            </div>
           </Card>
         </div>
       </div>

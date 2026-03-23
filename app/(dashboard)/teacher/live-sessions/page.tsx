@@ -329,6 +329,14 @@ export default function LiveSessionsPage() {
     cancelled: sessions.filter(s => s.status === 'cancelled').length,
   };
 
+  const TABS: { key: StatusFilter; label: string; dot?: boolean }[] = [
+    { key: 'all', label: 'All Sessions' },
+    { key: 'live', label: 'Live Now', dot: true },
+    { key: 'scheduled', label: 'Upcoming' },
+    { key: 'ended', label: 'Completed' },
+    { key: 'cancelled', label: 'Cancelled' },
+  ];
+
   const filteredSessions =
     activeTab === 'all' ? sessions : sessions.filter(s => s.status === activeTab);
 
@@ -396,34 +404,24 @@ export default function LiveSessionsPage() {
 
       {/* Status Filter Tabs */}
       <div className="border-b border-gray-200">
-        <nav className="-mb-px flex gap-1 overflow-x-auto" aria-label="Session status filter">
-          {(
-            [
-              { key: 'all', label: 'All' },
-              { key: 'live', label: 'Live' },
-              { key: 'scheduled', label: 'Scheduled' },
-              { key: 'ended', label: 'Completed' },
-              { key: 'cancelled', label: 'Cancelled' },
-            ] as { key: StatusFilter; label: string }[]
-          ).map(({ key, label }) => (
+        <nav className="-mb-px flex gap-0 overflow-x-auto" aria-label="Session status filter">
+          {TABS.map(({ key, label, dot }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className={`whitespace-nowrap flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+              className={`whitespace-nowrap flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === key
                   ? 'border-primary text-primary'
                   : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
-              {key === 'live' && tabCounts.live > 0 && (
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              {dot && tabCounts.live > 0 && (
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse shrink-0" />
               )}
               {label}
               <span
-                className={`ml-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
-                  activeTab === key
-                    ? 'bg-primary/10 text-primary'
-                    : 'bg-gray-100 text-gray-500'
+                className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+                  activeTab === key ? 'bg-primary/10 text-primary' : 'bg-gray-100 text-gray-500'
                 }`}
               >
                 {tabCounts[key]}
@@ -434,189 +432,239 @@ export default function LiveSessionsPage() {
       </div>
 
       {/* Sessions List */}
-      <div className="grid gap-4">
+      <div className="flex flex-col gap-3">
         {filteredSessions.length === 0 ? (
-          <div className="text-center py-12 bg-white rounded-lg border">
-            <span className="material-symbols-outlined text-6xl text-gray-300 mb-4 block">
-              videocam
-            </span>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">
-              {activeTab === 'all' ? 'No Sessions Yet' : `No ${activeTab === 'ended' ? 'completed' : activeTab} sessions`}
+          <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-200">
+            <span className="material-symbols-outlined text-5xl text-gray-300 mb-3 block">videocam_off</span>
+            <h3 className="text-base font-semibold text-gray-700 mb-1">
+              {activeTab === 'all'
+                ? 'No sessions yet'
+                : activeTab === 'live'
+                ? 'No live sessions right now'
+                : activeTab === 'scheduled'
+                ? 'No upcoming sessions'
+                : activeTab === 'ended'
+                ? 'No completed sessions'
+                : 'No cancelled sessions'}
             </h3>
-            {activeTab === 'all' ? (
-              <>
-                <p className="text-gray-500 mb-4">Schedule your first live session to get started</p>
-                <button
-                  onClick={() => setShowCreateModal(true)}
-                  className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover"
-                >
-                  Schedule First Session
-                </button>
-              </>
-            ) : (
-              <p className="text-gray-500">
-                {activeTab === 'live'
-                  ? 'No sessions are currently live.'
-                  : activeTab === 'scheduled'
-                  ? 'No upcoming sessions scheduled.'
-                  : activeTab === 'ended'
-                  ? 'No completed sessions yet.'
-                  : 'No cancelled sessions.'}
-              </p>
+            <p className="text-sm text-gray-400 mb-4">
+              {activeTab === 'all' || activeTab === 'scheduled'
+                ? 'Schedule your first session to get started.'
+                : activeTab === 'live'
+                ? 'Start a scheduled session to go live.'
+                : ''}
+            </p>
+            {(activeTab === 'all' || activeTab === 'scheduled') && (
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="px-5 py-2 bg-primary text-white text-sm rounded-lg hover:bg-primary-hover"
+              >
+                + Schedule a Session
+              </button>
             )}
           </div>
         ) : (
-          filteredSessions.map((session) => (
-            <div key={session.id} className="bg-white rounded-lg border p-4 sm:p-6">
-              <div className="flex flex-col sm:flex-row items-start gap-4">
-                <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="text-xl font-semibold">{session.title}</h3>
-                    <StatusBadge status={session.status} />
-                  </div>
-                  {session.course?.name && (
-                    <p className="text-sm text-gray-600 mb-2">
-                      {session.course.name}
-                      {session.course.subject_code ? ` (${session.course.subject_code})` : ''}
-                      {session.section?.name ? ` — ${session.section.name}` : ''}
-                    </p>
-                  )}
-                  {session.description && (
-                    <p className="text-gray-700 mb-3">{session.description}</p>
-                  )}
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-gray-500">
-                    <span className="flex items-center gap-1">
-                      <span className="material-symbols-outlined text-base">schedule</span>
-                      {new Date(session.scheduled_start).toLocaleString()}
-                    </span>
-                    {session.max_participants && (
-                      <span className="flex items-center gap-1">
-                        <span className="material-symbols-outlined text-base">group</span>
-                        Max {session.max_participants} participants
-                      </span>
+          filteredSessions.map((session) => {
+            const startDate = new Date(session.scheduled_start);
+            const endDate = session.scheduled_end ? new Date(session.scheduled_end) : null;
+            const formattedDate = startDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+            const formattedStart = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            const formattedEnd = endDate ? endDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : null;
+
+            const borderColor = {
+              live: 'border-l-green-500',
+              scheduled: 'border-l-blue-400',
+              ended: 'border-l-gray-300',
+              cancelled: 'border-l-red-300',
+            }[session.status];
+
+            return (
+              <div
+                key={session.id}
+                className={`bg-white rounded-xl border border-l-4 ${borderColor} border-gray-200 shadow-sm hover:shadow-md transition-shadow`}
+              >
+                {/* Main card body */}
+                <div className="p-5 flex flex-col sm:flex-row gap-4">
+                  {/* Left: session info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-2">
+                      <h3 className="text-base font-bold text-gray-900 leading-tight">{session.title}</h3>
+                      <StatusBadge status={session.status} />
+                    </div>
+
+                    {session.course?.name && (
+                      <p className="text-sm text-gray-600 mb-1 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-sm text-gray-400">book_2</span>
+                        {session.course.name}
+                        {session.course.subject_code && (
+                          <span className="text-gray-400">({session.course.subject_code})</span>
+                        )}
+                        {session.section?.name && (
+                          <span className="text-gray-400">· {session.section.name}</span>
+                        )}
+                      </p>
                     )}
-                    {session.recording_enabled && (
-                      <span className="flex items-center gap-1">
-                        <span className="material-symbols-outlined text-base">videocam</span>
-                        Recording {session.recording_url ? 'available' : 'enabled'}
+
+                    <p className="text-sm text-gray-500 flex items-center gap-1.5 mb-1">
+                      <span className="material-symbols-outlined text-sm text-gray-400">calendar_today</span>
+                      {formattedDate}
+                      <span className="text-gray-300">·</span>
+                      <span className="material-symbols-outlined text-sm text-gray-400">schedule</span>
+                      {formattedStart}{formattedEnd && ` – ${formattedEnd}`}
+                    </p>
+
+                    {session.max_participants && (
+                      <p className="text-sm text-gray-400 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-sm">group</span>
+                        Up to {session.max_participants} participants
+                      </p>
+                    )}
+
+                    {session.description && (
+                      <p className="text-sm text-gray-500 mt-2 line-clamp-2">{session.description}</p>
+                    )}
+                  </div>
+
+                  {/* Right: primary actions */}
+                  <div className="flex flex-row sm:flex-col gap-2 shrink-0 sm:min-w-[160px]">
+                    {session.status === 'scheduled' && (
+                      <>
+                        <button
+                          onClick={() => startSession(session.id)}
+                          className="flex-1 sm:flex-none px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-base">play_circle</span>
+                          Start Now
+                        </button>
+                        <button
+                          onClick={() => shareToStudents(session)}
+                          className="flex-1 sm:flex-none px-4 py-2.5 border border-blue-200 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-50 flex items-center justify-center gap-2 transition-colors"
+                          disabled={!session.course?.id}
+                        >
+                          <span className="material-symbols-outlined text-base">campaign</span>
+                          Notify Students
+                        </button>
+                        <button
+                          onClick={() => cancelSession(session.id)}
+                          className="flex-1 sm:flex-none px-4 py-2.5 border border-red-200 text-red-500 text-sm font-medium rounded-lg hover:bg-red-50 flex items-center justify-center gap-2 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-base">cancel</span>
+                          Cancel
+                        </button>
+                      </>
+                    )}
+
+                    {session.status === 'live' && (
+                      <>
+                        {session.join_url && (
+                          <button
+                            onClick={() => session.join_url && window.open(session.join_url, '_blank')}
+                            className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors"
+                          >
+                            <span className="material-symbols-outlined text-base">video_call</span>
+                            Rejoin Room
+                          </button>
+                        )}
+                        <button
+                          onClick={() => shareToStudents(session)}
+                          className="flex-1 sm:flex-none px-4 py-2.5 border border-blue-200 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-50 flex items-center justify-center gap-2 transition-colors"
+                          disabled={!session.course?.id}
+                        >
+                          <span className="material-symbols-outlined text-base">campaign</span>
+                          Notify Students
+                        </button>
+                        <button
+                          onClick={() => endSession(session.id)}
+                          className="flex-1 sm:flex-none px-4 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 flex items-center justify-center gap-2 transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-base">stop_circle</span>
+                          End Session
+                        </button>
+                      </>
+                    )}
+
+                    {session.status === 'cancelled' && (
+                      <span className="text-sm text-gray-400 flex items-center gap-1.5 py-2">
+                        <span className="material-symbols-outlined text-base text-red-400">cancel</span>
+                        This session was cancelled
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-2 w-full sm:w-auto shrink-0">
-                  {session.status === 'scheduled' && (
-                    <>
-                      <button
-                        onClick={() => startSession(session.id)}
-                        className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
-                      >
-                        <span className="material-symbols-outlined">play_circle</span>
-                        Start Session
-                      </button>
-                      <button
-                        onClick={() => cancelSession(session.id)}
-                        className="w-full sm:w-auto px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 flex items-center justify-center gap-2"
-                      >
-                        <span className="material-symbols-outlined">cancel</span>
-                        Cancel Session
-                      </button>
-                    </>
-                  )}
-                  {session.status === 'live' && (
-                    <>
-                      {session.join_url && (
-                        <button
-                          onClick={() => {
-                            if (session.join_url) window.open(session.join_url, '_blank');
-                          }}
-                          className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
-                        >
-                          <span className="material-symbols-outlined">video_call</span>
-                          Join Room
-                        </button>
+                {/* Completed session: recording + transcript row */}
+                {session.status === 'ended' && (
+                  <div className="border-t border-gray-100 px-5 py-4 bg-gray-50 rounded-b-xl flex flex-col sm:flex-row sm:items-center gap-3">
+                    <div className="flex items-center gap-2 text-sm text-gray-500 shrink-0">
+                      <span className="material-symbols-outlined text-base text-green-500">check_circle</span>
+                      <span className="font-medium text-gray-700">Session Complete</span>
+                      {session.recording_duration_seconds && (
+                        <span className="text-gray-400">· {Math.floor(session.recording_duration_seconds / 60)} min recording</span>
                       )}
-                      <button
-                        onClick={() => endSession(session.id)}
-                        className="w-full sm:w-auto px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center justify-center gap-2"
-                      >
-                        <span className="material-symbols-outlined">stop_circle</span>
-                        End Session
-                      </button>
-                    </>
-                  )}
-                  {session.status !== 'ended' && (
-                    <>
-                      <button
-                        onClick={() => copyJoinLink(session)}
-                        className="w-full sm:w-auto px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2"
-                      >
-                        <span className="material-symbols-outlined">content_copy</span>
-                        Copy Join Link
-                      </button>
-                      <button
-                        onClick={() => shareToStudents(session)}
-                        className="w-full sm:w-auto px-4 py-2 border border-slate-200 rounded-lg hover:bg-slate-50 flex items-center justify-center gap-2"
-                        disabled={!session.course?.id}
-                      >
-                        <span className="material-symbols-outlined">campaign</span>
-                        Share to Students
-                      </button>
-                    </>
-                  )}
-                  {session.status === 'ended' && (
-                    <div className="flex flex-col gap-2">
-                      <span className="text-sm text-gray-500 flex items-center gap-1">
-                        <span className="material-symbols-outlined text-green-600">check_circle</span>
-                        Completed
-                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 sm:ml-auto">
                       {session.recording_url ? (
                         <>
                           <button
                             onClick={() => window.open(session.recording_url!, '_blank')}
-                            className="w-full sm:w-auto px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center justify-center gap-2"
+                            className="px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 flex items-center gap-1.5 transition-colors"
                           >
-                            <span className="material-symbols-outlined">play_circle</span>
+                            <span className="material-symbols-outlined text-base">play_circle</span>
                             Watch Recording
-                            {session.recording_duration_seconds && (
-                              <span className="text-xs opacity-75">
-                                ({Math.floor(session.recording_duration_seconds / 60)}m)
-                              </span>
-                            )}
                           </button>
                           {session.has_transcript ? (
                             <button
                               onClick={() => viewTranscript(session.id)}
-                              className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
+                              className="px-3 py-1.5 border border-emerald-200 text-emerald-700 text-sm font-medium rounded-lg hover:bg-emerald-50 flex items-center gap-1.5 transition-colors"
                             >
-                              <span className="material-symbols-outlined">description</span>
+                              <span className="material-symbols-outlined text-base">description</span>
                               View Transcript
                             </button>
                           ) : (
                             <button
                               onClick={() => generateTranscript(session.id)}
-                              className="w-full sm:w-auto px-4 py-2 border border-purple-200 text-purple-700 rounded-lg hover:bg-purple-50 flex items-center justify-center gap-2"
+                              className="px-3 py-1.5 border border-purple-200 text-purple-700 text-sm font-medium rounded-lg hover:bg-purple-50 flex items-center gap-1.5 transition-colors"
                             >
-                              <span className="material-symbols-outlined">subtitles</span>
-                              Generate Transcript
+                              <span className="material-symbols-outlined text-base">auto_awesome</span>
+                              Generate AI Transcript
                             </button>
                           )}
                         </>
                       ) : (
                         <button
                           onClick={() => processRecording(session.id)}
-                          className="w-full sm:w-auto px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 flex items-center justify-center gap-2"
+                          className="px-3 py-1.5 border border-amber-200 text-amber-700 text-sm font-medium rounded-lg hover:bg-amber-50 flex items-center gap-1.5 transition-colors"
                         >
-                          <span className="material-symbols-outlined">sync</span>
-                          Process Recording
+                          <span className="material-symbols-outlined text-base">sync</span>
+                          Fetch Recording
                         </button>
                       )}
                     </div>
-                  )}
-                </div>
+                  </div>
+                )}
+
+                {/* Live session: copy link helper */}
+                {(session.status === 'live' || session.status === 'scheduled') && (
+                  <div className="border-t border-gray-100 px-5 py-3 flex items-center gap-3">
+                    <span className="text-xs text-gray-400 flex-1 truncate">
+                      {getDailyRoomUrl(session)
+                        ? 'Join link ready — share with students or copy below'
+                        : session.status === 'scheduled'
+                        ? 'Join link will be available after you start the session'
+                        : 'No join link available'}
+                    </span>
+                    <button
+                      onClick={() => copyJoinLink(session)}
+                      className="text-xs text-gray-500 hover:text-primary flex items-center gap-1 whitespace-nowrap transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-sm">content_copy</span>
+                      Copy Link
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

@@ -71,7 +71,7 @@ export function groupSubmissionsByStudent(submissions: Submission[]): StudentSub
       released_count: subs.filter(s => s.status === 'released' || s.status === 'returned').length,
       total_count: subs.length,
       latest_submitted_at: subs.reduce((latest, s) =>
-        s.submitted_at > latest ? s.submitted_at : latest, subs[0].submitted_at
+        (s.submitted_at || '') > latest ? (s.submitted_at || '') : latest, subs[0].submitted_at || ''
       ),
     })
   }
@@ -256,12 +256,12 @@ export async function getPendingSubmissions(teacherId: string, filters?: {
     .from('submissions')
     .select('*')
     .in('assessment_id', filters?.assessmentId ? [filters.assessmentId] : assessmentIds)
+    .neq('status', 'pending')   // exclude in-progress (mid-quiz) attempts; teachers never grade those
     .order('submitted_at', { ascending: true })
 
   if (filters?.status) {
     query = query.eq('status', filters.status)
   }
-  // No default filter — return all statuses so the page can compute stats
 
   const { data, error } = await query
 
@@ -513,6 +513,7 @@ async function getSubmissionCount(assessmentId: string): Promise<number> {
     .from('submissions')
     .select('*', { count: 'exact', head: true })
     .eq('assessment_id', assessmentId)
+    .neq('status', 'pending')   // only count actually-submitted attempts
   return count || 0
 }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentAdmin, hasPermission } from "@/lib/dal/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // GET /api/admin/sections/[id] - Get section detail with assigned courses and students
@@ -8,15 +8,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canRead = await hasPermission("users:read");
-    if (!canRead) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI();
+    if (!auth.success) return auth.response;
 
     const { id: sectionId } = await params;
     const supabase = createAdminClient();
@@ -175,15 +168,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canUpdate = await hasPermission("users:update");
-    if (!canUpdate) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('settings:update');
+    if (!auth.success) return auth.response;
+    const admin = auth.admin;
 
     const { id: sectionId } = await params;
     const body = await request.json();
@@ -259,15 +246,8 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canDelete = await hasPermission("users:delete");
-    if (!canDelete) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('settings:update');
+    if (!auth.success) return auth.response;
 
     const { id: sectionId } = await params;
     const supabase = createAdminClient();

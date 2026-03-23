@@ -5,10 +5,10 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { requireTeacher } from "@/lib/auth/requireTeacher";
+import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 
 export async function POST(request: NextRequest) {
-  const authResult = await requireTeacher();
+  const authResult = await requireTeacherAPI();
   if (!authResult.success) {
     return authResult.response;
   }

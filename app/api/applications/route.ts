@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHmac } from "crypto";
 import { createServiceClient } from "@/lib/supabase/service";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/utils/rateLimit";
+
+/** Derive a per-application upload token using HMAC-SHA256 (no DB column needed) */
+function makeUploadToken(applicationId: string): string {
+  const secret = process.env.JWT_SECRET || "fallback-secret";
+  return createHmac("sha256", secret).update(`upload:${applicationId}`).digest("hex");
+}
 
 type ApplicationPayload = {
   schoolId?: string;
@@ -27,6 +35,11 @@ type ApplicationPayload = {
 // POST /api/applications - Public endpoint for submitting applications
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit: 5 submissions per hour per IP
+    const ip = getClientIp(req);
+    const rl = checkRateLimit(`applications:${ip}`, 5, 60 * 60 * 1000);
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+
     const body = (await req.json()) as ApplicationPayload;
 
     if (!body.firstName || !body.lastName || !body.email || !body.applyingForGrade) {
@@ -102,7 +115,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       applicationId: data.id,
       status: data.status,
-      submittedAt: data.submitted_at
+      submittedAt: data.submitted_at,
+      uploadToken: makeUploadToken(data.id),
     });
   } catch (err) {
     console.error("POST /api/applications error", err);
@@ -110,32 +124,25 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET /api/applications - Check application status by id or email
+// GET /api/applications - Check application status by id only (email lookup removed to prevent enumeration)
 export async function GET(req: NextRequest) {
   const supabase = createServiceClient();
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
-  const email = searchParams.get("email");
 
-  if (!id && !email) {
-    return NextResponse.json({ error: "id or email is required" }, { status: 400 });
+  if (!id) {
+    return NextResponse.json({ error: "id is required" }, { status: 400 });
   }
 
   try {
-    let query = supabase
+    const query = supabase
       .from("student_applications")
       .select(
         "id, status, submitted_at, updated_at, requested_documents, rejection_reason, applying_for_grade, preferred_track, qr_code_id"
       )
-      .order("submitted_at", { ascending: false });
+      .eq("id", id);
 
-    if (id) {
-      query = query.eq("id", id);
-    } else if (email) {
-      query = query.eq("email", email);
-    }
-
-    const { data, error } = await query.limit(1).maybeSingle();
+    const { data, error } = await query.maybeSingle();
 
     if (error) {
       console.error("Error fetching application status", error);

@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuditLogs, hasPermission, getCurrentAdmin } from "@/lib/dal/admin";
+import { getAuditLogs, requireAdminAPI } from "@/lib/dal/admin";
 
 // GET /api/admin/audit-logs - List audit logs with pagination and filters
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canRead = await hasPermission("audit:read");
-    if (!canRead) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('reports:read');
+    if (!auth.success) return auth.response;
 
     const { searchParams } = new URL(request.url);
     const adminId = searchParams.get("adminId") || undefined;

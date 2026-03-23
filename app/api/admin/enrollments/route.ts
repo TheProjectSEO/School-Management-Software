@@ -112,6 +112,13 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      if (studentIds.length > 500) {
+        return NextResponse.json(
+          { error: "Maximum 500 records per batch" },
+          { status: 400 }
+        );
+      }
+
       // Get school_id from admin context
       const adminAuth = await requireAdminAPI("enrollments:create");
       const schoolId = adminAuth.success ? adminAuth.admin.schoolId : undefined;

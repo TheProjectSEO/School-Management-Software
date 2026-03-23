@@ -25,6 +25,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (studentIds.length > 500) {
+      return NextResponse.json(
+        { error: "Maximum 500 records per batch" },
+        { status: 400 }
+      );
+    }
+
     // Validate status value
     const validStatuses = ["active", "inactive", "suspended", "graduated", "transferred"];
     if (!validStatuses.includes(status)) {

@@ -83,6 +83,18 @@ export async function POST(request: NextRequest) {
 
     for (const entry of entries) {
       try {
+        // Verify student is enrolled in this course before grading (IDOR fix)
+        const { count: enrollCount } = await supabase
+          .from('enrollments')
+          .select('*', { count: 'exact', head: true })
+          .eq('student_id', entry.studentId)
+          .eq('course_id', courseId)
+
+        if (!enrollCount || enrollCount === 0) {
+          failedCount++
+          continue
+        }
+
         // Check if submission exists
         const { data: existing } = await supabase
           .from('submissions')

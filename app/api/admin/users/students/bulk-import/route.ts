@@ -25,6 +25,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (students.length > 500) {
+      return NextResponse.json(
+        { error: "Maximum 500 records per batch" },
+        { status: 400 }
+      );
+    }
+
     const result = await bulkImportStudents(students);
     return NextResponse.json(result);
   } catch (error) {

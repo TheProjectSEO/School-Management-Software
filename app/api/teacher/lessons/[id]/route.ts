@@ -1,7 +1,7 @@
 // @ts-nocheck - Uses n8n_content_creation schema with complex queries
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { requireTeacher } from "@/lib/auth/requireTeacher";
+import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 
 /**
  * PATCH /api/teacher/lessons/[id]
@@ -11,27 +11,22 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireTeacher();
+  const authResult = await requireTeacherAPI();
   if (!authResult.success) {
     return authResult.response;
   }
 
-  const { teacherId } = authResult.context;
+  const { teacherId } = authResult.teacher;
   const { id } = await params;
 
   try {
     const supabase = createServiceClient();
     const body = await request.json();
 
-    // Verify access
+    // Fetch lesson (flat select — no FK joins per BUG-001)
     const { data: lesson } = await supabase
       .from("lessons")
-      .select(
-        `
-        *,
-        module:modules(subject_id)
-      `
-      )
+      .select("id, module_id")
       .eq("id", id)
       .single();
 
@@ -42,16 +37,29 @@ export async function PATCH(
       );
     }
 
-    // Verify teacher has access
-    const { data: sectionSubject } = await supabase
-      .from("teacher_assignments")
-      .select("id")
-      .eq("subject_id", lesson.module.subject_id)
-      .eq("teacher_profile_id", teacherId)
-      .limit(1)
+    // Fetch module to get course_id (flat select)
+    const { data: module } = await supabase
+      .from("modules")
+      .select("id, course_id")
+      .eq("id", lesson.module_id)
       .single();
 
-    if (!sectionSubject) {
+    if (!module) {
+      return NextResponse.json(
+        { error: "Lesson not found" },
+        { status: 404 }
+      );
+    }
+
+    // Verify teacher owns this course (IDOR fix: check course_id, not subject_id)
+    const { data: assignment } = await supabase
+      .from("teacher_assignments")
+      .select("id")
+      .eq("course_id", module.course_id)
+      .eq("teacher_profile_id", teacherId)
+      .maybeSingle();
+
+    if (!assignment) {
       return NextResponse.json(
         { error: "Access denied" },
         { status: 403 }
@@ -113,26 +121,21 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireTeacher();
+  const authResult = await requireTeacherAPI();
   if (!authResult.success) {
     return authResult.response;
   }
 
-  const { teacherId } = authResult.context;
+  const { teacherId } = authResult.teacher;
   const { id } = await params;
 
   try {
     const supabase = createServiceClient();
 
-    // Verify access
+    // Fetch lesson (flat select — no FK joins per BUG-001)
     const { data: lesson } = await supabase
       .from("lessons")
-      .select(
-        `
-        *,
-        module:modules(subject_id)
-      `
-      )
+      .select("id, module_id")
       .eq("id", id)
       .single();
 
@@ -143,16 +146,29 @@ export async function DELETE(
       );
     }
 
-    // Verify teacher has access
-    const { data: sectionSubject } = await supabase
-      .from("teacher_assignments")
-      .select("id")
-      .eq("subject_id", lesson.module.subject_id)
-      .eq("teacher_profile_id", teacherId)
-      .limit(1)
+    // Fetch module to get course_id (flat select)
+    const { data: module } = await supabase
+      .from("modules")
+      .select("id, course_id")
+      .eq("id", lesson.module_id)
       .single();
 
-    if (!sectionSubject) {
+    if (!module) {
+      return NextResponse.json(
+        { error: "Lesson not found" },
+        { status: 404 }
+      );
+    }
+
+    // Verify teacher owns this course (IDOR fix: check course_id, not subject_id)
+    const { data: assignment } = await supabase
+      .from("teacher_assignments")
+      .select("id")
+      .eq("course_id", module.course_id)
+      .eq("teacher_profile_id", teacherId)
+      .maybeSingle();
+
+    if (!assignment) {
       return NextResponse.json(
         { error: "Access denied" },
         { status: 403 }

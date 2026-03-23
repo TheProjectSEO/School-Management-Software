@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hasPermission, getCurrentAdmin } from "@/lib/dal/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import {
   getSchoolSettings,
   updateSchoolSettings,
@@ -10,15 +10,9 @@ import {
 // GET /api/admin/settings/school - Get school settings
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canRead = await hasPermission("settings:read");
-    if (!canRead) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI();
+    if (!auth.success) return auth.response;
+    const admin = auth.admin;
 
     const settings = await getSchoolSettings(admin.schoolId);
 
@@ -39,15 +33,9 @@ export async function GET(request: NextRequest) {
 // PUT /api/admin/settings/school - Update school settings
 export async function PUT(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canUpdate = await hasPermission("settings:update");
-    if (!canUpdate) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('settings:update');
+    if (!auth.success) return auth.response;
+    const admin = auth.admin;
 
     const body = await request.json();
 
@@ -90,15 +78,9 @@ export async function PUT(request: NextRequest) {
 // POST /api/admin/settings/school - Upload school logo
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canUpdate = await hasPermission("settings:update");
-    if (!canUpdate) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('settings:update');
+    if (!auth.success) return auth.response;
+    const admin = auth.admin;
 
     const formData = await request.formData();
     const file = formData.get("logo") as File | null;

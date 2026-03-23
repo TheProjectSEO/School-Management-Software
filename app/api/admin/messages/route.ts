@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { getCurrentAdmin } from "@/lib/dal/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
 
 /**
  * POST /api/admin/messages
@@ -9,10 +9,9 @@ import { getCurrentAdmin } from "@/lib/dal/admin";
  */
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireAdminAPI();
+    if (!auth.success) return auth.response;
+    const admin = auth.admin;
 
     const supabase = createServiceClient();
 

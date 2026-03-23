@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentAdmin, hasPermission } from "@/lib/dal/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // POST /api/admin/sections/[id]/enroll - Bulk enroll students into all courses assigned to this section
@@ -8,15 +8,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canEnroll = await hasPermission("enrollments:create");
-    if (!canEnroll) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('settings:update');
+    if (!auth.success) return auth.response;
 
     const { id: sectionId } = await params;
     const body = await request.json();

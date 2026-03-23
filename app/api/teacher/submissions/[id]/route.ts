@@ -1,7 +1,7 @@
 // @ts-nocheck - Uses n8n_content_creation schema with complex queries
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/service";
-import { requireTeacher } from "@/lib/auth/requireTeacher";
+import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 
 /**
  * GET /api/teacher/submissions/[id]
@@ -11,12 +11,12 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireTeacher();
+  const authResult = await requireTeacherAPI();
   if (!authResult.success) {
     return authResult.response;
   }
 
-  const { teacherId } = authResult.context;
+  const { teacherId } = authResult.teacher;
   const { id } = await params;
 
   try {
@@ -95,8 +95,26 @@ export async function GET(
       );
     }
 
-    // Verify teacher has access
-    if (submission.assessment.section_subject.teacher_id !== teacherId) {
+    // Verify teacher has access via flat query (Group 6: don't rely on FK join for security)
+    const assessmentId = submission.assessment_id;
+    const { data: assessmentRow } = await supabase
+      .from("assessments")
+      .select("course_id")
+      .eq("id", assessmentId)
+      .single();
+
+    if (!assessmentRow) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
+    }
+
+    const { data: assignment } = await supabase
+      .from("teacher_assignments")
+      .select("id")
+      .eq("course_id", assessmentRow.course_id)
+      .eq("teacher_profile_id", teacherId)
+      .maybeSingle();
+
+    if (!assignment) {
       return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 

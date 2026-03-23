@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hasPermission, getCurrentAdmin } from "@/lib/dal/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import {
   getDashboardStats,
   getRecentActivity,
@@ -11,16 +11,8 @@ import {
 // GET /api/admin/reports/dashboard - Get dashboard data
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    // Dashboard data is available to all authenticated admins
-    const canRead = await hasPermission("reports:read");
-    if (!canRead) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('reports:read');
+    if (!auth.success) return auth.response;
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type");

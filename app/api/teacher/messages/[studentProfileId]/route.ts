@@ -12,9 +12,34 @@ import {
   markMessagesAsRead,
   getStudentIdByProfileId,
 } from '@/lib/dal/messages'
+import { createServiceClient } from '@/lib/supabase/service'
+import { getStudentCourseIds } from '@/lib/dal/student'
 
 interface RouteContext {
   params: Promise<{ studentProfileId: string }>
+}
+
+async function verifySharedCourse(teacherProfileId: string, studentProfileId: string): Promise<boolean> {
+  const supabase = createServiceClient()
+  // Get student record id from profile id
+  const { data: student } = await supabase
+    .from('students')
+    .select('id')
+    .eq('profile_id', studentProfileId)
+    .single()
+  if (!student) return false
+
+  // Get teacher's course IDs
+  const { data: assignments } = await supabase
+    .from('teacher_assignments')
+    .select('course_id')
+    .eq('teacher_profile_id', teacherProfileId)
+  if (!assignments || assignments.length === 0) return false
+  const teacherCourseIds = assignments.map((a) => a.course_id)
+
+  // Get student's course IDs
+  const studentCourseIds = await getStudentCourseIds(student.id)
+  return studentCourseIds.some((id) => teacherCourseIds.includes(id))
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
@@ -25,6 +50,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
     }
 
     const { studentProfileId } = await context.params
+
+    // Verify teacher and student share at least one course (IDOR fix)
+    const sharesACourse = await verifySharedCourse(teacherProfile.id, studentProfileId)
+    if (!sharesACourse) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
     const searchParams = request.nextUrl.searchParams
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
@@ -68,6 +100,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     const { studentProfileId } = await context.params
+
+    // Verify teacher and student share at least one course (IDOR fix)
+    const sharesACourse = await verifySharedCourse(teacherProfile.id, studentProfileId)
+    if (!sharesACourse) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    }
+
     const body = await request.json()
     const { message, content, attachments } = body
 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createHash, randomUUID } from 'crypto';
 import { verifyRefreshToken, generateAccessToken, generateRefreshToken } from '@/lib/auth/jwt';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/utils/rateLimit';
 import { ROLE_PERMISSIONS, Permission, Role } from '@/lib/auth/permissions';
 import {
   getUserRole,
@@ -156,6 +157,11 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 30 refreshes per 15 min per IP
+    const ip = getClientIp(request);
+    const rl = checkRateLimit(`refresh:${ip}`, 30, 15 * 60 * 1000);
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+
     const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
 
     if (!refreshToken) {

@@ -4,6 +4,7 @@ import {
   getStudentCourseGrades,
   getCourseGradeHistory,
 } from "@/lib/dal/grades";
+import { studentHasCourseAccess } from "@/lib/dal/student";
 
 /**
  * GET /api/student/grades
@@ -27,8 +28,12 @@ export async function GET(request: NextRequest) {
     const periodId = searchParams.get("periodId");
     const courseId = searchParams.get("courseId");
 
-    // If courseId is provided, return grade history for that course
+    // If courseId is provided, verify enrollment before returning grade history
     if (courseId) {
+      const hasAccess = await studentHasCourseAccess(student.studentId, courseId);
+      if (!hasAccess) {
+        return NextResponse.json({ error: "Access denied" }, { status: 403 });
+      }
       const history = await getCourseGradeHistory(student.studentId, courseId);
       return NextResponse.json({ grades: history });
     }

@@ -13,11 +13,17 @@ import {
 } from '@/lib/supabase/admin';
 import { setAuthCookies } from '@/lib/auth/session';
 import { getDashboardPath } from '@/lib/auth/rbac';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/utils/rateLimit';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password } = body;
+
+    // Rate limit: 5 attempts per 15 min per IP+email
+    const ip = getClientIp(request);
+    const rl = checkRateLimit(`login:${ip}:${(email || '').toLowerCase()}`, 5, 15 * 60 * 1000);
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
 
     // Validate input
     if (!email || !password) {

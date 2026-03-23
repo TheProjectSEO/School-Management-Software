@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "crypto";
 import { createServiceClient } from "@/lib/supabase/service";
 
 type UploadRequest = {
@@ -6,7 +7,22 @@ type UploadRequest = {
   documentType: string;
   fileName: string;
   fileType: string;
+  uploadToken?: string;
 };
+
+function makeUploadToken(applicationId: string): string {
+  const secret = process.env.JWT_SECRET || "fallback-secret";
+  return createHmac("sha256", secret).update(`upload:${applicationId}`).digest("hex");
+}
+
+function verifyUploadToken(applicationId: string, token: string): boolean {
+  const expected = makeUploadToken(applicationId);
+  try {
+    return timingSafeEqual(Buffer.from(expected), Buffer.from(token));
+  } catch {
+    return false;
+  }
+}
 
 // POST /api/applications/documents/create-upload-url - Get signed URL for document upload
 export async function POST(req: NextRequest) {
@@ -18,6 +34,11 @@ export async function POST(req: NextRequest) {
         { error: "applicationId, documentType, fileName, fileType are required" },
         { status: 400 }
       );
+    }
+
+    // Verify upload token (prevents unauthorized uploads to arbitrary application IDs)
+    if (!body.uploadToken || !verifyUploadToken(body.applicationId, body.uploadToken)) {
+      return NextResponse.json({ error: "Invalid upload token" }, { status: 403 });
     }
 
     const supabase = createServiceClient();

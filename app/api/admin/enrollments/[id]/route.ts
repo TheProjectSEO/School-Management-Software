@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hasPermission, getCurrentAdmin } from "@/lib/dal/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import {
   getEnrollmentById,
   approveEnrollment,
@@ -14,21 +14,19 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canRead = await hasPermission("enrollments:read");
-    if (!canRead) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('enrollments:read');
+    if (!auth.success) return auth.response;
 
     const { id } = await params;
     const enrollment = await getEnrollmentById(id);
 
     if (!enrollment) {
       return NextResponse.json({ error: "Enrollment not found" }, { status: 404 });
+    }
+
+    // School scope check: admin can only access enrollments in their own school
+    if (enrollment.school_id && enrollment.school_id !== auth.admin.schoolId) {
+      return NextResponse.json({ error: "Access denied" }, { status: 403 });
     }
 
     return NextResponse.json(enrollment);
@@ -47,15 +45,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canUpdate = await hasPermission("enrollments:update");
-    if (!canUpdate) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('enrollments:update');
+    if (!auth.success) return auth.response;
 
     const { id } = await params;
     const body = await request.json();

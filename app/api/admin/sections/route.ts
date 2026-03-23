@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentAdmin, hasPermission } from "@/lib/dal/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 // GET /api/admin/sections - List all sections with search, adviser name, course count
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canRead = await hasPermission("users:read");
-    if (!canRead) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI();
+    if (!auth.success) return auth.response;
+    const admin = auth.admin;
 
     const supabase = createAdminClient();
     const { searchParams } = new URL(request.url);
@@ -111,15 +105,9 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/sections - Create a new section
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canCreate = await hasPermission("users:create");
-    if (!canCreate) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('settings:update');
+    if (!auth.success) return auth.response;
+    const admin = auth.admin;
 
     const body = await request.json();
     const { name, grade_level, capacity } = body;

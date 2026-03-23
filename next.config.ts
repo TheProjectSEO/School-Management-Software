@@ -29,6 +29,22 @@ const securityHeaders = [
     key: "Permissions-Policy",
     value: "camera=(), microphone=(self), geolocation=()",
   },
+  {
+    key: "Content-Security-Policy",
+    value: [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.daily.co https://daily.co https:",
+      "media-src 'self' blob: https:",
+      "frame-src 'self' https://daily.co https://*.daily.co",
+      "frame-ancestors 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ].join("; "),
+  },
 ];
 
 const nextConfig: NextConfig = {

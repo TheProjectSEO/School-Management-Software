@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient, logAuthEvent } from '@/lib/supabase/admin';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/lib/utils/rateLimit';
 
 interface RegisterStudentBody {
   type: 'student';
@@ -27,6 +28,11 @@ type RegisterBody = RegisterStudentBody | RegisterTeacherBody;
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 3 registrations per hour per IP
+    const ip = getClientIp(request);
+    const rl = checkRateLimit(`register:${ip}`, 3, 60 * 60 * 1000);
+    if (!rl.allowed) return rateLimitResponse(rl.retryAfterMs);
+
     const body: RegisterBody = await request.json();
 
     // Validate common fields

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hasPermission, getCurrentAdmin } from "@/lib/dal/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import {
   getAcademicSettings,
   updateAcademicSettings,
@@ -12,15 +12,9 @@ import {
 // GET /api/admin/settings/academic - Get academic settings
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canRead = await hasPermission("settings:read");
-    if (!canRead) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI();
+    if (!auth.success) return auth.response;
+    const admin = auth.admin;
 
     const { searchParams } = new URL(request.url);
     const type = searchParams.get("type");
@@ -49,15 +43,9 @@ export async function GET(request: NextRequest) {
 // PUT /api/admin/settings/academic - Update academic settings
 export async function PUT(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canUpdate = await hasPermission("settings:update");
-    if (!canUpdate) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('settings:update');
+    if (!auth.success) return auth.response;
+    const admin = auth.admin;
 
     const body = await request.json();
     const { type, ...data } = body;

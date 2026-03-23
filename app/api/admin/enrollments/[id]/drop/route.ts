@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentAdmin, hasPermission } from "@/lib/dal/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import { dropEnrollment } from "@/lib/dal/enrollments";
 
 // POST /api/admin/enrollments/[id]/drop - Drop an enrollment
@@ -8,15 +8,8 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canUpdate = await hasPermission("enrollments:update");
-    if (!canUpdate) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('enrollments:update');
+    if (!auth.success) return auth.response;
 
     const { id: enrollmentId } = await params;
     const body = await request.json();

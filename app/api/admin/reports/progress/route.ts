@@ -1,19 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hasPermission, getCurrentAdmin } from "@/lib/dal/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import { getProgressReport, getEnrollmentTrends, exportReport } from "@/lib/dal/reports";
 
 // GET /api/admin/reports/progress - Get progress report data
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canRead = await hasPermission("reports:read");
-    if (!canRead) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('reports:read');
+    if (!auth.success) return auth.response;
 
     const { searchParams } = new URL(request.url);
 
@@ -49,15 +42,8 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/reports/progress - Export progress report
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canExport = await hasPermission("reports:export");
-    if (!canExport) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('reports:read');
+    if (!auth.success) return auth.response;
 
     const body = await request.json();
     const { format = "csv", ...filters } = body;

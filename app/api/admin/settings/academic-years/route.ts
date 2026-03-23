@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hasPermission, getCurrentAdmin } from "@/lib/dal/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
 import {
   getAcademicYears,
   getCurrentAcademicYear,
@@ -12,15 +12,9 @@ import {
 // GET /api/admin/settings/academic-years - Get academic years
 export async function GET(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canRead = await hasPermission("settings:read");
-    if (!canRead) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI();
+    if (!auth.success) return auth.response;
+    const admin = auth.admin;
 
     const { searchParams } = new URL(request.url);
     const currentOnly = searchParams.get("current") === "true";
@@ -53,15 +47,9 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/settings/academic-years - Create academic year
 export async function POST(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canUpdate = await hasPermission("settings:update");
-    if (!canUpdate) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('settings:update');
+    if (!auth.success) return auth.response;
+    const admin = auth.admin;
 
     const body = await request.json();
     const { name, startDate, endDate } = body;
@@ -115,15 +103,9 @@ export async function POST(request: NextRequest) {
 // PATCH /api/admin/settings/academic-years - Set current academic year
 export async function PATCH(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canUpdate = await hasPermission("settings:update");
-    if (!canUpdate) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('settings:update');
+    if (!auth.success) return auth.response;
+    const admin = auth.admin;
 
     const body = await request.json();
     const { yearId } = body;
@@ -154,15 +136,8 @@ export async function PATCH(request: NextRequest) {
 // DELETE /api/admin/settings/academic-years - Delete academic year
 export async function DELETE(request: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const canUpdate = await hasPermission("settings:update");
-    if (!canUpdate) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const auth = await requireAdminAPI('settings:update');
+    if (!auth.success) return auth.response;
 
     const { searchParams } = new URL(request.url);
     const yearId = searchParams.get("yearId");

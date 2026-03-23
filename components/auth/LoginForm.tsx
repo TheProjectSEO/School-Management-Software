@@ -18,19 +18,24 @@ export function LoginForm({ onSuccess, redirectTo }: LoginFormProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // True when the error is a credential failure (wrong email/password)
+  const isCredentialError = !!(formError || error);
+
+  const clearError = () => setFormError(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setFormError(null);
 
-    // Basic validation
     if (!email.trim()) {
-      setFormError('Email is required');
+      setFormError('Please enter your email address.');
       return;
     }
 
     if (!password) {
-      setFormError('Password is required');
+      setFormError('Please enter your password.');
       return;
     }
 
@@ -38,7 +43,6 @@ export function LoginForm({ onSuccess, redirectTo }: LoginFormProps) {
       await login(email, password);
       onSuccess?.();
     } catch (err) {
-      // Error is already set in auth context
       const message = err instanceof Error ? err.message : 'Login failed';
       setFormError(message);
     }
@@ -50,11 +54,11 @@ export function LoginForm({ onSuccess, redirectTo }: LoginFormProps) {
     <form onSubmit={handleSubmit} className="space-y-5">
       {credentialsChanged && (
         <div className="rounded-lg bg-green-50 border border-green-200 p-4">
-          <div className="flex items-center">
+          <div className="flex items-center gap-3">
             <svg className="h-5 w-5 text-green-500 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
             </svg>
-            <p className="ml-3 text-sm font-medium text-green-800">
+            <p className="text-sm font-medium text-green-800">
               Your credentials have been updated. Please sign in again.
             </p>
           </div>
@@ -62,29 +66,23 @@ export function LoginForm({ onSuccess, redirectTo }: LoginFormProps) {
       )}
 
       {displayError && (
-        <div className="rounded-lg bg-red-50 border border-red-200 p-4">
-          <div className="flex items-center">
-            <svg
-              className="h-5 w-5 text-red-500 flex-shrink-0"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <p className="ml-3 text-sm font-medium text-red-800">{displayError}</p>
+        <div className="rounded-lg bg-red-50 border border-red-300 p-4 flex items-start gap-3">
+          <svg className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-red-800">{displayError}</p>
+            {displayError?.toLowerCase().includes('invalid') && (
+              <p className="text-xs text-red-600 mt-0.5">
+                Double-check your email and password, then try again.
+              </p>
+            )}
           </div>
         </div>
       )}
 
       <div>
-        <label
-          htmlFor="email"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
+        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
           Email address
         </label>
         <input
@@ -94,32 +92,58 @@ export function LoginForm({ onSuccess, redirectTo }: LoginFormProps) {
           autoComplete="email"
           required
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => { setEmail(e.target.value); clearError(); }}
           disabled={isLoading}
-          className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
+          aria-invalid={isCredentialError}
+          className={`block w-full rounded-lg border px-4 py-3 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors ${
+            isCredentialError
+              ? 'border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-200'
+              : 'border-gray-300 focus:border-primary focus:ring-primary/20'
+          }`}
           placeholder="you@msugensan.edu.ph"
         />
       </div>
 
       <div>
-        <label
-          htmlFor="password"
-          className="block text-sm font-medium text-gray-700 mb-1"
-        >
+        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
           Password
         </label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          disabled={isLoading}
-          className="block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder-gray-400 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:outline-none disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors"
-          placeholder="Enter your password"
-        />
+        <div className="relative">
+          <input
+            id="password"
+            name="password"
+            type={showPassword ? 'text' : 'password'}
+            autoComplete="current-password"
+            required
+            value={password}
+            onChange={(e) => { setPassword(e.target.value); clearError(); }}
+            disabled={isLoading}
+            aria-invalid={isCredentialError}
+            className={`block w-full rounded-lg border px-4 py-3 pr-11 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 disabled:bg-gray-100 disabled:cursor-not-allowed transition-colors ${
+              isCredentialError
+                ? 'border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-200'
+                : 'border-gray-300 focus:border-primary focus:ring-primary/20'
+            }`}
+            placeholder="Enter your password"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+            tabIndex={-1}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+          >
+            <span className="material-symbols-outlined text-xl">
+              {showPassword ? 'visibility_off' : 'visibility'}
+            </span>
+          </button>
+        </div>
+        {isCredentialError && (
+          <p className="mt-1.5 text-xs text-red-600 flex items-center gap-1">
+            <span className="material-symbols-outlined text-sm">error</span>
+            Incorrect email or password
+          </p>
+        )}
       </div>
 
       <div className="flex items-center justify-between">

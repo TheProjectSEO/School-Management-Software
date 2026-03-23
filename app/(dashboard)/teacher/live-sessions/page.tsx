@@ -354,7 +354,7 @@ export default function LiveSessionsPage() {
   return (
     <div className="space-y-6">
       {/* Toast Notifications */}
-      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+      <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-sm z-50 flex flex-col gap-2 pointer-events-none">
         {toasts.map((toast) => (
           <div
             key={toast.id}
@@ -392,13 +392,14 @@ export default function LiveSessionsPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Live Sessions</h1>
-          <p className="text-gray-600 mt-1">Manage your virtual classroom sessions</p>
+          <p className="text-gray-500 text-sm mt-0.5">Manage your virtual classroom sessions</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="w-full sm:w-auto px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover transition-colors"
+          className="w-full sm:w-auto px-5 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover active:scale-95 transition-all flex items-center justify-center gap-2"
         >
-          + Schedule Session
+          <span className="material-symbols-outlined text-base">add</span>
+          Schedule Session
         </button>
       </div>
 
@@ -484,7 +485,7 @@ export default function LiveSessionsPage() {
                 className={`bg-white rounded-xl border border-l-4 ${borderColor} border-gray-200 shadow-sm hover:shadow-md transition-shadow`}
               >
                 {/* Main card body */}
-                <div className="p-5 flex flex-col sm:flex-row gap-4">
+                <div className="p-4 sm:p-5 flex flex-col sm:flex-row gap-4">
                   {/* Left: session info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -525,20 +526,20 @@ export default function LiveSessionsPage() {
                     )}
                   </div>
 
-                  {/* Right: primary actions */}
-                  <div className="flex flex-row sm:flex-col gap-2 shrink-0 sm:min-w-[160px]">
+                  {/* Right: primary actions — always stacked, full-width on mobile */}
+                  <div className="flex flex-col gap-2 sm:shrink-0 sm:min-w-[160px]">
                     {session.status === 'scheduled' && (
                       <>
                         <button
                           onClick={() => startSession(session.id)}
-                          className="flex-1 sm:flex-none px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 transition-colors"
+                          className="w-full px-4 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 active:bg-green-800 flex items-center justify-center gap-2 transition-colors"
                         >
                           <span className="material-symbols-outlined text-base">play_circle</span>
                           Start Now
                         </button>
                         <button
                           onClick={() => shareToStudents(session)}
-                          className="flex-1 sm:flex-none px-4 py-2.5 border border-blue-200 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-50 flex items-center justify-center gap-2 transition-colors"
+                          className="w-full px-4 py-2.5 border border-blue-200 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-50 active:bg-blue-100 flex items-center justify-center gap-2 transition-colors"
                           disabled={!session.course?.id}
                         >
                           <span className="material-symbols-outlined text-base">campaign</span>
@@ -546,10 +547,10 @@ export default function LiveSessionsPage() {
                         </button>
                         <button
                           onClick={() => cancelSession(session.id)}
-                          className="flex-1 sm:flex-none px-4 py-2.5 border border-red-200 text-red-500 text-sm font-medium rounded-lg hover:bg-red-50 flex items-center justify-center gap-2 transition-colors"
+                          className="w-full px-4 py-2.5 border border-red-200 text-red-500 text-sm font-medium rounded-lg hover:bg-red-50 active:bg-red-100 flex items-center justify-center gap-2 transition-colors"
                         >
                           <span className="material-symbols-outlined text-base">cancel</span>
-                          Cancel
+                          Cancel Session
                         </button>
                       </>
                     )}
@@ -559,7 +560,7 @@ export default function LiveSessionsPage() {
                         {session.join_url && (
                           <button
                             onClick={() => session.join_url && window.open(session.join_url, '_blank')}
-                            className="flex-1 sm:flex-none px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-colors"
+                            className="w-full px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 active:bg-blue-800 flex items-center justify-center gap-2 transition-colors"
                           >
                             <span className="material-symbols-outlined text-base">video_call</span>
                             Rejoin Room
@@ -567,7 +568,7 @@ export default function LiveSessionsPage() {
                         )}
                         <button
                           onClick={() => shareToStudents(session)}
-                          className="flex-1 sm:flex-none px-4 py-2.5 border border-blue-200 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-50 flex items-center justify-center gap-2 transition-colors"
+                          className="w-full px-4 py-2.5 border border-blue-200 text-blue-600 text-sm font-medium rounded-lg hover:bg-blue-50 active:bg-blue-100 flex items-center justify-center gap-2 transition-colors"
                           disabled={!session.course?.id}
                         >
                           <span className="material-symbols-outlined text-base">campaign</span>
@@ -575,7 +576,7 @@ export default function LiveSessionsPage() {
                         </button>
                         <button
                           onClick={() => endSession(session.id)}
-                          className="flex-1 sm:flex-none px-4 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 flex items-center justify-center gap-2 transition-colors"
+                          className="w-full px-4 py-2.5 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 active:bg-red-800 flex items-center justify-center gap-2 transition-colors"
                         >
                           <span className="material-symbols-outlined text-base">stop_circle</span>
                           End Session
@@ -584,9 +585,9 @@ export default function LiveSessionsPage() {
                     )}
 
                     {session.status === 'cancelled' && (
-                      <span className="text-sm text-gray-400 flex items-center gap-1.5 py-2">
+                      <span className="text-sm text-gray-400 flex items-center gap-1.5 py-1">
                         <span className="material-symbols-outlined text-base text-red-400">cancel</span>
-                        This session was cancelled
+                        Session was cancelled
                       </span>
                     )}
                   </div>
@@ -594,20 +595,20 @@ export default function LiveSessionsPage() {
 
                 {/* Completed session: recording + transcript row */}
                 {session.status === 'ended' && (
-                  <div className="border-t border-gray-100 px-5 py-4 bg-gray-50 rounded-b-xl flex flex-col sm:flex-row sm:items-center gap-3">
-                    <div className="flex items-center gap-2 text-sm text-gray-500 shrink-0">
+                  <div className="border-t border-gray-100 px-4 sm:px-5 py-4 bg-gray-50 rounded-b-xl flex flex-col gap-3">
+                    <div className="flex items-center gap-2 text-sm">
                       <span className="material-symbols-outlined text-base text-green-500">check_circle</span>
                       <span className="font-medium text-gray-700">Session Complete</span>
                       {session.recording_duration_seconds && (
-                        <span className="text-gray-400">· {Math.floor(session.recording_duration_seconds / 60)} min recording</span>
+                        <span className="text-gray-400 text-xs">· {Math.floor(session.recording_duration_seconds / 60)} min</span>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-2 sm:ml-auto">
+                    <div className="flex flex-col sm:flex-row gap-2">
                       {session.recording_url ? (
                         <>
                           <button
                             onClick={() => window.open(session.recording_url!, '_blank')}
-                            className="px-3 py-1.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 flex items-center gap-1.5 transition-colors"
+                            className="w-full sm:w-auto px-4 py-2.5 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 active:bg-purple-800 flex items-center justify-center gap-2 transition-colors"
                           >
                             <span className="material-symbols-outlined text-base">play_circle</span>
                             Watch Recording
@@ -615,7 +616,7 @@ export default function LiveSessionsPage() {
                           {session.has_transcript ? (
                             <button
                               onClick={() => viewTranscript(session.id)}
-                              className="px-3 py-1.5 border border-emerald-200 text-emerald-700 text-sm font-medium rounded-lg hover:bg-emerald-50 flex items-center gap-1.5 transition-colors"
+                              className="w-full sm:w-auto px-4 py-2.5 border border-emerald-200 text-emerald-700 text-sm font-medium rounded-lg hover:bg-emerald-50 active:bg-emerald-100 flex items-center justify-center gap-2 transition-colors"
                             >
                               <span className="material-symbols-outlined text-base">description</span>
                               View Transcript
@@ -623,7 +624,7 @@ export default function LiveSessionsPage() {
                           ) : (
                             <button
                               onClick={() => generateTranscript(session.id)}
-                              className="px-3 py-1.5 border border-purple-200 text-purple-700 text-sm font-medium rounded-lg hover:bg-purple-50 flex items-center gap-1.5 transition-colors"
+                              className="w-full sm:w-auto px-4 py-2.5 border border-purple-200 text-purple-700 text-sm font-medium rounded-lg hover:bg-purple-50 active:bg-purple-100 flex items-center justify-center gap-2 transition-colors"
                             >
                               <span className="material-symbols-outlined text-base">auto_awesome</span>
                               Generate AI Transcript
@@ -633,7 +634,7 @@ export default function LiveSessionsPage() {
                       ) : (
                         <button
                           onClick={() => processRecording(session.id)}
-                          className="px-3 py-1.5 border border-amber-200 text-amber-700 text-sm font-medium rounded-lg hover:bg-amber-50 flex items-center gap-1.5 transition-colors"
+                          className="w-full sm:w-auto px-4 py-2.5 border border-amber-200 text-amber-700 text-sm font-medium rounded-lg hover:bg-amber-50 active:bg-amber-100 flex items-center justify-center gap-2 transition-colors"
                         >
                           <span className="material-symbols-outlined text-base">sync</span>
                           Fetch Recording
@@ -643,19 +644,17 @@ export default function LiveSessionsPage() {
                   </div>
                 )}
 
-                {/* Live session: copy link helper */}
+                {/* Copy link footer */}
                 {(session.status === 'live' || session.status === 'scheduled') && (
-                  <div className="border-t border-gray-100 px-5 py-3 flex items-center gap-3">
-                    <span className="text-xs text-gray-400 flex-1 truncate">
+                  <div className="border-t border-gray-100 px-4 sm:px-5 py-3 flex items-center justify-between gap-3">
+                    <span className="text-xs text-gray-400 min-w-0 truncate">
                       {getDailyRoomUrl(session)
-                        ? 'Join link ready — share with students or copy below'
-                        : session.status === 'scheduled'
-                        ? 'Join link will be available after you start the session'
-                        : 'No join link available'}
+                        ? 'Join link ready — copy or share with students'
+                        : 'Join link available after session starts'}
                     </span>
                     <button
                       onClick={() => copyJoinLink(session)}
-                      className="text-xs text-gray-500 hover:text-primary flex items-center gap-1 whitespace-nowrap transition-colors"
+                      className="shrink-0 text-xs text-gray-500 hover:text-primary active:text-primary flex items-center gap-1 transition-colors py-1 px-2 rounded hover:bg-gray-100"
                     >
                       <span className="material-symbols-outlined text-sm">content_copy</span>
                       Copy Link
@@ -849,114 +848,114 @@ function CreateSessionModal({
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl sm:text-2xl font-bold">Schedule Live Session</h2>
-            <button onClick={onClose} className="text-gray-400 hover:text-gray-600">
-              <span className="material-symbols-outlined">close</span>
-            </button>
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
+      <div className="bg-white rounded-t-2xl sm:rounded-xl w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
+        {/* Modal header */}
+        <div className="sticky top-0 bg-white border-b border-gray-100 px-5 py-4 flex items-center justify-between rounded-t-2xl sm:rounded-t-xl z-10">
+          <h2 className="text-lg font-bold text-gray-900">Schedule Live Session</h2>
+          <button
+            onClick={onClose}
+            className="size-8 rounded-full flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <span className="material-symbols-outlined text-xl">close</span>
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 pb-8">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Subject &amp; Section <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.assignmentId}
+              onChange={(e) => setFormData({ ...formData, assignmentId: e.target.value })}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              required
+            >
+              <option value="">Select a subject...</option>
+              {subjects.map((ss) => {
+                const sectionName = ss.section?.name ?? 'Section';
+                const subjectName = ss.subject?.name ?? 'Subject';
+                const subjectCode = ss.subject?.subject_code ? ` (${ss.subject.subject_code})` : '';
+                return (
+                  <option key={ss.id} value={ss.id}>
+                    {subjectName}{subjectCode} – {sectionName}
+                  </option>
+                );
+              })}
+            </select>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Subject/Section *
-              </label>
-              <select
-                value={formData.assignmentId}
-                onChange={(e) => setFormData({ ...formData, assignmentId: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                required
-              >
-                <option value="">Select subject...</option>
-                {subjects.map((ss) => {
-                  const sectionName = ss.section?.name ?? 'Section';
-                  const subjectName = ss.subject?.name ?? 'Subject';
-                  const subjectCode = ss.subject?.subject_code
-                    ? ` (${ss.subject.subject_code})`
-                    : '';
-                  return (
-                    <option key={ss.id} value={ss.id}>
-                      {subjectName}{subjectCode} – {sectionName}
-                    </option>
-                  );
-                })}
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Session Title <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+              placeholder="e.g., Introduction to Quadratic Equations"
+              required
+            />
+          </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Description <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
+              rows={3}
+              placeholder="What will students learn in this session?"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Session Title *
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Start Time <span className="text-red-500">*</span>
               </label>
               <input
-                type="text"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                placeholder="e.g., Introduction to Quadratic Equations"
+                type="datetime-local"
+                value={formData.startAt}
+                onChange={(e) => setFormData({ ...formData, startAt: e.target.value })}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
                 required
               />
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Description
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                End Time <span className="text-gray-400 font-normal">(optional)</span>
               </label>
-              <textarea
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full px-3 py-2 border rounded-lg"
-                rows={3}
-                placeholder="What will students learn in this session?"
+              <input
+                type="datetime-local"
+                value={formData.endAt}
+                onChange={(e) => setFormData({ ...formData, endAt: e.target.value })}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               />
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Start Time *
-                </label>
-                <input
-                  type="datetime-local"
-                  value={formData.startAt}
-                  onChange={(e) => setFormData({ ...formData, startAt: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  End Time
-                </label>
-                <input
-                  type="datetime-local"
-                  value={formData.endAt}
-                  onChange={(e) => setFormData({ ...formData, endAt: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-4 py-2 border rounded-lg hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={creating}
-                className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover disabled:opacity-50"
-              >
-                {creating ? 'Creating...' : 'Schedule Session'}
-              </button>
-            </div>
-          </form>
-        </div>
+          <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-full sm:w-auto px-4 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 active:bg-gray-100 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={creating}
+              className="w-full sm:w-auto px-6 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover active:scale-95 disabled:opacity-50 transition-all"
+            >
+              {creating ? 'Scheduling...' : 'Schedule Session'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );

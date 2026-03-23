@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { Suspense } from 'react'
 import { redirect } from 'next/navigation'
 import { getTeacherProfile } from '@/lib/dal/teacher'

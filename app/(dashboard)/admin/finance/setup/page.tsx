@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { Metadata } from "next";
 import { FeeSetupDashboard } from "@/components/admin/finance/FeeSetupDashboard";
 

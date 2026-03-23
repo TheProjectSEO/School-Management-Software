@@ -8,7 +8,7 @@ import { authFetch } from "@/lib/utils/authFetch";
  * Manage Daily.co virtual classroom sessions
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 
 interface LiveSession {
@@ -37,6 +37,14 @@ interface LiveSession {
   };
 }
 
+interface Toast {
+  id: number;
+  message: string;
+  type: 'success' | 'error' | 'info' | 'warning';
+}
+
+type StatusFilter = 'all' | 'scheduled' | 'live' | 'ended' | 'cancelled';
+
 export default function LiveSessionsPage() {
   const searchParams = useSearchParams();
   const [sessions, setSessions] = useState<LiveSession[]>([]);
@@ -49,7 +57,17 @@ export default function LiveSessionsPage() {
     language: string;
   } | null>(null);
   const [loadingTranscript, setLoadingTranscript] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const [activeTab, setActiveTab] = useState<StatusFilter>('all');
   const preselectedCourseId = searchParams.get('courseId');
+
+  const showToast = useCallback((message: string, type: Toast['type'] = 'info') => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 5000);
+  }, []);
 
   useEffect(() => {
     fetchSessions();
@@ -66,7 +84,6 @@ export default function LiveSessionsPage() {
       const response = await authFetch('/api/teacher/live-sessions');
       if (response.ok) {
         const data = await response.json();
-        // API returns { sessions } in teacher-app and array in student-app; normalize
         setSessions((data.sessions ?? data ?? []) as LiveSession[]);
       }
     } catch (error) {
@@ -78,70 +95,62 @@ export default function LiveSessionsPage() {
 
   async function startSession(sessionId: string) {
     try {
-      // Call API to create Daily.co room
       const response = await authFetch(`/api/teacher/live-sessions/${sessionId}/start`, {
         method: 'POST',
       });
 
       if (!response.ok) {
         const error = await response.json();
-        alert(`Failed to start session: ${error.error || 'Unknown error'}`);
+        showToast(`Failed to start session: ${error.error || 'Unknown error'}`, 'error');
         return;
       }
 
       const data = await response.json();
 
-      // Open the room URL returned by the API
       if (data.roomUrl) {
         window.open(data.roomUrl, '_blank');
       }
 
-      fetchSessions(); // Refresh list
+      fetchSessions();
     } catch (error) {
       console.error('Failed to start session:', error);
-      alert('Error starting session');
+      showToast('Error starting session. Please try again.', 'error');
     }
   }
 
   function getDailyRoomUrl(session: LiveSession): string | null {
-    // Return the Daily.co room URL if available
     return session.join_url || session.daily_room_url || null;
   }
 
   async function copyJoinLink(session: LiveSession) {
     const dailyLink = getDailyRoomUrl(session);
     if (!dailyLink) {
-      alert('Session has not been started yet. Start the session first to get the join link.');
+      showToast('Session has not been started yet. Start the session first to get the join link.', 'warning');
       return;
     }
 
-    // Copy the Daily.co room URL directly for the teacher
     try {
       await navigator.clipboard.writeText(dailyLink);
-      alert('Daily.co room link copied!');
+      showToast('Join link copied to clipboard!', 'success');
     } catch (error) {
       console.error('Failed to copy link:', error);
-      alert(`Copy this link: ${dailyLink}`);
+      showToast(`Could not copy automatically. Link: ${dailyLink}`, 'info');
     }
   }
 
   async function shareToStudents(session: LiveSession) {
-    // Check if session has been started (has a Daily room)
     const dailyLink = getDailyRoomUrl(session);
     if (!dailyLink) {
-      alert('Session has not been started yet. Start the session first to share with students.');
+      showToast('Session has not been started yet. Start the session first to share with students.', 'warning');
       return;
     }
 
-    // Check if we have section info for the announcement
     const sectionId = session.section?.id;
     if (!sectionId) {
-      alert('Unable to determine the class section for this session.');
+      showToast('Unable to determine the class section for this session.', 'error');
       return;
     }
 
-    // Share the Daily.co room URL directly to students
-    // Students can join directly via the Daily.co link
     const appJoinLink = dailyLink;
 
     try {
@@ -160,14 +169,14 @@ export default function LiveSessionsPage() {
 
       if (!response.ok) {
         const data = await response.json();
-        alert(data.error || 'Failed to send announcement');
+        showToast(data.error || 'Failed to send announcement to students.', 'error');
         return;
       }
 
-      alert('Announcement sent to students!');
+      showToast('Announcement sent to students successfully!', 'success');
     } catch (error) {
       console.error('Failed to share session:', error);
-      alert('Failed to share with students.');
+      showToast('Failed to share with students. Please try again.', 'error');
     }
   }
 
@@ -180,13 +189,37 @@ export default function LiveSessionsPage() {
       });
 
       if (response.ok) {
-        alert('Session ended! Recording will be available in ~60 seconds.');
+        showToast('Session ended. Recording will be available in about 60 seconds.', 'success');
         fetchSessions();
       } else {
-        alert('Failed to end session');
+        showToast('Failed to end session. Please try again.', 'error');
       }
     } catch (error) {
       console.error('Failed to end session:', error);
+      showToast('Error ending session. Please try again.', 'error');
+    }
+  }
+
+  async function cancelSession(sessionId: string) {
+    if (!confirm('Cancel this session? This cannot be undone.')) return;
+
+    try {
+      const response = await authFetch(`/api/teacher/live-sessions/${sessionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'cancelled' }),
+      });
+
+      if (response.ok) {
+        showToast('Session has been cancelled.', 'info');
+        fetchSessions();
+      } else {
+        const data = await response.json();
+        showToast(data.error || 'Failed to cancel session. Please try again.', 'error');
+      }
+    } catch (error) {
+      console.error('Failed to cancel session:', error);
+      showToast('Error cancelling session. Please try again.', 'error');
     }
   }
 
@@ -201,14 +234,25 @@ export default function LiveSessionsPage() {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        alert(`Recording processed successfully!\n\nDuration: ${data.duration ? Math.floor(data.duration / 60) + ' minutes' : 'Unknown'}`);
+        const duration = data.duration ? `${Math.floor(data.duration / 60)} minute(s)` : null;
+        showToast(
+          duration
+            ? `Recording processed successfully! Duration: ${duration}`
+            : 'Recording processed successfully!',
+          'success'
+        );
         fetchSessions();
       } else {
-        alert(`Failed to process recording: ${data.error || 'Unknown error'}\n\nThe recording may not be available from Daily.co yet. Try again in a few minutes.`);
+        // User-friendly error — the raw API error is logged to console only
+        console.error('Recording processing error:', data.error);
+        showToast(
+          'Recording is not available yet. Daily.co may still be processing it — please wait a few minutes and try again.',
+          'warning'
+        );
       }
     } catch (error) {
       console.error('Failed to process recording:', error);
-      alert('Error processing recording. Please try again.');
+      showToast('Error processing recording. Please try again.', 'error');
     }
   }
 
@@ -223,16 +267,19 @@ export default function LiveSessionsPage() {
       const data = await response.json();
 
       if (response.ok) {
-        alert(`Transcript generated successfully!\n\nLanguage: ${data.language || 'Unknown'}\nChunks created: ${data.chunksCreated}\n\nStudents can now use "Ask AI" to ask questions about this recording.`);
+        showToast(
+          `Transcript generated! Students can now use "Ask AI" to ask questions about this recording.`,
+          'success'
+        );
         fetchSessions();
       } else if (response.status === 409) {
-        alert('Transcript already exists for this session.');
+        showToast('A transcript already exists for this session.', 'info');
       } else {
-        alert(`Failed to generate transcript: ${data.error || 'Unknown error'}`);
+        showToast(`Failed to generate transcript: ${data.error || 'Unknown error'}`, 'error');
       }
     } catch (error) {
       console.error('Failed to generate transcript:', error);
-      alert('Error generating transcript');
+      showToast('Error generating transcript. Please try again.', 'error');
     }
   }
 
@@ -245,7 +292,6 @@ export default function LiveSessionsPage() {
       const data = await response.json();
 
       if (response.ok && data.hasTranscript) {
-        // Get full transcript
         const fullResponse = await authFetch(`/api/teacher/live-sessions/${sessionId}/transcript`);
         const fullData = await fullResponse.json();
 
@@ -274,6 +320,18 @@ export default function LiveSessionsPage() {
     }
   }
 
+  // Tab counts
+  const tabCounts: Record<StatusFilter, number> = {
+    all: sessions.length,
+    scheduled: sessions.filter(s => s.status === 'scheduled').length,
+    live: sessions.filter(s => s.status === 'live').length,
+    ended: sessions.filter(s => s.status === 'ended').length,
+    cancelled: sessions.filter(s => s.status === 'cancelled').length,
+  };
+
+  const filteredSessions =
+    activeTab === 'all' ? sessions : sessions.filter(s => s.status === activeTab);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -286,8 +344,44 @@ export default function LiveSessionsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-8">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-3">
+    <div className="space-y-6">
+      {/* Toast Notifications */}
+      <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-lg shadow-lg text-sm font-medium animate-in slide-in-from-right-5 duration-300 ${
+              toast.type === 'success'
+                ? 'bg-green-600 text-white'
+                : toast.type === 'error'
+                ? 'bg-red-600 text-white'
+                : toast.type === 'warning'
+                ? 'bg-amber-500 text-white'
+                : 'bg-slate-800 text-white'
+            }`}
+          >
+            <span className="material-symbols-outlined text-base shrink-0 mt-0.5">
+              {toast.type === 'success'
+                ? 'check_circle'
+                : toast.type === 'error'
+                ? 'error'
+                : toast.type === 'warning'
+                ? 'warning'
+                : 'info'}
+            </span>
+            <span className="leading-snug">{toast.message}</span>
+            <button
+              onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+              className="ml-auto shrink-0 opacity-75 hover:opacity-100"
+            >
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Live Sessions</h1>
           <p className="text-gray-600 mt-1">Manage your virtual classroom sessions</p>
@@ -300,24 +394,79 @@ export default function LiveSessionsPage() {
         </button>
       </div>
 
+      {/* Status Filter Tabs */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex gap-1 overflow-x-auto" aria-label="Session status filter">
+          {(
+            [
+              { key: 'all', label: 'All' },
+              { key: 'live', label: 'Live' },
+              { key: 'scheduled', label: 'Scheduled' },
+              { key: 'ended', label: 'Completed' },
+              { key: 'cancelled', label: 'Cancelled' },
+            ] as { key: StatusFilter; label: string }[]
+          ).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className={`whitespace-nowrap flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === key
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              {key === 'live' && tabCounts.live > 0 && (
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              )}
+              {label}
+              <span
+                className={`ml-0.5 rounded-full px-1.5 py-0.5 text-xs font-semibold ${
+                  activeTab === key
+                    ? 'bg-primary/10 text-primary'
+                    : 'bg-gray-100 text-gray-500'
+                }`}
+              >
+                {tabCounts[key]}
+              </span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
       {/* Sessions List */}
       <div className="grid gap-4">
-        {sessions.length === 0 ? (
+        {filteredSessions.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-lg border">
             <span className="material-symbols-outlined text-6xl text-gray-300 mb-4 block">
               videocam
             </span>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">No Sessions Yet</h3>
-            <p className="text-gray-500 mb-4">Schedule your first live session to get started</p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover"
-            >
-              Schedule First Session
-            </button>
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">
+              {activeTab === 'all' ? 'No Sessions Yet' : `No ${activeTab === 'ended' ? 'completed' : activeTab} sessions`}
+            </h3>
+            {activeTab === 'all' ? (
+              <>
+                <p className="text-gray-500 mb-4">Schedule your first live session to get started</p>
+                <button
+                  onClick={() => setShowCreateModal(true)}
+                  className="px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-hover"
+                >
+                  Schedule First Session
+                </button>
+              </>
+            ) : (
+              <p className="text-gray-500">
+                {activeTab === 'live'
+                  ? 'No sessions are currently live.'
+                  : activeTab === 'scheduled'
+                  ? 'No upcoming sessions scheduled.'
+                  : activeTab === 'ended'
+                  ? 'No completed sessions yet.'
+                  : 'No cancelled sessions.'}
+              </p>
+            )}
           </div>
         ) : (
-          sessions.map((session) => (
+          filteredSessions.map((session) => (
             <div key={session.id} className="bg-white rounded-lg border p-4 sm:p-6">
               <div className="flex flex-col sm:flex-row items-start gap-4">
                 <div className="flex-1">
@@ -325,7 +474,6 @@ export default function LiveSessionsPage() {
                     <h3 className="text-xl font-semibold">{session.title}</h3>
                     <StatusBadge status={session.status} />
                   </div>
-                  {/* Display course/subject info if available */}
                   {session.course?.name && (
                     <p className="text-sm text-gray-600 mb-2">
                       {session.course.name}
@@ -358,13 +506,22 @@ export default function LiveSessionsPage() {
 
                 <div className="flex flex-col gap-2 w-full sm:w-auto shrink-0">
                   {session.status === 'scheduled' && (
-                    <button
-                      onClick={() => startSession(session.id)}
-                      className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
-                    >
-                      <span className="material-symbols-outlined">play_circle</span>
-                      Start Session
-                    </button>
+                    <>
+                      <button
+                        onClick={() => startSession(session.id)}
+                        className="w-full sm:w-auto px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-outlined">play_circle</span>
+                        Start Session
+                      </button>
+                      <button
+                        onClick={() => cancelSession(session.id)}
+                        className="w-full sm:w-auto px-4 py-2 border border-red-200 text-red-600 rounded-lg hover:bg-red-50 flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-outlined">cancel</span>
+                        Cancel Session
+                      </button>
+                    </>
                   )}
                   {session.status === 'live' && (
                     <>
@@ -470,7 +627,9 @@ export default function LiveSessionsPage() {
           onCreated={() => {
             setShowCreateModal(false);
             fetchSessions();
+            showToast('Session scheduled successfully!', 'success');
           }}
+          onError={(msg) => showToast(msg, 'error')}
           preselectedCourseId={preselectedCourseId}
         />
       )}
@@ -526,7 +685,7 @@ export default function LiveSessionsPage() {
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(transcriptData.transcript);
-                    alert('Transcript copied to clipboard!');
+                    showToast('Transcript copied to clipboard!', 'success');
                   }}
                   className="px-4 py-2 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 flex items-center gap-2 text-slate-700 dark:text-slate-300"
                 >
@@ -552,16 +711,18 @@ export default function LiveSessionsPage() {
 }
 
 function StatusBadge({ status }: { status: LiveSession['status'] }) {
-  const colors = {
-    scheduled: 'bg-blue-100 text-blue-800',
-    live: 'bg-green-100 text-green-800 animate-pulse',
-    ended: 'bg-gray-100 text-gray-800',
-    cancelled: 'bg-red-100 text-red-800',
+  const config: Record<LiveSession['status'], { label: string; className: string }> = {
+    scheduled: { label: 'Scheduled', className: 'bg-blue-100 text-blue-800' },
+    live: { label: '● Live', className: 'bg-green-100 text-green-800 animate-pulse' },
+    ended: { label: 'Completed', className: 'bg-gray-100 text-gray-600' },
+    cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-700' },
   };
 
+  const { label, className } = config[status];
+
   return (
-    <span className={`px-3 py-1 rounded-full text-xs font-medium ${colors[status]}`}>
-      {status.toUpperCase()}
+    <span className={`px-3 py-1 rounded-full text-xs font-medium ${className}`}>
+      {label}
     </span>
   );
 }
@@ -569,10 +730,12 @@ function StatusBadge({ status }: { status: LiveSession['status'] }) {
 function CreateSessionModal({
   onClose,
   onCreated,
+  onError,
   preselectedCourseId,
 }: {
   onClose: () => void;
   onCreated: () => void;
+  onError: (msg: string) => void;
   preselectedCourseId: string | null;
 }) {
   const [subjects, setSubjects] = useState<any[]>([]);
@@ -586,7 +749,6 @@ function CreateSessionModal({
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    // Fetch teacher's subjects/section assignments from teacher-app API
     authFetch('/api/teacher/subjects')
       .then((res) => res.json())
       .then((data) => {
@@ -625,15 +787,14 @@ function CreateSessionModal({
       });
 
       if (response.ok) {
-        alert('Session scheduled successfully!');
         onCreated();
       } else {
         const error = await response.json();
-        alert(`Failed to create session: ${error.error || 'Unknown error'}`);
+        onError(`Failed to create session: ${error.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Failed to create session:', error);
-      alert('Error creating session');
+      onError('Error creating session. Please try again.');
     } finally {
       setCreating(false);
     }

@@ -673,19 +673,88 @@ export async function getQuizResult(
 }
 
 /**
- * Check if student can take assessment (hasn't exceeded max attempts)
+ * Internal helper: check if a student has completed all published lessons in a module
+ */
+async function getModuleCompletionForStudent(
+  moduleId: string,
+  studentId: string
+): Promise<{
+  complete: boolean;
+  completedLessons: number;
+  totalLessons: number;
+  moduleName: string;
+  moduleId: string;
+}> {
+  const supabase = createAdminClient();
+
+  // 1. Get module title (flat select — BUG-001 safe)
+  const { data: module } = await supabase
+    .from("modules")
+    .select("id, title")
+    .eq("id", moduleId)
+    .single();
+
+  const moduleName = (module?.title as string) || "the module";
+
+  // 2. Get all published lesson IDs in the module (flat select)
+  const { data: lessons } = await supabase
+    .from("lessons")
+    .select("id")
+    .eq("module_id", moduleId)
+    .eq("status", "published");
+
+  const totalLessons = lessons?.length || 0;
+
+  // No published lessons means the gate doesn't apply
+  if (totalLessons === 0) {
+    return { complete: true, completedLessons: 0, totalLessons: 0, moduleName, moduleId };
+  }
+
+  const lessonIds = lessons!.map((l: { id: string }) => l.id);
+
+  // 3. Get lessons the student has completed (completed_at IS NOT NULL)
+  const { data: progress } = await supabase
+    .from("student_progress")
+    .select("lesson_id")
+    .eq("student_id", studentId)
+    .in("lesson_id", lessonIds)
+    .not("completed_at", "is", null);
+
+  const completedLessons = progress?.length || 0;
+
+  return {
+    complete: completedLessons >= totalLessons,
+    completedLessons,
+    totalLessons,
+    moduleName,
+    moduleId,
+  };
+}
+
+/**
+ * Check if student can take assessment (hasn't exceeded max attempts, module completed)
  * Uses admin client to bypass RLS for reading assessment and submission data
  */
 export async function canTakeAssessment(
   assessmentId: string,
   studentId: string
-): Promise<{ canTake: boolean; reason?: string; attemptCount: number }> {
+): Promise<{
+  canTake: boolean;
+  reason?: string;
+  attemptCount: number;
+  prerequisiteModule?: {
+    id: string;
+    title: string;
+    completedLessons: number;
+    totalLessons: number;
+  };
+}> {
   const supabase = createAdminClient();
 
-  // Get assessment max attempts
+  // Get assessment max attempts + lesson link
   const { data: assessment } = await supabase
     .from("assessments")
-    .select("max_attempts, due_date")
+    .select("max_attempts, due_date, lesson_id")
     .eq("id", assessmentId)
     .single();
 
@@ -715,6 +784,33 @@ export async function canTakeAssessment(
       reason: `Maximum attempts (${maxAttempts}) reached`,
       attemptCount,
     };
+  }
+
+  // Module prerequisite gate — only applies when assessment is linked to a lesson
+  if (assessment.lesson_id) {
+    // Flat select: lesson → module_id (BUG-001 safe)
+    const { data: lesson } = await supabase
+      .from("lessons")
+      .select("module_id")
+      .eq("id", assessment.lesson_id)
+      .single();
+
+    if (lesson?.module_id) {
+      const completion = await getModuleCompletionForStudent(lesson.module_id, studentId);
+      if (!completion.complete) {
+        return {
+          canTake: false,
+          reason: `Complete "${completion.moduleName}" first`,
+          attemptCount,
+          prerequisiteModule: {
+            id: completion.moduleId,
+            title: completion.moduleName,
+            completedLessons: completion.completedLessons,
+            totalLessons: completion.totalLessons,
+          },
+        };
+      }
+    }
   }
 
   return { canTake: true, attemptCount };

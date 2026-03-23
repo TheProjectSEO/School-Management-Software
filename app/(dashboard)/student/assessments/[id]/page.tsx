@@ -37,7 +37,7 @@ export default async function AssessmentDetailPage({
   const submission = await getAssessmentSubmission(id, student.id);
 
   // Check if student can take the assessment
-  const { canTake, reason, attemptCount } = await canTakeAssessment(id, student.id);
+  const { canTake, reason, attemptCount, prerequisiteModule } = await canTakeAssessment(id, student.id);
 
   // Get question count
   const questions = await getQuestionsForQuiz(id);
@@ -203,6 +203,51 @@ export default async function AssessmentDetailPage({
           </div>
         </div>
       ) : null}
+
+      {/* Module Prerequisite Lock Banner */}
+      {!canTake && prerequisiteModule && (
+        <div className="rounded-xl border border-slate-300 bg-slate-50 dark:bg-slate-800/50 dark:border-slate-700 p-4 mb-8">
+          <div className="flex items-start gap-3">
+            <span className="material-symbols-outlined text-slate-500 dark:text-slate-400 mt-0.5 text-[22px]">
+              lock
+            </span>
+            <div className="flex-1">
+              <h3 className="font-semibold text-slate-800 dark:text-slate-200">
+                Complete the module to unlock this assessment
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-400 mt-0.5">
+                You must finish all lessons in{" "}
+                <span className="font-semibold">{prerequisiteModule.title}</span> before you can take this assessment.
+              </p>
+              <div className="mt-3 flex items-center gap-3 flex-wrap">
+                {/* Progress bar */}
+                <div className="flex items-center gap-2 flex-1 min-w-[160px]">
+                  <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-2 bg-primary rounded-full transition-all"
+                      style={{
+                        width: prerequisiteModule.totalLessons > 0
+                          ? `${Math.round((prerequisiteModule.completedLessons / prerequisiteModule.totalLessons) * 100)}%`
+                          : "0%",
+                      }}
+                    />
+                  </div>
+                  <span className="text-xs font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                    {prerequisiteModule.completedLessons}/{prerequisiteModule.totalLessons} lessons
+                  </span>
+                </div>
+                <Link
+                  href={`/student/subjects/${assessment.course_id}/modules/${prerequisiteModule.id}`}
+                  className="text-sm font-semibold text-primary hover:text-[#5a0c0e] flex items-center gap-1 whitespace-nowrap"
+                >
+                  Go to Module
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -388,8 +433,10 @@ export default async function AssessmentDetailPage({
                 disabled
                 className="w-full py-3 px-4 bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400 rounded-lg font-bold cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {reason || "Cannot Take Assessment"}
-                <span className="material-symbols-outlined text-[20px]">block</span>
+                {prerequisiteModule ? "Locked — Complete Module First" : (reason || "Cannot Take Assessment")}
+                <span className="material-symbols-outlined text-[20px]">
+                  {prerequisiteModule ? "lock" : "block"}
+                </span>
               </button>
             )}
             <Link

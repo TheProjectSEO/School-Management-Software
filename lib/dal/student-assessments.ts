@@ -8,12 +8,12 @@ import { getStudentCourseIds } from "./student";
 import type { Assessment, AssessmentSubmission, Course, QueryOptions } from "./types";
 
 /**
- * Get upcoming assessments for a student
+ * Get upcoming assessments for a student, with lock status for module-gated assessments
  */
 export async function getUpcomingAssessments(
   studentId: string,
   limit: number = 10
-): Promise<(Assessment & { course: Course; submission?: AssessmentSubmission })[]> {
+): Promise<(Assessment & { course: Course; submission?: AssessmentSubmission; isLocked: boolean; lockReason?: string })[]> {
   const supabase = createAdminClient();
 
   // Get course IDs (enrollments OR section-based assignments)
@@ -50,10 +50,85 @@ export async function getUpcomingAssessments(
 
   const submissionMap = new Map(submissions?.map((s) => [s.assessment_id, s]) || []);
 
+  // Batch lock computation for module-gated assessments
+  const lockMap = new Map<string, { isLocked: boolean; lockReason?: string }>();
+  const linkedAssessments = (assessments || []).filter((a: any) => a.lesson_id);
+
+  if (linkedAssessments.length > 0) {
+    const lessonIds = [...new Set(linkedAssessments.map((a: any) => a.lesson_id as string))];
+
+    // Batch-fetch module_id for those lessons (flat select — BUG-001 safe)
+    const { data: lessonRows } = await supabase
+      .from("lessons")
+      .select("id, module_id")
+      .in("id", lessonIds);
+
+    const lessonToModule = new Map((lessonRows || []).map((l: any) => [l.id, l.module_id]));
+    const moduleIds = [...new Set((lessonRows || []).map((l: any) => l.module_id).filter(Boolean))];
+
+    if (moduleIds.length > 0) {
+      // Batch-fetch module titles
+      const { data: moduleRows } = await supabase
+        .from("modules")
+        .select("id, title")
+        .in("id", moduleIds);
+      const moduleMap = new Map((moduleRows || []).map((m: any) => [m.id, m.title]));
+
+      // Batch-fetch all published lessons for those modules
+      const { data: allModuleLessons } = await supabase
+        .from("lessons")
+        .select("id, module_id")
+        .in("module_id", moduleIds)
+        .eq("status", "published");
+
+      // Group lesson IDs by module_id
+      const lessonsByModule = new Map<string, string[]>();
+      (allModuleLessons || []).forEach((l: any) => {
+        const arr = lessonsByModule.get(l.module_id) || [];
+        arr.push(l.id);
+        lessonsByModule.set(l.module_id, arr);
+      });
+
+      // Batch-fetch student's completed lessons for all module lessons
+      const allLessonIds = (allModuleLessons || []).map((l: any) => l.id);
+      const { data: completedRows } = allLessonIds.length > 0
+        ? await supabase
+            .from("student_progress")
+            .select("lesson_id")
+            .eq("student_id", studentId)
+            .in("lesson_id", allLessonIds)
+            .not("completed_at", "is", null)
+        : { data: [] };
+
+      const completedSet = new Set((completedRows || []).map((r: any) => r.lesson_id));
+
+      // Compute lock status per assessment
+      for (const assessment of linkedAssessments) {
+        const moduleId = lessonToModule.get((assessment as any).lesson_id);
+        if (!moduleId) continue;
+
+        const moduleLessons = lessonsByModule.get(moduleId) || [];
+        const total = moduleLessons.length;
+        if (total === 0) continue; // No published lessons = no gate
+
+        const completed = moduleLessons.filter((id) => completedSet.has(id)).length;
+        if (completed < total) {
+          const moduleName = (moduleMap.get(moduleId) as string) || "the module";
+          lockMap.set(assessment.id, {
+            isLocked: true,
+            lockReason: `Complete "${moduleName}" first (${completed}/${total} lessons done)`,
+          });
+        }
+      }
+    }
+  }
+
   return (
     assessments?.map((a) => ({
       ...a,
       submission: submissionMap.get(a.id),
+      isLocked: lockMap.get(a.id)?.isLocked ?? false,
+      lockReason: lockMap.get(a.id)?.lockReason,
     })) || []
   );
 }

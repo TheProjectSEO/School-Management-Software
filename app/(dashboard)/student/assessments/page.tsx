@@ -257,6 +257,7 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
               const timeInfo = assessment.due_date ? getTimeUntilDue(assessment.due_date) : null;
               const hasSubmission = !!assessment.submission;
               const isGraded = assessment.submission?.status === "graded";
+              const isLocked = assessment.isLocked;
 
               return (
                 <div
@@ -264,7 +265,7 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
                   className={`group relative flex flex-col md:flex-row gap-5 p-5 shadow-sm hover:shadow-md transition-all ${
                     isPlayful
                       ? `rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50/50 to-purple-50/50 ${hasSubmission && !isGraded ? 'border-l-4 border-l-msu-gold' : ''}`
-                      : `rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700 ${hasSubmission && !isGraded ? 'border-l-4 border-l-msu-gold' : 'hover:border-primary/30'}`
+                      : `rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700 ${isLocked ? 'opacity-70' : ''} ${hasSubmission && !isGraded ? 'border-l-4 border-l-msu-gold' : 'hover:border-primary/30'}`
                   }`}
                 >
                   <div className="flex-1 flex flex-col gap-2">
@@ -306,6 +307,12 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
                         <span className="material-symbols-outlined text-[18px]">grade</span>
                         <span>{assessment.total_points} points</span>
                       </div>
+                      {isLocked && (
+                        <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded text-xs font-bold">
+                          <span className="material-symbols-outlined text-[16px]">lock</span>
+                          <span>Complete module to unlock</span>
+                        </div>
+                      )}
                       {hasSubmission && !isGraded && (
                         <div className="flex items-center gap-1.5 text-yellow-600 dark:text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 px-2 py-0.5 rounded text-xs font-bold">
                           <span className="material-symbols-outlined text-[16px]">cloud_upload</span>
@@ -382,22 +389,28 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
               {upcomingAssessments.map((assessment) => {
                 const timeInfo = assessment.due_date ? getTimeUntilDue(assessment.due_date) : null;
                 const hasSubmission = !!assessment.submission;
+                const isLocked = assessment.isLocked;
 
                 return (
                   <div
                     key={assessment.id}
-                    className={`flex flex-col justify-between p-5 shadow-sm ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50/50 to-purple-50/50' : 'rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700'}`}
+                    className={`flex flex-col justify-between p-5 shadow-sm ${isLocked ? 'opacity-70' : ''} ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50/50 to-purple-50/50' : 'rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700'}`}
                   >
                     <div className="flex flex-col gap-3">
                       <div className="flex justify-between items-start">
-                        <div className="bg-slate-100 dark:bg-slate-800 p-2 rounded-lg">
+                        <div className={`p-2 rounded-lg ${isLocked ? 'bg-slate-100 dark:bg-slate-800' : 'bg-slate-100 dark:bg-slate-800'}`}>
                           <span className="material-symbols-outlined text-slate-600 dark:text-slate-400">
-                            {getAssessmentIcon(assessment.type)}
+                            {isLocked ? "lock" : getAssessmentIcon(assessment.type)}
                           </span>
                         </div>
-                        {timeInfo && (
+                        {timeInfo && !isLocked && (
                           <span className="text-xs font-medium text-slate-500 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded">
                             {timeInfo.text}
+                          </span>
+                        )}
+                        {isLocked && (
+                          <span className="text-xs font-medium text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                            Locked
                           </span>
                         )}
                       </div>
@@ -408,11 +421,16 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
                         <h4 className="text-base font-bold text-slate-900 dark:text-white mt-1">
                           {assessment.title}
                         </h4>
+                        {isLocked && assessment.lockReason && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            {assessment.lockReason}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
                       <span className="text-sm text-slate-500">
-                        {hasSubmission ? "Submitted" : "Not Started"}
+                        {isLocked ? "Locked" : hasSubmission ? "Submitted" : "Not Started"}
                       </span>
                       <Link
                         href={`/student/assessments/${assessment.id}`}

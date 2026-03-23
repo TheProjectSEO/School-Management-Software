@@ -54,6 +54,7 @@ export default function QuizClient({
   const [submitting, setSubmitting] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [isSubmitStarted, setIsSubmitStarted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [startTime] = useState(Date.now());
@@ -191,6 +192,7 @@ export default function QuizClient({
     if (!submissionId) return;
 
     if (!autoSubmit && !showConfirmDialog) {
+      setIsSubmitStarted(true); // lock all inputs from this point forward
       setShowConfirmDialog(true);
       return;
     }
@@ -412,6 +414,14 @@ export default function QuizClient({
         </div>
       </div>
 
+      {/* Read-only notice when submit has been initiated */}
+      {isSubmitStarted && (
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 mb-4 text-sm font-medium text-amber-800 dark:text-amber-300">
+          <span className="material-symbols-outlined text-[18px]">lock</span>
+          Answers are locked — reviewing only. Click <strong>Submit Now</strong> to finalize.
+        </div>
+      )}
+
       {/* Question Card */}
       <div className="bg-white dark:bg-[#1a2634] rounded-xl p-6 md:p-8 shadow-sm border border-slate-200 dark:border-slate-700 mb-6">
         {/* Question Header */}
@@ -436,9 +446,15 @@ export default function QuizClient({
               {currentQuestion.options.map((option) => (
                 <label
                   key={option.id}
-                  className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+                    isSubmitStarted
+                      ? "cursor-not-allowed opacity-80"
+                      : "cursor-pointer"
+                  } ${
                     currentAnswer?.selectedOptionId === option.id
                       ? "border-primary bg-primary/5"
+                      : isSubmitStarted
+                      ? "border-slate-200 dark:border-slate-700"
                       : "border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-800"
                   }`}
                 >
@@ -463,8 +479,9 @@ export default function QuizClient({
                     name={`question-${currentQuestion.id}`}
                     value={option.id}
                     checked={currentAnswer?.selectedOptionId === option.id}
+                    disabled={isSubmitStarted}
                     onChange={() =>
-                      handleAnswerChange(currentQuestion.id, option.id)
+                      !isSubmitStarted && handleAnswerChange(currentQuestion.id, option.id)
                     }
                     className="sr-only"
                   />
@@ -485,9 +502,15 @@ export default function QuizClient({
               ).map((option) => (
                 <label
                   key={option.id}
-                  className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+                    isSubmitStarted
+                      ? "cursor-not-allowed opacity-80"
+                      : "cursor-pointer"
+                  } ${
                     currentAnswer?.selectedOptionId === option.id
                       ? "border-primary bg-primary/5"
+                      : isSubmitStarted
+                      ? "border-slate-200 dark:border-slate-700"
                       : "border-slate-200 dark:border-slate-700 hover:border-primary/50 hover:bg-slate-50 dark:hover:bg-slate-800"
                   }`}
                 >
@@ -512,8 +535,9 @@ export default function QuizClient({
                     name={`question-${currentQuestion.id}`}
                     value={option.id}
                     checked={currentAnswer?.selectedOptionId === option.id}
+                    disabled={isSubmitStarted}
                     onChange={() =>
-                      handleAnswerChange(currentQuestion.id, option.id)
+                      !isSubmitStarted && handleAnswerChange(currentQuestion.id, option.id)
                     }
                     className="sr-only"
                   />
@@ -525,12 +549,17 @@ export default function QuizClient({
           {currentQuestion.question_type === "short_answer" && (
             <div>
               <textarea
-                className="w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-lg focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all resize-none"
+                className={`w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-lg transition-all resize-none ${
+                  isSubmitStarted
+                    ? "cursor-not-allowed opacity-80"
+                    : "focus:border-primary focus:ring-2 focus:ring-primary/20"
+                }`}
                 rows={4}
-                placeholder="Type your answer here..."
+                placeholder={isSubmitStarted ? "Answers are locked" : "Type your answer here..."}
                 value={currentAnswer?.textAnswer || ""}
+                disabled={isSubmitStarted}
                 onChange={(e) =>
-                  handleAnswerChange(
+                  !isSubmitStarted && handleAnswerChange(
                     currentQuestion.id,
                     undefined,
                     e.target.value
@@ -554,7 +583,7 @@ export default function QuizClient({
         </button>
 
         <div className="flex items-center gap-3">
-          {currentQuestionIndex < questions.length - 1 ? (
+          {currentQuestionIndex < questions.length - 1 && !isSubmitStarted && (
             <button
               onClick={() =>
                 setCurrentQuestionIndex((prev) =>
@@ -566,7 +595,8 @@ export default function QuizClient({
               Next
               <span className="material-symbols-outlined text-[20px]">arrow_forward</span>
             </button>
-          ) : (
+          )}
+          {(currentQuestionIndex === questions.length - 1 || isSubmitStarted) && (
             <button
               onClick={() => handleSubmit()}
               disabled={submitting}
@@ -609,13 +639,16 @@ export default function QuizClient({
                   </span>
                 )}
               </p>
+              <p className="mt-3 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 rounded-lg px-3 py-2">
+                <span className="font-semibold text-primary">Note:</span> Answers are now locked. You may review them, but you cannot make changes after this point.
+              </p>
             </div>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowConfirmDialog(false)}
                 className="flex-1 py-3 px-4 rounded-lg font-semibold bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
               >
-                Continue Quiz
+                Review Answers
               </button>
               <button
                 onClick={() => handleSubmit(true)}

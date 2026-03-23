@@ -8,6 +8,7 @@ import {
   getGradingPeriods,
 } from "@/lib/dal/report-cards";
 import { ReportCardsList } from "@/components/teacher/report-cards/ReportCardsList";
+import { ReportCardFilters } from "@/components/teacher/report-cards/ReportCardFilters";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import EmptyState from "@/components/ui/EmptyState";
 
@@ -147,62 +148,15 @@ async function ReportCardsContent({
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-4 mb-6">
-        {/* Section Filter */}
-        <div>
-          <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-            Section
-          </label>
-          <select
-            defaultValue={selectedSectionId}
-            onChange={(e) => {
-              const url = new URL(window.location.href);
-              url.searchParams.set("section", e.target.value);
-              window.location.href = url.toString();
-            }}
-            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2634] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          >
-            {sections.map((section) => (
-              <option key={section.id} value={section.id}>
-                {section.name} ({section.grade_level})
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Grading Period Filter */}
-        <div>
-          <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">
-            Grading Period
-          </label>
-          <select
-            defaultValue={selectedPeriodId}
-            onChange={(e) => {
-              const url = new URL(window.location.href);
-              url.searchParams.set("period", e.target.value);
-              window.location.href = url.toString();
-            }}
-            className="px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2634] text-slate-900 dark:text-white text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          >
-            {gradingPeriods.map((period) => (
-              <option key={period.id} value={period.id}>
-                {period.name} ({period.academic_year})
-                {period.is_current && " - Current"}
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <ReportCardFilters
+        sections={sections}
+        gradingPeriods={gradingPeriods}
+        selectedSectionId={selectedSectionId}
+        selectedPeriodId={selectedPeriodId}
+      />
 
       {/* Report Cards List */}
-      <ReportCardsList
-        reportCards={reportCards}
-        onSubmitForReview={async (ids) => {
-          "use server";
-          // Server action would go here
-          console.log("Submitting for review:", ids);
-        }}
-      />
+      <ReportCardsList reportCards={reportCards} />
     </>
   );
 }

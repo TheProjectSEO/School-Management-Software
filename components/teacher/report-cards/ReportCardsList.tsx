@@ -6,8 +6,6 @@ import type { ReportCardListItem, ReportCardStatus } from "@/lib/types/report-ca
 
 interface ReportCardsListProps {
   reportCards: ReportCardListItem[];
-  onSubmitForReview?: (ids: string[]) => Promise<void>;
-  isSubmitting?: boolean;
 }
 
 /**
@@ -19,11 +17,8 @@ interface ReportCardsListProps {
  * - Quick stats (GPA, attendance)
  * - Actions (view, add remarks, submit for review)
  */
-export function ReportCardsList({
-  reportCards,
-  onSubmitForReview,
-  isSubmitting = false,
-}: ReportCardsListProps) {
+export function ReportCardsList({ reportCards }: ReportCardsListProps) {
+  const isSubmitting = false;
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<ReportCardStatus | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -72,11 +67,9 @@ export function ReportCardsList({
     setSelectedIds(newSelected);
   };
 
-  const handleSubmitForReview = async () => {
-    if (onSubmitForReview && selectedIds.size > 0) {
-      await onSubmitForReview(Array.from(selectedIds));
-      setSelectedIds(new Set());
-    }
+  const handleSubmitForReview = () => {
+    // TODO: wire up to POST /api/teacher/report-cards/submit-for-review
+    setSelectedIds(new Set());
   };
 
   // Status badge component

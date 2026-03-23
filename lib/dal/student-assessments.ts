@@ -48,7 +48,15 @@ export async function getUpcomingAssessments(
     .eq("student_id", studentId)
     .in("assessment_id", assessmentIds);
 
-  const submissionMap = new Map(submissions?.map((s) => [s.assessment_id, s]) || []);
+  // Build submission map preferring graded/submitted over pending.
+  // Without this, a newer pending attempt-2 would overwrite the graded attempt-1.
+  const submissionMap = new Map<string, AssessmentSubmission>();
+  (submissions || []).forEach((s) => {
+    const existing = submissionMap.get(s.assessment_id);
+    if (!existing || (existing.status === "pending" && s.status !== "pending")) {
+      submissionMap.set(s.assessment_id, s);
+    }
+  });
 
   // Batch lock computation for module-gated assessments
   const lockMap = new Map<string, { isLocked: boolean; lockReason?: string }>();
@@ -162,7 +170,14 @@ export async function getCourseAssessments(
     .eq("student_id", studentId)
     .in("assessment_id", assessmentIds);
 
-  const submissionMap = new Map(submissions?.map((s) => [s.assessment_id, s]) || []);
+  // Prefer graded/submitted over pending (same bug-fix as getUpcomingAssessments)
+  const submissionMap = new Map<string, AssessmentSubmission>();
+  (submissions || []).forEach((s) => {
+    const existing = submissionMap.get(s.assessment_id);
+    if (!existing || (existing.status === "pending" && s.status !== "pending")) {
+      submissionMap.set(s.assessment_id, s);
+    }
+  });
 
   return (
     assessments?.map((a) => ({
@@ -202,7 +217,10 @@ export async function getAssessmentById(assessmentId: string): Promise<(Assessme
 }
 
 /**
- * Get student's submission for an assessment
+ * Get student's submission for an assessment.
+ * Always prefers the most recent graded/submitted submission over a pending one.
+ * (PostgreSQL sorts NULL submitted_at first in DESC, so a plain single-query
+ * order would return a pending "attempt 2" before a graded "attempt 1".)
  */
 export async function getAssessmentSubmission(
   assessmentId: string,
@@ -210,21 +228,35 @@ export async function getAssessmentSubmission(
 ): Promise<AssessmentSubmission | null> {
   const supabase = createAdminClient();
 
-  const { data, error } = await supabase
+  // 1. Prefer the most recent completed submission (graded or submitted)
+  const { data: completed } = await supabase
     .from("submissions")
     .select("*")
     .eq("assessment_id", assessmentId)
     .eq("student_id", studentId)
+    .in("status", ["graded", "submitted"])
     .order("submitted_at", { ascending: false })
     .limit(1)
-    .single();
+    .maybeSingle();
+
+  if (completed) return completed;
+
+  // 2. Fall back to a pending submission only when no completed one exists
+  const { data: pending, error } = await supabase
+    .from("submissions")
+    .select("*")
+    .eq("assessment_id", assessmentId)
+    .eq("student_id", studentId)
+    .eq("status", "pending")
+    .limit(1)
+    .maybeSingle();
 
   if (error && error.code !== "PGRST116") {
     console.error("Error fetching submission:", error);
     return null;
   }
 
-  return data;
+  return pending ?? null;
 }
 
 /**

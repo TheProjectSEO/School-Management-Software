@@ -355,7 +355,7 @@ export default function QuizClient({
           )}
 
           {/* Progress */}
-          <div className="flex items-center gap-4 flex-1 min-w-[200px]">
+          <div className="flex items-center gap-4 flex-1 min-w-0">
             <div className="flex-1">
               <div className="flex justify-between text-sm mb-1">
                 <span className="text-slate-600 dark:text-slate-400">
@@ -471,7 +471,7 @@ export default function QuizClient({
                       </span>
                     )}
                   </div>
-                  <span className="text-slate-700 dark:text-slate-200 text-lg">
+                  <span className="text-slate-700 dark:text-slate-200 text-base sm:text-lg">
                     {option.option_text}
                   </span>
                   <input
@@ -527,7 +527,7 @@ export default function QuizClient({
                       </span>
                     )}
                   </div>
-                  <span className="text-slate-700 dark:text-slate-200 text-lg">
+                  <span className="text-slate-700 dark:text-slate-200 text-base sm:text-lg">
                     {option.text}
                   </span>
                   <input
@@ -549,7 +549,7 @@ export default function QuizClient({
           {currentQuestion.question_type === "short_answer" && (
             <div>
               <textarea
-                className={`w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-lg transition-all resize-none ${
+                className={`w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-base sm:text-lg transition-all resize-none ${
                   isSubmitStarted
                     ? "cursor-not-allowed opacity-80"
                     : "focus:border-primary focus:ring-2 focus:ring-primary/20"
@@ -621,7 +621,7 @@ export default function QuizClient({
       {/* Confirm Submit Dialog */}
       {showConfirmDialog && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white dark:bg-[#1a2634] rounded-2xl p-6 max-w-md w-full shadow-xl">
+          <div className="bg-white dark:bg-[#1a2634] rounded-2xl p-4 sm:p-6 max-w-md w-full shadow-xl">
             <div className="text-center mb-6">
               <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-msu-gold/20 mb-4">
                 <span className="material-symbols-outlined text-msu-gold text-3xl">

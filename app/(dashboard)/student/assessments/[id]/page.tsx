@@ -221,7 +221,7 @@ export default async function AssessmentDetailPage({
               </p>
               <div className="mt-3 flex items-center gap-3 flex-wrap">
                 {/* Progress bar */}
-                <div className="flex items-center gap-2 flex-1 min-w-[160px]">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
                   <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
                     <div
                       className="h-2 bg-primary rounded-full transition-all"

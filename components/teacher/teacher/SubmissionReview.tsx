@@ -163,7 +163,7 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-4">
           <button
             onClick={() => router.back()}
@@ -180,7 +180,7 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
             onClick={handleSaveDraft}
@@ -231,7 +231,7 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
 
       {/* Student Info */}
       <Card>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
               {submission.student.avatar_url ? (
@@ -317,7 +317,7 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
                     </div>
 
                     {/* Score input for all question types */}
-                    <div className="mt-4 flex items-center gap-3">
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
                       <label className="text-sm font-medium text-slate-900 dark:text-slate-100">
                         Points Earned:
                       </label>

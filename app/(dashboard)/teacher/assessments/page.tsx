@@ -206,11 +206,11 @@ async function AssessmentsContent({ typeFilter }: { typeFilter?: string }) {
                     <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-100 group-hover:text-primary transition-colors truncate">
                       {assessment.title}
                     </h3>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-slate-600 dark:text-slate-400">
                       <span className="capitalize">{assessment.type}</span>
-                      <span>•</span>
-                      <span>{assessment.course_name}</span>
-                      <span>•</span>
+                      <span className="hidden sm:inline">•</span>
+                      <span className="truncate max-w-[140px] sm:max-w-none">{assessment.course_name}</span>
+                      <span className="hidden sm:inline">•</span>
                       <span>{assessment.section_name}</span>
                     </div>
                   </div>
@@ -226,7 +226,7 @@ async function AssessmentsContent({ typeFilter }: { typeFilter?: string }) {
                 )}
 
                 {/* Stats Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
                   <div>
                     <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">
                       Due Date

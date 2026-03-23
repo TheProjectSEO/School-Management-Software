@@ -313,6 +313,12 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
                           <span>Complete module to unlock</span>
                         </div>
                       )}
+                      {isGraded && (
+                        <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded text-xs font-bold">
+                          <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                          <span>Completed</span>
+                        </div>
+                      )}
                       {hasSubmission && !isGraded && (
                         <div className="flex items-center gap-1.5 text-yellow-600 dark:text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20 px-2 py-0.5 rounded text-xs font-bold">
                           <span className="material-symbols-outlined text-[16px]">cloud_upload</span>
@@ -336,6 +342,15 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
                           {timeInfo?.urgent && !isPlayful && (
                             <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
                           )}
+                        </Link>
+                      )}
+                      {isGraded && (
+                        <Link
+                          href={`/student/assessments/${assessment.id}`}
+                          className="w-full font-bold py-2.5 px-4 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-2 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-900/40"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                          View Results
                         </Link>
                       )}
                       {hasSubmission && !isGraded && (
@@ -389,6 +404,7 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
               {upcomingAssessments.map((assessment) => {
                 const timeInfo = assessment.due_date ? getTimeUntilDue(assessment.due_date) : null;
                 const hasSubmission = !!assessment.submission;
+                const isGradedUpcoming = assessment.submission?.status === "graded";
                 const isLocked = assessment.isLocked;
 
                 return (
@@ -429,15 +445,21 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
                       </div>
                     </div>
                     <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
-                      <span className="text-sm text-slate-500">
-                        {isLocked ? "Locked" : hasSubmission ? "Submitted" : "Not Started"}
+                      <span className={`text-sm font-medium ${
+                        isGradedUpcoming
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : hasSubmission
+                            ? "text-yellow-600 dark:text-yellow-500"
+                            : "text-slate-500"
+                      }`}>
+                        {isLocked ? "Locked" : isGradedUpcoming ? "Completed" : hasSubmission ? "Submitted" : "Not Started"}
                       </span>
                       <Link
                         href={`/student/assessments/${assessment.id}`}
-                        className="text-primary hover:text-[#5a0c0e]"
+                        className={isGradedUpcoming ? "text-emerald-600 hover:text-emerald-700 dark:text-emerald-400" : "text-primary hover:text-[#5a0c0e]"}
                       >
                         <span className="material-symbols-outlined">
-                          {hasSubmission ? "visibility" : "arrow_forward"}
+                          {isGradedUpcoming ? "check_circle" : hasSubmission ? "visibility" : "arrow_forward"}
                         </span>
                       </Link>
                     </div>

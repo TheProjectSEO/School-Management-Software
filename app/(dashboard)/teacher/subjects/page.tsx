@@ -1,80 +1,92 @@
 export const dynamic = 'force-dynamic';
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { getTeacherProfile, getTeacherSubjects } from '@/lib/dal/teacher'
-import { getSubjectsPageStats } from '@/lib/dal/dashboard'
-import Card from '@/components/ui/Card'
-import Badge from '@/components/ui/Badge'
-import EmptyState from '@/components/ui/EmptyState'
-import LoadingSpinner from '@/components/ui/LoadingSpinner'
-import { Suspense } from 'react'
-import { SubjectSortFilter } from './SubjectSortFilter'
+import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { getTeacherProfile, getTeacherSubjects } from '@/lib/dal/teacher';
+import { getSubjectsPageStats } from '@/lib/dal/dashboard';
+import EmptyState from '@/components/ui/EmptyState';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
+import { Suspense } from 'react';
+import { SubjectSortFilter } from './SubjectSortFilter';
 
 export const metadata = {
   title: 'My Subjects | MSU Teacher Portal',
-  description: 'Manage your subjects and course content'
-}
+  description: 'Manage your subjects and course content',
+};
 
 type SubjectsPageData = {
-  subjects: Awaited<ReturnType<typeof getTeacherSubjects>>
+  subjects: Awaited<ReturnType<typeof getTeacherSubjects>>;
   stats: {
-    totalSubjects: number
-    totalModules: number
-    publishedModules: number
-    draftModules: number
+    totalSubjects: number;
+    totalModules: number;
+    publishedModules: number;
+    draftModules: number;
+  };
+};
+
+const SUBJECT_THEMES: { keywords: string[]; icon: string; gradient: string }[] = [
+  { keywords: ['math', 'calculus', 'algebra', 'geometry', 'statistics', 'trigonometry'], icon: 'calculate', gradient: 'from-blue-500 to-blue-700' },
+  { keywords: ['english', 'literature', 'writing', 'reading', 'language arts'], icon: 'menu_book', gradient: 'from-purple-500 to-purple-700' },
+  { keywords: ['science', 'biology', 'chemistry', 'physics', 'earth'], icon: 'science', gradient: 'from-emerald-500 to-emerald-700' },
+  { keywords: ['history', 'social', 'economics', 'political', 'civics', 'araling panlipunan'], icon: 'public', gradient: 'from-amber-500 to-amber-700' },
+  { keywords: ['pe', 'physical', 'health', 'mapeh', 'sports'], icon: 'fitness_center', gradient: 'from-rose-500 to-rose-700' },
+  { keywords: ['computer', 'ict', 'tech', 'code', 'programming', 'tle'], icon: 'terminal', gradient: 'from-cyan-500 to-cyan-700' },
+  { keywords: ['art', 'music', 'creative', 'drawing'], icon: 'palette', gradient: 'from-pink-500 to-pink-700' },
+  { keywords: ['filipino', 'tagalog', 'edukasyon sa pagpapakatao', 'esp'], icon: 'translate', gradient: 'from-orange-500 to-orange-700' },
+];
+
+const FALLBACK_THEMES = [
+  { icon: 'book_2', gradient: 'from-[#7B1113] to-[#9B1315]' },
+  { icon: 'book_2', gradient: 'from-blue-600 to-blue-800' },
+  { icon: 'book_2', gradient: 'from-emerald-600 to-emerald-800' },
+  { icon: 'book_2', gradient: 'from-amber-600 to-amber-800' },
+  { icon: 'book_2', gradient: 'from-purple-600 to-purple-800' },
+  { icon: 'book_2', gradient: 'from-cyan-600 to-cyan-800' },
+];
+
+function getSubjectTheme(name: string, index: number) {
+  const lower = name.toLowerCase();
+  for (const theme of SUBJECT_THEMES) {
+    if (theme.keywords.some((kw) => lower.includes(kw))) return theme;
   }
+  return FALLBACK_THEMES[index % FALLBACK_THEMES.length];
 }
 
 async function getSubjectsPageData(): Promise<SubjectsPageData | null> {
-  const teacherProfile = await getTeacherProfile()
-
-  if (!teacherProfile) {
-    return null
-  }
+  const teacherProfile = await getTeacherProfile();
+  if (!teacherProfile) return null;
 
   const [subjects, stats] = await Promise.all([
     getTeacherSubjects(teacherProfile.id),
-    getSubjectsPageStats(teacherProfile.id)
-  ])
+    getSubjectsPageStats(teacherProfile.id),
+  ]);
 
-  return { subjects, stats }
+  return { subjects, stats };
 }
 
-async function SubjectsContent({
-  sort,
-  grade,
-}: {
-  sort: string
-  grade: string
-}) {
-  const data = await getSubjectsPageData()
+async function SubjectsContent({ sort, grade }: { sort: string; grade: string }) {
+  const data = await getSubjectsPageData();
+  if (!data) redirect('/login');
 
-  if (!data) {
-    redirect('/login')
-  }
+  let { subjects } = data;
 
-  let { subjects } = data
-
-  // Apply grade filter
   if (grade && grade !== 'all') {
-    subjects = subjects.filter((s) => s.grade_level === grade)
+    subjects = subjects.filter((s) => s.grade_level === grade);
   }
 
-  // Apply sort
   switch (sort) {
     case 'name-desc':
-      subjects = [...subjects].sort((a, b) => b.name.localeCompare(a.name))
-      break
+      subjects = [...subjects].sort((a, b) => b.name.localeCompare(a.name));
+      break;
     case 'students-desc':
-      subjects = [...subjects].sort((a, b) => b.student_count - a.student_count)
-      break
+      subjects = [...subjects].sort((a, b) => b.student_count - a.student_count);
+      break;
     case 'modules-desc':
-      subjects = [...subjects].sort((a, b) => b.module_count - a.module_count)
-      break
+      subjects = [...subjects].sort((a, b) => b.module_count - a.module_count);
+      break;
     case 'name-asc':
     default:
-      subjects = [...subjects].sort((a, b) => a.name.localeCompare(b.name))
-      break
+      subjects = [...subjects].sort((a, b) => a.name.localeCompare(b.name));
+      break;
   }
 
   if (subjects.length === 0) {
@@ -82,189 +94,129 @@ async function SubjectsContent({
       <EmptyState
         icon="book_2"
         title="No subjects found"
-        description={grade && grade !== 'all'
-          ? `No subjects found for Grade ${grade}. Try a different filter.`
-          : "You don't have any subjects assigned yet. Contact your administrator to get assigned to courses."
+        description={
+          grade && grade !== 'all'
+            ? `No subjects found for Grade ${grade}. Try a different filter.`
+            : "You don't have any subjects assigned yet. Contact your administrator to get assigned to courses."
         }
       />
-    )
+    );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {subjects.map((subject) => (
-        <Link
-          key={subject.id}
-          href={`/teacher/subjects/${subject.id}`}
-          className="block group"
-        >
-          <Card className="h-full hover:border-primary transition-colors">
-            {/* Cover Image */}
-            <div className="w-full h-32 rounded-lg bg-gradient-to-br from-primary/20 to-primary/5 mb-4 flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary text-5xl">
-                book_2
-              </span>
-            </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      {subjects.map((subject, index) => {
+        const subjectTheme = getSubjectTheme(subject.name, index);
+        return (
+          <Link key={subject.id} href={`/teacher/subjects/${subject.id}`} className="group block">
+            <div className="flex flex-col overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-md hover:shadow-xl transition-all duration-300 hover:-translate-y-1 h-full">
 
-            {/* Subject Info */}
-            <div className="space-y-3">
-              <div>
-                <div className="flex items-start justify-between mb-1">
-                  <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-100 group-hover:text-primary transition-colors line-clamp-1">
-                    {subject.name}
-                  </h3>
-                  <Badge variant="success">
-                    Active
-                  </Badge>
-                </div>
-                <p className="text-sm text-slate-600 dark:text-slate-400">
-                  {subject.subject_code}
-                </p>
-              </div>
-
-              {subject.description && (
-                <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-2">
-                  {subject.description}
-                </p>
-              )}
-
-              {/* Section Info */}
-              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                <span className="material-symbols-outlined text-base">
-                  groups
+              {/* ── Flashcard Top (colored) ── */}
+              <div className={`relative bg-gradient-to-br ${subjectTheme.gradient} px-5 pt-6 pb-8 flex flex-col items-center text-center`}>
+                {/* Grade badge */}
+                <span className="absolute top-3 right-3 px-2.5 py-0.5 bg-white/20 text-white text-[10px] font-bold uppercase tracking-wide rounded-full">
+                  Grade {subject.grade_level}
                 </span>
-                <span>{subject.section_name} • Grade {subject.grade_level}</span>
-              </div>
-            </div>
 
-            {/* Stats */}
-            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 grid grid-cols-2 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {subject.module_count}
+                {/* Icon */}
+                <div className="size-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-4 shadow-inner">
+                  <span className="material-symbols-outlined text-white text-4xl">
+                    {subjectTheme.icon}
+                  </span>
                 </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                  Modules
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-primary">
-                  {subject.student_count}
-                </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400 mt-1">
-                  Students
-                </div>
-              </div>
-            </div>
 
-            {/* View Action */}
-            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-600 dark:text-slate-400">Manage Subject</span>
-                <span className="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform">
-                  arrow_forward
-                </span>
+                {/* Name */}
+                <h3 className="text-white font-bold text-lg leading-tight line-clamp-2 drop-shadow-sm">
+                  {subject.name}
+                </h3>
+                {subject.subject_code && (
+                  <p className="text-white/60 text-xs mt-1">{subject.subject_code}</p>
+                )}
+              </div>
+
+              {/* ── Flashcard Bottom (white) ── */}
+              <div className="flex flex-col flex-1 px-5 pt-4 pb-5 -mt-3 bg-white dark:bg-slate-800 rounded-t-2xl relative z-10">
+                {/* Section info */}
+                <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 mb-4">
+                  <span className="material-symbols-outlined text-base">groups</span>
+                  <span className="truncate">{subject.section_name}</span>
+                </div>
+
+                {/* Description */}
+                {subject.description && (
+                  <p className="text-xs text-slate-500 dark:text-slate-400 line-clamp-2 mb-4">
+                    {subject.description}
+                  </p>
+                )}
+
+                {/* Stats */}
+                <div className="grid grid-cols-2 gap-3 mb-4">
+                  <div className="flex flex-col items-center py-3 rounded-xl bg-slate-50 dark:bg-slate-700/50">
+                    <span className="text-2xl font-bold text-primary">{subject.module_count}</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Modules</span>
+                  </div>
+                  <div className="flex flex-col items-center py-3 rounded-xl bg-slate-50 dark:bg-slate-700/50">
+                    <span className="text-2xl font-bold text-primary">{subject.student_count}</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">Students</span>
+                  </div>
+                </div>
+
+                {/* Action row */}
+                <div className="mt-auto flex items-center justify-between">
+                  <span className="text-sm font-semibold text-slate-600 dark:text-slate-300 group-hover:text-primary transition-colors">
+                    Manage Subject
+                  </span>
+                  <span className="material-symbols-outlined text-slate-400 group-hover:translate-x-1 group-hover:text-primary transition-all text-[20px]">
+                    arrow_forward
+                  </span>
+                </div>
               </div>
             </div>
-          </Card>
-        </Link>
-      ))}
+          </Link>
+        );
+      })}
     </div>
-  )
+  );
 }
 
 async function QuickStats() {
-  const data = await getSubjectsPageData()
+  const data = await getSubjectsPageData();
+  if (!data) return null;
 
-  if (!data) {
-    return null
-  }
+  const { stats } = data;
 
-  const { stats } = data
+  const statItems = [
+    { label: 'Total Subjects', value: stats.totalSubjects, icon: 'book_2', color: 'from-[#7B1113]/10 to-[#7B1113]/5', iconBg: 'bg-[#7B1113]/20', iconColor: 'text-[#7B1113]' },
+    { label: 'Total Modules', value: stats.totalModules, icon: 'article', color: 'from-blue-500/10 to-blue-500/5', iconBg: 'bg-blue-500/20', iconColor: 'text-blue-600' },
+    { label: 'Published', value: stats.publishedModules, icon: 'check_circle', color: 'from-green-500/10 to-green-500/5', iconBg: 'bg-green-500/20', iconColor: 'text-green-600' },
+    { label: 'Drafts', value: stats.draftModules, icon: 'edit', color: 'from-yellow-500/10 to-yellow-500/5', iconBg: 'bg-yellow-500/20', iconColor: 'text-yellow-600' },
+  ];
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-      <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center">
-            <span className="material-symbols-outlined text-primary text-2xl">
-              book_2
-            </span>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-              {stats.totalSubjects}
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {statItems.map((item) => (
+        <div key={item.label} className={`bg-gradient-to-br ${item.color} rounded-xl p-4 border border-slate-200 dark:border-slate-700`}>
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-lg ${item.iconBg} flex items-center justify-center shrink-0`}>
+              <span className={`material-symbols-outlined ${item.iconColor} text-xl`}>{item.icon}</span>
             </div>
-            <div className="text-sm text-slate-600 dark:text-slate-400">
-              Total Subjects
+            <div>
+              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{item.value}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">{item.label}</div>
             </div>
           </div>
         </div>
-      </Card>
-
-      <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center">
-            <span className="material-symbols-outlined text-blue-600 text-2xl">
-              article
-            </span>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-              {stats.totalModules}
-            </div>
-            <div className="text-sm text-slate-600 dark:text-slate-400">
-              Total Modules
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center">
-            <span className="material-symbols-outlined text-green-600 text-2xl">
-              check_circle
-            </span>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-              {stats.publishedModules}
-            </div>
-            <div className="text-sm text-slate-600 dark:text-slate-400">
-              Published
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="bg-gradient-to-br from-yellow-500/10 to-yellow-500/5">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-lg bg-yellow-500/20 flex items-center justify-center">
-            <span className="material-symbols-outlined text-yellow-600 text-2xl">
-              edit
-            </span>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-              {stats.draftModules}
-            </div>
-            <div className="text-sm text-slate-600 dark:text-slate-400">
-              Drafts
-            </div>
-          </div>
-        </div>
-      </Card>
+      ))}
     </div>
-  )
+  );
 }
 
 export default async function SubjectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sort?: string; grade?: string }>
+  searchParams: Promise<{ sort?: string; grade?: string }>;
 }) {
-  const { sort = 'name-asc', grade = 'all' } = await searchParams
+  const { sort = 'name-asc', grade = 'all' } = await searchParams;
 
   return (
     <div className="space-y-6">
@@ -274,7 +226,7 @@ export default async function SubjectsPage({
           <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">
             My Subjects
           </h1>
-          <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base">
+          <p className="text-slate-500 dark:text-slate-400 text-sm sm:text-base">
             Manage your subjects and course content
           </p>
         </div>
@@ -286,10 +238,10 @@ export default async function SubjectsPage({
         <QuickStats />
       </Suspense>
 
-      {/* Subjects Grid */}
+      {/* Flashcard Grid */}
       <Suspense fallback={<LoadingSpinner />}>
         <SubjectsContent sort={sort} grade={grade} />
       </Suspense>
     </div>
-  )
+  );
 }

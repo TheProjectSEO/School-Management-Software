@@ -786,8 +786,12 @@ function CreateSessionModal({
   preselectedCourseId: string | null;
 }) {
   const [subjects, setSubjects] = useState<any[]>([]);
+  const [modules, setModules] = useState<any[]>([]);
+  const [loadingModules, setLoadingModules] = useState(false);
+  const [sessionType, setSessionType] = useState<'module' | 'quick'>('module');
   const [formData, setFormData] = useState({
     assignmentId: '',
+    moduleId: '',
     title: '',
     description: '',
     startAt: '',
@@ -795,29 +799,52 @@ function CreateSessionModal({
   });
   const [creating, setCreating] = useState(false);
 
+  // Load subjects on mount
   useEffect(() => {
     authFetch('/api/teacher/subjects')
       .then((res) => res.json())
       .then((data) => {
         const list = data.subjects || [];
         setSubjects(list);
-
         if (!formData.assignmentId && preselectedCourseId) {
           const match = list.find((item: any) => item.subject?.id === preselectedCourseId);
-          if (match) {
-            setFormData((current) => ({
-              ...current,
-              assignmentId: match.id,
-            }));
-          }
+          if (match) setFormData((cur) => ({ ...cur, assignmentId: match.id }));
         }
       })
       .catch(console.error);
-  }, [formData.assignmentId, preselectedCourseId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preselectedCourseId]);
+
+  // Load modules when subject changes (module session only)
+  useEffect(() => {
+    if (!formData.assignmentId || sessionType !== 'module') {
+      setModules([]);
+      setFormData((cur) => ({ ...cur, moduleId: '' }));
+      return;
+    }
+    const subject = subjects.find((s) => s.id === formData.assignmentId);
+    const courseId = subject?.subject?.id;
+    if (!courseId) return;
+
+    setLoadingModules(true);
+    authFetch(`/api/teacher/modules?courseId=${courseId}`)
+      .then((res) => res.json())
+      .then((data) => setModules(data.modules || []))
+      .catch(console.error)
+      .finally(() => setLoadingModules(false));
+  }, [formData.assignmentId, sessionType, subjects]);
+
+  // Auto-fill title from selected module
+  const selectedModule = modules.find((m) => m.id === formData.moduleId);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setCreating(true);
+
+    const title =
+      sessionType === 'module'
+        ? selectedModule?.title || selectedModule?.name || 'Module Session'
+        : formData.title;
 
     try {
       const response = await authFetch('/api/teacher/live-sessions', {
@@ -825,7 +852,8 @@ function CreateSessionModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           assignmentId: formData.assignmentId,
-          title: formData.title,
+          moduleId: sessionType === 'module' ? formData.moduleId || null : null,
+          title,
           description: formData.description,
           startAt: formData.startAt ? new Date(formData.startAt).toISOString() : undefined,
           endAt: formData.endAt ? new Date(formData.endAt).toISOString() : undefined,
@@ -847,6 +875,8 @@ function CreateSessionModal({
     }
   }
 
+  const isModuleSession = sessionType === 'module';
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
       <div className="bg-white rounded-t-2xl sm:rounded-xl w-full sm:max-w-2xl max-h-[92vh] sm:max-h-[90vh] overflow-y-auto">
@@ -862,13 +892,52 @@ function CreateSessionModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4 pb-8">
+
+          {/* Session type toggle */}
+          <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setSessionType('module')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
+                isModuleSession
+                  ? 'bg-white text-primary shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[18px]">menu_book</span>
+              Module Session
+            </button>
+            <button
+              type="button"
+              onClick={() => setSessionType('quick')}
+              className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-semibold transition-all ${
+                !isModuleSession
+                  ? 'bg-white text-primary shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[18px]">bolt</span>
+              Quick Meeting
+            </button>
+          </div>
+
+          {/* Helper text */}
+          <p className="text-xs text-gray-400 -mt-1">
+            {isModuleSession
+              ? 'Tied to a specific module — students see which topic is covered.'
+              : 'General session not tied to any module — good for Q&A, reviews, or announcements.'}
+          </p>
+
+          {/* Subject & Section */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Subject &amp; Section <span className="text-red-500">*</span>
             </label>
             <select
               value={formData.assignmentId}
-              onChange={(e) => setFormData({ ...formData, assignmentId: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, assignmentId: e.target.value, moduleId: '' })
+              }
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               required
             >
@@ -886,20 +955,62 @@ function CreateSessionModal({
             </select>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Session Title <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-              placeholder="e.g., Introduction to Quadratic Equations"
-              required
-            />
-          </div>
+          {/* Module picker (module session only) */}
+          {isModuleSession && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Module <span className="text-red-500">*</span>
+              </label>
+              {!formData.assignmentId ? (
+                <p className="text-sm text-gray-400 italic">Select a subject first to load modules.</p>
+              ) : loadingModules ? (
+                <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
+                  <div className="w-4 h-4 border-2 border-gray-300 border-t-primary rounded-full animate-spin" />
+                  Loading modules...
+                </div>
+              ) : modules.length === 0 ? (
+                <p className="text-sm text-orange-500">No modules found for this subject. Use Quick Meeting instead, or create modules first.</p>
+              ) : (
+                <select
+                  value={formData.moduleId}
+                  onChange={(e) => setFormData({ ...formData, moduleId: e.target.value })}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                  required
+                >
+                  <option value="">Select a module...</option>
+                  {modules.map((m, idx) => (
+                    <option key={m.id} value={m.id}>
+                      Module {idx + 1}: {m.title || m.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {selectedModule && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Session title will be: <span className="font-medium text-gray-700">{selectedModule.title || selectedModule.name}</span>
+                </p>
+              )}
+            </div>
+          )}
 
+          {/* Custom title (quick meeting only) */}
+          {!isModuleSession && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Session Title <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={formData.title}
+                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+                placeholder="e.g., Q&A Session, Exam Review, General Meeting"
+                required
+              />
+            </div>
+          )}
+
+          {/* Description */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
               Description <span className="text-gray-400 font-normal">(optional)</span>
@@ -908,11 +1019,12 @@ function CreateSessionModal({
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
-              rows={3}
-              placeholder="What will students learn in this session?"
+              rows={2}
+              placeholder={isModuleSession ? 'Any notes for students about this session?' : 'What is this meeting about?'}
             />
           </div>
 
+          {/* Start / End time */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">

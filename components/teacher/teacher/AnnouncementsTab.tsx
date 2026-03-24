@@ -94,7 +94,7 @@ export default function AnnouncementsTab() {
     switch (type) {
       case 'section': return 'Sections'
       case 'grade': return 'Grade Levels'
-      case 'course': return 'Courses'
+      case 'course': return 'Subjects'
       case 'school': return 'All Students'
       default: return type
     }

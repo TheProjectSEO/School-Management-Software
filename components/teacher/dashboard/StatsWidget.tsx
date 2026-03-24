@@ -18,7 +18,7 @@ export default function StatsWidget({ stats }: StatsWidgetProps) {
       bgColor: 'bg-blue-100 dark:bg-blue-900/30'
     },
     {
-      label: 'Active Courses',
+      label: 'Active Subjects',
       value: stats.active_courses,
       icon: 'book_2',
       color: 'text-green-600',

@@ -102,7 +102,7 @@ export default function AdminSummaryCardsGrid({
       href: '/admin/users/teachers',
     },
     {
-      label: 'Active Courses',
+      label: 'Active Subjects',
       value: stats.totalCourses,
       icon: 'menu_book',
       color: 'bg-purple-500',

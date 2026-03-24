@@ -219,7 +219,7 @@ export function ReportCardDetail({
         <StatCard
           icon="assignment"
           iconColor="text-primary dark:text-red-400"
-          label="Courses"
+          label="Subjects"
           value={grades.length.toString()}
           subtitle={`${teacher_remarks?.length || 0} remarks`}
         />

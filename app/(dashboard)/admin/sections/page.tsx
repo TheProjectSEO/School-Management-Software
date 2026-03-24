@@ -327,7 +327,7 @@ export default function SectionsPage() {
     },
     {
       accessorKey: "course_count",
-      header: "Courses",
+      header: "Subjects",
       cell: ({ row }) => (
         <span className="text-gray-600">{row.original.course_count}</span>
       ),
@@ -520,8 +520,8 @@ export default function SectionsPage() {
                       {selectedSection.enrolled_count > 0 ? "2" : "1"}
                     </span>
                     <span>
-                      <span className="font-medium">Remove {selectedSection.course_count} course assignment(s)</span> from this section.{" "}
-                      <span className="text-gray-500">Go to Section Details → Courses tab → remove each teacher–course assignment.</span>
+                      <span className="font-medium">Remove {selectedSection.course_count} subject assignment(s)</span> from this section.{" "}
+                      <span className="text-gray-500">Go to Section Details → Subjects tab → remove each teacher–subject assignment.</span>
                     </span>
                   </li>
                 )}

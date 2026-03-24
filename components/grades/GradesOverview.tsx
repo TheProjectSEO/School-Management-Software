@@ -78,7 +78,7 @@ export function GradesOverview({ gpaData, grades, periodName }: GradesOverviewPr
         </div>
         <div className="flex items-baseline gap-2">
           <span className="text-3xl font-black text-slate-900 dark:text-white">{totalCourses}</span>
-          <span className="text-sm text-slate-500 dark:text-slate-400">courses</span>
+          <span className="text-sm text-slate-500 dark:text-slate-400">subjects</span>
         </div>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
           {releasedCount} of {totalCourses} graded

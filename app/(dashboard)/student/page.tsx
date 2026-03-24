@@ -634,7 +634,7 @@ export default async function DashboardPage() {
               <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/20">
                 <div className="text-center">
                   <p className="text-2xl font-bold">{progressStats.totalCourses}</p>
-                  <p className="text-xs text-white/70">{isPlayful ? 'Subjects' : 'Courses'}</p>
+                  <p className="text-xs text-white/70">Subjects</p>
                 </div>
                 <div className="text-center">
                   <p className="text-2xl font-bold">{progressStats.completedLessons}</p>

@@ -385,7 +385,7 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
           {/* Enrolled Courses */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Enrolled Courses</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Enrolled Subjects</h3>
               <Link
                 href={`/admin/enrollments?studentId=${studentId}`}
                 className="text-sm text-primary hover:underline"

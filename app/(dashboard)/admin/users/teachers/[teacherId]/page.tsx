@@ -317,9 +317,9 @@ export default async function TeacherDetailPage({ params }: TeacherDetailPagePro
 
         {/* Right Column - Assignments and Schedule */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Assigned Courses/Sections */}
+          {/* Assigned Subjects/Sections */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Assigned Courses & Sections</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Assigned Subjects & Sections</h3>
             {teacher.courseAssignments.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <span className="material-symbols-outlined text-4xl text-gray-300 block mb-2">

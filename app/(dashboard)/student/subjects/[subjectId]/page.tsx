@@ -90,7 +90,7 @@ export default async function SubjectDetailPage({
         </Link>
         <span className={`font-medium ${isPlayful ? 'text-pink-300' : 'text-slate-400 dark:text-slate-600'}`}>/</span>
         <Link href="/student/subjects" className={`font-medium transition-colors ${isPlayful ? 'text-purple-400 hover:text-pink-500' : 'text-slate-500 dark:text-slate-400 hover:text-primary'}`}>
-          {isPlayful ? '\u{1F4DA} Subjects' : 'Courses'}
+          {isPlayful ? '\u{1F4DA} Subjects' : 'Subjects'}
         </Link>
         <span className={`font-medium ${isPlayful ? 'text-pink-300' : 'text-slate-400 dark:text-slate-600'}`}>/</span>
         <span className={`font-medium ${isPlayful ? 'text-pink-600' : 'text-primary dark:text-msu-gold'}`}>{subject.name}</span>

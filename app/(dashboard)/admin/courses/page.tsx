@@ -379,7 +379,7 @@ export default function CoursesPage() {
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="border-l-4 border-l-primary pl-3">
-          <h1 className="text-xl sm:text-2xl font-bold text-primary">Subjects / Courses</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-primary">Subjects</h1>
           <p className="text-sm text-gray-500 mt-1">Manage subjects and course offerings for all grade levels</p>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 flex-wrap">

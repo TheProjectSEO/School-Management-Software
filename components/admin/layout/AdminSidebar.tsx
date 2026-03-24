@@ -49,7 +49,7 @@ const navGroups: NavGroup[] = [
   {
     title: "Academics",
     items: [
-      { href: "/admin/courses", icon: "menu_book", label: "Courses" },
+      { href: "/admin/courses", icon: "menu_book", label: "Subjects" },
       { href: "/admin/sections", icon: "groups", label: "Sections" },
       { href: "/admin/applications", icon: "description", label: "Applications", badgeKey: "applications" },
       { href: "/admin/enrollment-qr", icon: "qr_code", label: "Enrollment QR" },

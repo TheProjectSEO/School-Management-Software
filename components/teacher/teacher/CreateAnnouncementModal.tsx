@@ -312,7 +312,7 @@ export default function CreateAnnouncementModal({
               {[
                 { type: 'section' as TargetType, label: 'Sections', icon: 'groups' },
                 { type: 'grade' as TargetType, label: 'Grade Levels', icon: 'school' },
-                { type: 'course' as TargetType, label: 'Courses', icon: 'book' },
+                { type: 'course' as TargetType, label: 'Subjects', icon: 'book' },
                 { type: 'school' as TargetType, label: 'All Students', icon: 'domain' }
               ].map(({ type, label, icon }) => (
                 <button
@@ -404,7 +404,7 @@ export default function CreateAnnouncementModal({
           {targetType === 'course' && (
             <div>
               <label className="block text-sm font-medium text-slate-900 dark:text-slate-100 mb-2">
-                Select Courses
+                Select Subjects
               </label>
               {isLoading ? (
                 <div className="text-center py-4 text-slate-500">Loading courses...</div>

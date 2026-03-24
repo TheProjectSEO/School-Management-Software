@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTeacherProfile } from "@/lib/dal/teacher";
+import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 import { addTeacherRemarks } from "@/lib/dal/report-cards";
 
 /**
@@ -18,11 +18,8 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const teacherProfile = await getTeacherProfile();
-
-    if (!teacherProfile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireTeacherAPI();
+    if (!auth.success) return auth.response;
 
     const body = await request.json();
     const { subject, subject_code, remarks } = body;
@@ -36,8 +33,8 @@ export async function POST(
 
     const updatedReportCard = await addTeacherRemarks({
       report_card_id: id,
-      teacher_id: teacherProfile.id,
-      teacher_name: teacherProfile.profile?.full_name || "Unknown Teacher",
+      teacher_id: auth.teacher.teacherId,
+      teacher_name: auth.teacher.fullName || "Unknown Teacher",
       subject,
       subject_code,
       remarks,

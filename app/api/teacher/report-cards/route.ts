@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTeacherProfile } from "@/lib/dal/teacher";
+import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 import {
   getTeacherReportCards,
   getSectionReportCardsList,
@@ -22,11 +22,9 @@ import type { ReportCardFilters } from "@/lib/types/report-card";
  */
 export async function GET(request: NextRequest) {
   try {
-    const teacherProfile = await getTeacherProfile();
-
-    if (!teacherProfile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireTeacherAPI();
+    if (!auth.success) return auth.response;
+    const { teacherId } = auth.teacher;
 
     const searchParams = request.nextUrl.searchParams;
     const sectionId = searchParams.get("section_id");
@@ -38,7 +36,7 @@ export async function GET(request: NextRequest) {
     // Get status counts
     if (getStats) {
       const stats = await countReportCardsByStatus(
-        teacherProfile.id,
+        teacherId,
         gradingPeriodId || undefined
       );
       return NextResponse.json({ stats });
@@ -59,7 +57,7 @@ export async function GET(request: NextRequest) {
     if (gradingPeriodId) filters.grading_period_id = gradingPeriodId;
     if (status) filters.status = status;
 
-    const reportCards = await getTeacherReportCards(teacherProfile.id, filters);
+    const reportCards = await getTeacherReportCards(teacherId, filters);
     return NextResponse.json({ reportCards });
   } catch (error) {
     console.error("Error fetching teacher report cards:", error);
@@ -81,11 +79,8 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const teacherProfile = await getTeacherProfile();
-
-    if (!teacherProfile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireTeacherAPI();
+    if (!auth.success) return auth.response;
 
     const body = await request.json();
     const { action, report_card_ids } = body;

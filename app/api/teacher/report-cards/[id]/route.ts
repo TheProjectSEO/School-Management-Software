@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getTeacherProfile } from "@/lib/dal/teacher";
+import { requireTeacherAPI } from "@/lib/auth/requireTeacherAPI";
 import { getReportCard } from "@/lib/dal/report-cards";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -14,11 +14,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const teacherProfile = await getTeacherProfile();
-
-    if (!teacherProfile) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireTeacherAPI();
+    if (!auth.success) return auth.response;
 
     const reportCard = await getReportCard(id);
 
@@ -48,7 +45,7 @@ export async function GET(
         const { count } = await supabase
           .from("teacher_assignments")
           .select("*", { count: "exact", head: true })
-          .eq("teacher_profile_id", teacherProfile.id)
+          .eq("teacher_profile_id", auth.teacher.teacherId)
           .eq("section_id", student.section_id);
 
         if (!count) {

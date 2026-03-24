@@ -4,11 +4,11 @@ import Link from 'next/link'
 import { getTeacherProfile, getTeacherSubjects } from '@/lib/dal/teacher'
 import { getTeacherAssessments, getAssessmentStats } from '@/lib/dal/assessments'
 import Card from '@/components/ui/Card'
-import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { Suspense } from 'react'
 import CreateAssessmentButton from './CreateAssessmentButton'
+import AssessmentCard from './AssessmentCard'
 import { RealtimeRefresher } from '@/components/shared/RealtimeRefresher'
 
 export const metadata = {
@@ -20,46 +20,6 @@ interface PageProps {
   searchParams: Promise<{ type?: string; status?: string }>
 }
 
-function getAssessmentIcon(type: string) {
-  switch (type) {
-    case 'quiz':
-      return 'quiz'
-    case 'assignment':
-      return 'assignment'
-    case 'project':
-      return 'folder'
-    case 'midterm':
-    case 'final':
-      return 'school'
-    default:
-      return 'task'
-  }
-}
-
-function getStatusVariant(status: string): 'success' | 'warning' | 'danger' | 'info' {
-  switch (status) {
-    case 'published':
-      return 'success'
-    case 'draft':
-      return 'warning'
-    case 'closed':
-      return 'danger'
-    default:
-      return 'info'
-  }
-}
-
-function formatDate(dateString: string | null) {
-  if (!dateString) return 'No due date'
-  const date = new Date(dateString)
-  return new Intl.DateTimeFormat('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  }).format(date)
-}
 
 async function CreateAssessmentButtonWrapper() {
   const teacherProfile = await getTeacherProfile()
@@ -186,102 +146,7 @@ async function AssessmentsContent({ typeFilter }: { typeFilter?: string }) {
   return (
     <div className="space-y-4">
       {assessments.map((assessment) => (
-        <Link
-          key={assessment.id}
-          href={`/teacher/assessments/${assessment.id}`}
-          className="block group"
-        >
-          <Card className="hover:border-primary transition-colors">
-            <div className="flex items-start gap-4">
-              {/* Icon */}
-              <div className="w-14 h-14 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                <span className="material-symbols-outlined text-primary text-3xl">
-                  {getAssessmentIcon(assessment.type)}
-                </span>
-              </div>
-
-              {/* Content */}
-              <div className="flex-1 min-w-0">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-semibold text-lg text-slate-900 dark:text-slate-100 group-hover:text-primary transition-colors truncate">
-                      {assessment.title}
-                    </h3>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm text-slate-600 dark:text-slate-400">
-                      <span className="capitalize">{assessment.type}</span>
-                      <span className="hidden sm:inline">•</span>
-                      <span className="truncate max-w-[140px] sm:max-w-none">{assessment.course_name}</span>
-                      <span className="hidden sm:inline">•</span>
-                      <span>{assessment.section_name}</span>
-                    </div>
-                  </div>
-                  <Badge variant={getStatusVariant(assessment.status)} className="ml-3">
-                    {assessment.status}
-                  </Badge>
-                </div>
-
-                {assessment.description && (
-                  <p className="text-sm text-slate-600 dark:text-slate-400 line-clamp-1 mb-3">
-                    {assessment.description}
-                  </p>
-                )}
-
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mt-4 pt-4 border-t border-slate-100 dark:border-slate-700">
-                  <div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                      Due Date
-                    </div>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {formatDate(assessment.due_date)}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                      Total Points
-                    </div>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {assessment.total_points}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                      Submissions
-                    </div>
-                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {assessment.submission_count}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                      Graded
-                    </div>
-                    <div className="text-sm font-semibold text-green-600 dark:text-green-400">
-                      {assessment.graded_count}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs text-slate-600 dark:text-slate-400 mb-1">
-                      Pending
-                    </div>
-                    <div className="text-sm font-semibold text-yellow-600 dark:text-yellow-400">
-                      {assessment.submission_count - assessment.graded_count}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Arrow */}
-              <span className="material-symbols-outlined text-primary group-hover:translate-x-1 transition-transform flex-shrink-0">
-                arrow_forward
-              </span>
-            </div>
-          </Card>
-        </Link>
+        <AssessmentCard key={assessment.id} assessment={assessment} />
       ))}
     </div>
   )

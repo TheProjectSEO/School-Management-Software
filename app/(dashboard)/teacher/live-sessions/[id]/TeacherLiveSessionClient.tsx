@@ -140,7 +140,7 @@ export function TeacherLiveSessionClient({
       </div>
 
       {/* Video iframe */}
-      <div className="rounded-xl overflow-hidden border border-slate-200 bg-black" style={{ height: 'calc(100vh - 220px)', minHeight: '480px' }}>
+      <div className="rounded-xl overflow-hidden border border-slate-200 bg-black" style={{ height: 'calc(100vh - 180px)', minHeight: '520px' }}>
         <LiveSessionRoom roomUrl={roomUrl} token={token} className="h-full" />
       </div>
     </div>

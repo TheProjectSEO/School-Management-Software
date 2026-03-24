@@ -52,16 +52,9 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
   }
 
-  // Fetch teacher name
-  const { data: profileData } = await supabase
-    .from('school_profiles')
-    .select('full_name')
-    .eq('id', auth.teacher.userId)
-    .single();
-
-  const teacherName = profileData?.full_name || 'Teacher';
-
   // Create owner meeting token (backend only — API key never exposed to client)
+  // auth.teacher.fullName already populated by requireTeacherAPI via get_teacher_profile RPC
+  const teacherName = auth.teacher.fullName || 'Teacher';
   const daily = getDailyClient();
   const result = await daily.createMeetingToken(session.daily_room_name, {
     is_owner: true,

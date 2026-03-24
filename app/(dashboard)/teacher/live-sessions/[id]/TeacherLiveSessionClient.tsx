@@ -33,8 +33,9 @@ export function TeacherLiveSessionClient({
       try {
         const res = await authFetch(`/api/teacher/live-sessions/${sessionId}/join-token`);
         if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || 'Failed to get session token');
+          let message = `Server error ${res.status}`;
+          try { const e = await res.json(); message = e.error || message; } catch {}
+          throw new Error(message);
         }
         const data = await res.json();
         setRoomUrl(data.roomUrl);

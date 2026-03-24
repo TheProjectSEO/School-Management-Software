@@ -84,23 +84,25 @@ export class DailyClient {
     is_owner?: boolean;
     user_name?: string;
     user_id?: string;
-    enable_recording?: boolean;
     start_video_off?: boolean;
     start_audio_off?: boolean;
   } = {}): Promise<{ token: string }> {
+    const properties: Record<string, unknown> = {
+      room_name: roomName,
+      is_owner: options.is_owner ?? false,
+      user_name: options.user_name ?? 'Participant',
+      start_video_off: options.start_video_off ?? true,
+      start_audio_off: options.start_audio_off ?? true,
+    };
+
+    // Only include user_id if defined — omitting undefined keeps payload clean
+    if (options.user_id) {
+      properties.user_id = options.user_id;
+    }
+
     return this.request('/meeting-tokens', {
       method: 'POST',
-      body: JSON.stringify({
-        properties: {
-          room_name: roomName,
-          is_owner: options.is_owner ?? false,
-          user_name: options.user_name ?? 'Participant',
-          user_id: options.user_id,
-          enable_recording: options.enable_recording ?? false,
-          start_video_off: options.start_video_off ?? true,
-          start_audio_off: options.start_audio_off ?? true,
-        },
-      }),
+      body: JSON.stringify({ properties }),
     });
   }
 

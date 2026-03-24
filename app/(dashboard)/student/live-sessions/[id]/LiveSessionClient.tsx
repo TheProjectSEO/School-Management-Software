@@ -86,7 +86,7 @@ export function LiveSessionClient({
   }, [startTime]);
 
   const handleLeave = () => {
-    router.push('/subjects');
+    router.push('/student/live-sessions');
   };
 
   const formatTime = (seconds: number) => {

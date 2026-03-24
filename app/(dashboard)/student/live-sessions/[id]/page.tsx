@@ -13,7 +13,6 @@ interface PageProps {
   params: Promise<{ id: string }>;
 }
 
-// Force dynamic rendering (uses cookies for authentication)
 export const dynamic = 'force-dynamic';
 
 export default async function LiveSessionPage({ params }: PageProps) {
@@ -25,48 +24,57 @@ export default async function LiveSessionPage({ params }: PageProps) {
     redirect('/login');
   }
 
-  // Get student profile
+  // Get student profile (flat select — no FK joins per BUG-001)
   const { data: student } = await supabase
     .from('students')
-    .select('id, first_name, last_name')
+    .select('id, profile_id, section_id')
     .eq('profile_id', profile.id)
     .single();
 
-  if (!student) {
-    return notFound();
-  }
+  if (!student) return notFound();
 
-  // Get session details - use service client to bypass RLS
-  const serviceClient = createServiceClient();
-  const { data: session } = await serviceClient
+  // Get student display name from school_profiles
+  const { data: studentProfile } = await supabase
+    .from('school_profiles')
+    .select('full_name')
+    .eq('id', student.profile_id)
+    .single();
+
+  // Get session details (flat select — no FK joins per BUG-001)
+  const { data: session } = await supabase
     .from('live_sessions')
-    .select(
-      `
-      *,
-      course:courses(
-        id,
-        name,
-        code,
-        section:sections(id, name, grade_level)
-      )
-    `
-    )
+    .select('id, title, description, status, scheduled_start, course_id, recording_enabled, recording_url, daily_room_url, daily_room_name')
     .eq('id', sessionId)
     .single();
 
-  if (!session) {
-    return notFound();
-  }
+  if (!session) return notFound();
 
-  // Verify enrollment
-  const { data: enrollment } = await supabase
-    .from('enrollments')
-    .select('id')
-    .eq('student_id', student.id)
-    .eq('course_id', session.course_id)
+  // Fetch course separately (BUG-001 pattern)
+  const { data: course } = await supabase
+    .from('courses')
+    .select('id, name, code')
+    .eq('id', session.course_id)
     .single();
 
-  if (!enrollment) {
+  // Verify enrollment — check enrollments first, then section-based fallback (BUG-002)
+  const { count: enrollCount } = await supabase
+    .from('enrollments')
+    .select('*', { count: 'exact', head: true })
+    .eq('student_id', student.id)
+    .eq('course_id', session.course_id);
+
+  let hasAccess = !!enrollCount;
+
+  if (!hasAccess && student.section_id) {
+    const { count: assignCount } = await supabase
+      .from('teacher_assignments')
+      .select('*', { count: 'exact', head: true })
+      .eq('section_id', student.section_id)
+      .eq('course_id', session.course_id);
+    hasAccess = !!assignCount;
+  }
+
+  if (!hasAccess) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -79,7 +87,6 @@ export default async function LiveSessionPage({ params }: PageProps) {
 
   // For non-live sessions, show session details instead of the classroom
   if (session.status !== 'live') {
-    const courseName = Array.isArray(session.course) ? session.course[0]?.name : session.course?.name;
     const scheduledDate = new Date(session.scheduled_start).toLocaleDateString('en-US', {
       weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
     });
@@ -111,8 +118,8 @@ export default async function LiveSessionPage({ params }: PageProps) {
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
               {session.title}
             </h1>
-            {courseName && (
-              <p className="text-slate-600 dark:text-slate-400 mb-6">{courseName}</p>
+            {course?.name && (
+              <p className="text-slate-600 dark:text-slate-400 mb-6">{course.name}</p>
             )}
             <div className="space-y-3">
               <div className="flex items-center gap-3 text-slate-700 dark:text-slate-300">
@@ -157,13 +164,12 @@ export default async function LiveSessionPage({ params }: PageProps) {
     );
   }
 
-  const gradeLevel = session.course?.section?.grade_level || '10';
-  const studentName = `${student.first_name} ${student.last_name}`;
+  const studentName = studentProfile?.full_name || 'Student';
 
   return (
     <LiveSessionClient
       sessionId={sessionId}
-      gradeLevel={gradeLevel}
+      gradeLevel="10"
       currentUser={{
         id: student.id,
         name: studentName,
@@ -171,8 +177,8 @@ export default async function LiveSessionPage({ params }: PageProps) {
       sessionData={{
         title: session.title,
         description: session.description || '',
-        courseName: session.course?.name || 'Unknown Course',
-        courseCode: session.course?.code || '',
+        courseName: course?.name || 'Unknown Course',
+        courseCode: course?.code || '',
         recording_enabled: session.recording_enabled,
       }}
     />

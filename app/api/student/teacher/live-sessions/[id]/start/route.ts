@@ -77,7 +77,6 @@ export async function POST(
     // Create meeting token for teacher (owner)
     const teacherToken = await dailyClient.createMeetingToken(roomName, {
       is_owner: true,
-      enable_recording: session.recording_enabled,
       user_name: 'Teacher',
     });
 

@@ -9,7 +9,7 @@ import Link from "next/link";
 interface Question {
   id: string;
   question_text: string;
-  question_type: "multiple_choice" | "true_false" | "short_answer";
+  question_type: "multiple_choice" | "true_false" | "short_answer" | "essay";
   points: number;
   order_index: number;
   options?: {
@@ -556,6 +556,30 @@ export default function QuizClient({
                 }`}
                 rows={4}
                 placeholder={isSubmitStarted ? "Answers are locked" : "Type your answer here..."}
+                value={currentAnswer?.textAnswer || ""}
+                disabled={isSubmitStarted}
+                onChange={(e) =>
+                  !isSubmitStarted && handleAnswerChange(
+                    currentQuestion.id,
+                    undefined,
+                    e.target.value
+                  )
+                }
+              />
+            </div>
+          )}
+
+          {currentQuestion.question_type === "essay" && (
+            <div>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Write your essay answer below. Be thorough and organized.</p>
+              <textarea
+                className={`w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-base sm:text-lg transition-all resize-none ${
+                  isSubmitStarted
+                    ? "cursor-not-allowed opacity-80"
+                    : "focus:border-primary focus:ring-2 focus:ring-primary/20"
+                }`}
+                rows={8}
+                placeholder={isSubmitStarted ? "Answers are locked" : "Write your essay answer here..."}
                 value={currentAnswer?.textAnswer || ""}
                 disabled={isSubmitStarted}
                 onChange={(e) =>

@@ -81,6 +81,8 @@ export async function POST(request: NextRequest) {
             .update({
               is_released: true,
               status: 'released',
+              released_at: new Date().toISOString(),
+              released_by: teacherProfile.profile_id,
             })
             .eq('id', courseGrade.id)
 

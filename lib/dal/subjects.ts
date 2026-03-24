@@ -21,13 +21,10 @@ export async function getStudentSubjects(
 })[]> {
   const supabase = createServiceClient();
 
-  // First try enrollments table
+  // First try enrollments table (flat select — no FK join, BUG-001)
   const { data, error } = await supabase
     .from("enrollments")
-    .select(`
-      *,
-      course:courses(*)
-    `)
+    .select("*")
     .eq("student_id", studentId)
     .order(options?.orderBy || "created_at", {
       ascending: options?.orderDirection === "asc",
@@ -41,6 +38,20 @@ export async function getStudentSubjects(
   // This handles the case where admin assigned subjects to a section
   // but hasn't explicitly enrolled the students yet
   let enrollmentData = data || [];
+
+  // Fetch courses separately for enrollment-based path (flat — no FK join)
+  if (enrollmentData.length > 0) {
+    const enrollmentCourseIds = enrollmentData.map((e: any) => e.course_id).filter(Boolean);
+    const { data: enrollmentCourses } = await supabase
+      .from("courses")
+      .select("*")
+      .in("id", enrollmentCourseIds);
+    const enrollmentCourseMap = new Map((enrollmentCourses || []).map((c: any) => [c.id, c]));
+    enrollmentData = enrollmentData.map((e: any) => ({
+      ...e,
+      course: enrollmentCourseMap.get(e.course_id) || null,
+    }));
+  }
 
   if (enrollmentData.length === 0) {
     // Get student's section_id

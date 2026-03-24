@@ -30,14 +30,10 @@ export async function getAssessmentForQuiz(
   // Use admin client to bypass RLS - students need to read assessments
   const supabase = createAdminClient();
 
+  // Flat select — no FK join (BUG-001)
   const { data: assessment, error } = await supabase
     .from("assessments")
-    .select(
-      `
-      *,
-      course:courses(*)
-    `
-    )
+    .select("*")
     .eq("id", assessmentId)
     .single();
 
@@ -46,7 +42,18 @@ export async function getAssessmentForQuiz(
     return null;
   }
 
-  return assessment;
+  // Fetch course separately
+  let course = null;
+  if (assessment?.course_id) {
+    const { data: courseData } = await supabase
+      .from("courses")
+      .select("*")
+      .eq("id", assessment.course_id)
+      .single();
+    course = courseData || null;
+  }
+
+  return { ...assessment, course };
 }
 
 /**
@@ -484,15 +491,27 @@ export async function submitQuiz(
     });
   }
 
+  // Flat select — no FK join (BUG-001)
   const { data: assessment } = await supabase
     .from("assessments")
-    .select("title, course:courses(name)")
+    .select("title, course_id")
     .eq("id", assessmentId)
     .single();
 
+  // Fetch course name separately
+  let courseName: string | null = null;
+  if (assessment?.course_id) {
+    const { data: courseData } = await supabase
+      .from("courses")
+      .select("name")
+      .eq("id", assessment.course_id)
+      .single();
+    courseName = courseData?.name ?? null;
+  }
+
   const aiDraft = await generateAiDraftEvaluation({
     assessmentTitle: assessment?.title || "Assessment",
-    courseName: (assessment?.course as { name?: string } | null)?.name ?? null,
+    courseName,
     subjectiveQuestions,
     totalSubjectivePoints: subjectivePoints,
   });
@@ -597,16 +616,26 @@ export async function getQuizResult(
 ): Promise<QuizResult | null> {
   const supabase = createAdminClient();
 
-  // Get submission
+  // Flat select — no FK join (BUG-001)
   const { data: submission, error: subError } = await supabase
     .from("submissions")
-    .select("*, assessment:assessments(*)")
+    .select("*")
     .eq("id", submissionId)
     .single();
 
   if (subError || !submission) {
     console.error("Error fetching submission:", subError);
     return null;
+  }
+
+  // Fetch assessment separately
+  if (submission.assessment_id) {
+    const { data: assessmentData } = await supabase
+      .from("assessments")
+      .select("*")
+      .eq("id", submission.assessment_id)
+      .single();
+    (submission as any).assessment = assessmentData || null;
   }
 
   // Get questions with answers

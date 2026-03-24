@@ -113,7 +113,7 @@ export async function createReportCardSnapshot(
           attendance_summary_json: data.attendance,
           generated_at: new Date().toISOString(),
           generated_by: generatedBy,
-          status: "draft",
+          status: "pending_review",
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id)
@@ -139,7 +139,7 @@ export async function createReportCardSnapshot(
         grades_snapshot_json: data.grades,
         gpa_snapshot_json: data.gpa,
         attendance_summary_json: data.attendance,
-        status: "draft",
+        status: "pending_review",
         generated_at: new Date().toISOString(),
         generated_by: generatedBy,
         created_at: new Date().toISOString(),

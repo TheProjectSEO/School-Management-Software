@@ -9,6 +9,7 @@ import { authFetch } from "@/lib/utils/authFetch";
  */
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSearchParams } from 'next/navigation';
 
 interface LiveSession {
@@ -46,6 +47,7 @@ interface Toast {
 type StatusFilter = 'all' | 'scheduled' | 'live' | 'ended' | 'cancelled';
 
 export default function LiveSessionsPage() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const [sessions, setSessions] = useState<LiveSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,11 +107,9 @@ export default function LiveSessionsPage() {
         return;
       }
 
-      const data = await response.json();
+      await response.json();
 
-      if (data.roomUrl) {
-        window.open(data.roomUrl, '_blank');
-      }
+      router.push(`/teacher/live-sessions/${sessionId}`);
 
       fetchSessions();
     } catch (error) {
@@ -559,7 +559,7 @@ export default function LiveSessionsPage() {
                       <>
                         {session.join_url && (
                           <button
-                            onClick={() => session.join_url && window.open(session.join_url, '_blank')}
+                            onClick={() => router.push(`/teacher/live-sessions/${session.id}`)}
                             className="w-full px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 active:bg-blue-800 flex items-center justify-center gap-2 transition-colors"
                           >
                             <span className="material-symbols-outlined text-base">video_call</span>

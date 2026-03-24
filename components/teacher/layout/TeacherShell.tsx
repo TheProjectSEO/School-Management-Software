@@ -93,7 +93,7 @@ export default function TeacherShell({ children, teacherData }: TeacherShellProp
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto bg-bg-light dark:bg-bg-dark">
-          <div className="mx-auto max-w-7xl p-4 sm:p-6">
+          <div className="w-full p-4 sm:p-6">
             {children}
           </div>
         </main>

@@ -153,11 +153,11 @@ export default async function SubjectDetailPage({
                   {new Date(session.scheduled_start).toLocaleString()}
                 </p>
                 <div className="mt-3">
-                  {session.status === "live" && session.daily_room_url ? (
-                    <a href={session.daily_room_url} target="_blank" rel="noopener noreferrer"
+                  {session.status === "live" ? (
+                    <Link href={`/student/live-sessions/${session.id}`}
                       className={`inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold text-white ${isPlayful ? 'rounded-xl bg-green-500 hover:bg-green-600' : 'rounded-lg bg-green-600 hover:bg-green-700'}`}>
-                      {isPlayful ? '\u{1F680} Join now!' : <><span className="material-symbols-outlined text-[16px]">videocam</span>Join Session</>}
-                    </a>
+                      {isPlayful ? '🚀 Join now!' : <><span className="material-symbols-outlined text-[16px]">videocam</span>Join Session</>}
+                    </Link>
                   ) : (
                     <Link href={`/student/live-sessions/${session.id}`}
                       className={`inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold ${isPlayful ? 'rounded-xl border-2 border-pink-200 text-pink-600 hover:bg-pink-50' : 'rounded-lg border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'}`}>

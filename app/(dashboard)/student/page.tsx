@@ -578,15 +578,13 @@ export default async function DashboardPage() {
                     <p className={`text-xs ${isPlayful ? 'text-purple-400' : 'text-slate-500 dark:text-slate-400'}`}>
                       {new Date(session.scheduled_start).toLocaleString()}
                     </p>
-                    {session.status === "live" && session.daily_room_url ? (
-                      <a
-                        href={session.daily_room_url}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                    {session.status === "live" ? (
+                      <Link
+                        href={`/student/live-sessions/${session.id}`}
                         className={`mt-2 inline-flex text-xs font-semibold hover:underline ${isPlayful ? 'text-pink-600' : 'text-green-600'}`}
                       >
-                        {isPlayful ? '\u{1F680} Join now!' : 'Join now'}
-                      </a>
+                        {isPlayful ? '🚀 Join now!' : 'Join now'}
+                      </Link>
                     ) : (
                       <Link
                         href={`/student/live-sessions/${session.id}`}

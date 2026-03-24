@@ -139,34 +139,11 @@ export default function StudentsPage() {
 
   const generateNextLRN = useCallback(async () => {
     try {
-      // Fetch all students to get existing LRNs
-      const response = await authFetch("/api/admin/users/students?pageSize=9999");
-      const result: PaginatedResult = await response.json();
-
-      // Extract LRNs that match format: YYYY-MSU-####
-      const lrnPattern = /^(\d{4})-MSU-(\d+)$/;
-      const currentYear = new Date().getFullYear();
-      let maxNumber = 0;
-
-      result.data.forEach((student) => {
-        if (student.lrn) {
-          const match = student.lrn.match(lrnPattern);
-          if (match) {
-            const year = parseInt(match[1]);
-            const number = parseInt(match[2]);
-            // Only consider LRNs from current year
-            if (year === currentYear && number > maxNumber) {
-              maxNumber = number;
-            }
-          }
-        }
-      });
-
-      // Generate next LRN
-      const nextNumber = (maxNumber + 1).toString().padStart(4, "0");
-      const nextLRN = `${currentYear}-MSU-${nextNumber}`;
-
-      setFormData((prev) => ({ ...prev, lrn: nextLRN }));
+      const response = await authFetch("/api/admin/users/students/next-lrn");
+      const result = await response.json();
+      if (result.lrn) {
+        setFormData((prev) => ({ ...prev, lrn: result.lrn }));
+      }
     } catch (error) {
       console.error("Failed to generate next LRN:", error);
     }
@@ -793,23 +770,16 @@ export default function StudentsPage() {
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 LRN (Learner Reference Number)
+                <span className="ml-2 text-xs font-normal text-green-600 bg-green-50 px-1.5 py-0.5 rounded">Auto-assigned</span>
               </label>
               <input
                 type="text"
+                readOnly
                 value={formData.lrn}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setFormData({ ...formData, lrn: value });
-                  validateLRN(value);
-                }}
-                className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent ${
-                  lrnError ? "border-red-500" : "border-gray-300"
-                }`}
-                placeholder="2026-MSU-0010"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-500 cursor-not-allowed"
+                placeholder="Generating…"
               />
-              {lrnError && (
-                <p className="text-sm text-red-500 mt-1">{lrnError}</p>
-              )}
+              <p className="text-xs text-gray-400 mt-1">Assigned automatically in sequence</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">

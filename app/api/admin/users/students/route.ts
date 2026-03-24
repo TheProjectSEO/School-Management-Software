@@ -99,14 +99,37 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check for duplicate LRN within the same school (if provided)
-    if (lrn) {
-      const { createServiceClient } = await import("@/lib/supabase/service");
-      const supabase = createServiceClient();
+    const { createServiceClient } = await import("@/lib/supabase/service");
+    const supabase = createServiceClient();
+
+    // Auto-generate LRN if not provided; check duplicate if provided
+    let resolvedLrn = lrn;
+    if (!resolvedLrn) {
+      const currentYear = new Date().getFullYear();
+      const prefix = `${currentYear}-MSU-`;
+      const { data: lrnRows } = await supabase
+        .from("students")
+        .select("lrn")
+        .eq("school_id", admin.schoolId)
+        .like("lrn", `${prefix}%`);
+
+      const lrnPattern = /^\d{4}-MSU-(\d+)$/;
+      let maxNumber = 0;
+      for (const row of lrnRows ?? []) {
+        if (row.lrn) {
+          const match = row.lrn.match(lrnPattern);
+          if (match) {
+            const num = parseInt(match[1], 10);
+            if (num > maxNumber) maxNumber = num;
+          }
+        }
+      }
+      resolvedLrn = `${prefix}${(maxNumber + 1).toString().padStart(4, "0")}`;
+    } else {
       const { data: existingLrn } = await supabase
         .from("students")
         .select("id")
-        .eq("lrn", lrn)
+        .eq("lrn", resolvedLrn)
         .eq("school_id", admin.schoolId)
         .maybeSingle();
       if (existingLrn) {
@@ -120,7 +143,7 @@ export async function POST(request: NextRequest) {
     const result = await createStudent({
       fullName,
       email,
-      lrn,
+      lrn: resolvedLrn,
       gradeLevel,
       sectionId,
       phone,

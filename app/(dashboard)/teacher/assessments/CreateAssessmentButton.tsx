@@ -39,6 +39,16 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
     section_id: ''
   })
 
+  // Unique courses (deduplicated by course_id)
+  const uniqueCourses = Array.from(
+    new Map(subjects.map(s => [s.id, { id: s.id, name: s.name, subject_code: s.subject_code }])).values()
+  )
+
+  // Sections available for the currently selected course
+  const sectionsForCourse = subjects
+    .filter(s => s.id === formData.course_id)
+    .map(s => ({ id: s.section_id, name: s.section_name, grade_level: s.grade_level }))
+
   // Load lessons when course changes
   useEffect(() => {
     if (!formData.course_id) {
@@ -68,12 +78,16 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
   }, [formData.course_id])
 
   const handleSubjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedSubject = subjects.find(s => s.id === e.target.value)
+    const courseId = e.target.value
+    // Find sections for this course
+    const availableSections = subjects.filter(s => s.id === courseId)
+    // Auto-select section only if exactly one exists
+    const autoSection = availableSections.length === 1 ? availableSections[0].section_id : ''
     setFormData({
       ...formData,
-      course_id: e.target.value,
+      course_id: courseId,
       lesson_id: '',
-      section_id: selectedSubject?.section_id || ''
+      section_id: autoSection,
     })
   }
 
@@ -184,7 +198,7 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
               {/* Subject */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Subject
+                  Subject <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.course_id}
@@ -192,13 +206,39 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="">Select a subject</option>
-                  {subjects.map((subject) => (
-                    <option key={subject.id} value={subject.id}>
-                      {subject.name} - {subject.section_name} (Grade {subject.grade_level})
+                  {uniqueCourses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.name} ({course.subject_code})
                     </option>
                   ))}
                 </select>
               </div>
+
+              {/* Section */}
+              {formData.course_id && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Section <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.section_id}
+                    onChange={(e) => setFormData({ ...formData, section_id: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="">
+                      {sectionsForCourse.length === 0 ? 'No sections found' : 'Select a section'}
+                    </option>
+                    {sectionsForCourse.map((sec) => (
+                      <option key={sec.id} value={sec.id}>
+                        {sec.name} — Grade {sec.grade_level}
+                      </option>
+                    ))}
+                  </select>
+                  {sectionsForCourse.length === 0 && (
+                    <p className="text-xs text-red-500 mt-1">No sections assigned for this subject.</p>
+                  )}
+                </div>
+              )}
 
               {/* Linked Lesson */}
               {formData.course_id && (
@@ -234,7 +274,7 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
               </button>
               <button
                 onClick={handleCreate}
-                disabled={isCreating || !formData.title.trim() || !formData.course_id}
+                disabled={isCreating || !formData.title.trim() || !formData.course_id || !formData.section_id}
                 className="px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isCreating ? (

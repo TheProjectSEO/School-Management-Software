@@ -55,18 +55,27 @@ export async function GET(
   // Create owner meeting token (backend only — API key never exposed to client)
   // auth.teacher.fullName already populated by requireTeacherAPI via get_teacher_profile RPC
   const teacherName = auth.teacher.fullName || 'Teacher';
-  const daily = getDailyClient();
-  const result = await daily.createMeetingToken(session.daily_room_name, {
-    is_owner: true,
-    user_name: teacherName,
-    user_id: auth.teacher.teacherId,
-    enable_recording: true,
-    start_video_off: false,
-    start_audio_off: false,
-  });
 
-  return NextResponse.json({
-    roomUrl: session.daily_room_url,
-    token: result.token,
-  });
+  try {
+    const daily = getDailyClient();
+    const result = await daily.createMeetingToken(session.daily_room_name, {
+      is_owner: true,
+      user_name: teacherName,
+      user_id: auth.teacher.teacherId,
+      start_video_off: false,
+      start_audio_off: false,
+    });
+
+    return NextResponse.json({
+      roomUrl: session.daily_room_url,
+      token: result.token,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown error';
+    console.error('[join-token] Failed to create meeting token:', message);
+    return NextResponse.json(
+      { error: `Failed to create meeting token: ${message}` },
+      { status: 500 }
+    );
+  }
 }

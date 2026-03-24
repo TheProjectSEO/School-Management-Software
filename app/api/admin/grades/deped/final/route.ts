@@ -10,7 +10,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { requireAdminAPI } from '@/lib/dal/admin'
 import { createServiceClient } from '@/lib/supabase/service'
-import { computeClassFinalGrades } from '@/lib/dal/deped-grades'
+import { computeClassFinalGrades, computeSchoolGeneralAverages, releaseGeneralAverages } from '@/lib/dal/deped-grades'
 
 export async function GET(req: NextRequest) {
   const auth = await requireAdminAPI('reports:read')
@@ -65,6 +65,11 @@ export async function POST(req: NextRequest) {
       .eq('school_id', auth.admin.schoolId)
 
     if (error) return NextResponse.json({ success: false, error: error.message }, { status: 500 })
+
+    // Auto-compute + release general averages for all students in school/year
+    await computeSchoolGeneralAverages(auth.admin.schoolId, academicYear, auth.admin.adminId)
+    await releaseGeneralAverages(auth.admin.schoolId, academicYear)
+
     return NextResponse.json({ success: true })
   }
 

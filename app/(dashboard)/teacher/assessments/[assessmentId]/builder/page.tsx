@@ -21,6 +21,9 @@ interface Assessment {
   status: 'draft' | 'published'
   course?: { id: string; name: string }
   grading_period_id?: string
+  requires_file_upload?: boolean
+  file_upload_instructions?: string | null
+  allowed_file_types?: string | null
 }
 
 interface QuestionOption {
@@ -205,6 +208,9 @@ export default function AssessmentBuilderPage() {
           max_attempts: assessment.max_attempts,
           total_points: questions.reduce((sum, q) => sum + q.points, 0) || assessment.total_points,
           grading_period_id: assessment.grading_period_id,
+          requires_file_upload: assessment.requires_file_upload ?? false,
+          file_upload_instructions: assessment.file_upload_instructions ?? null,
+          allowed_file_types: assessment.allowed_file_types ?? 'any',
           questions: questionsPayload,
         }),
       })
@@ -565,6 +571,63 @@ export default function AssessmentBuilderPage() {
                 rows={4}
                 className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
               />
+            </div>
+
+            {/* File Submission */}
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">attach_file</span>
+                File Submission
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                Allow students to upload files (essays, images, documents) as part of their submission.
+              </p>
+              <div className="space-y-4">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={assessment.requires_file_upload ?? false}
+                    onChange={e => setAssessment({ ...assessment, requires_file_upload: e.target.checked })}
+                    className="w-4 h-4 accent-primary rounded border-slate-300"
+                  />
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Require students to upload files
+                  </span>
+                </label>
+
+                {assessment.requires_file_upload && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                        Allowed File Types
+                      </label>
+                      <select
+                        value={assessment.allowed_file_types ?? 'any'}
+                        onChange={e => setAssessment({ ...assessment, allowed_file_types: e.target.value })}
+                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                      >
+                        <option value="any">Any files (images, PDF, documents, etc.)</option>
+                        <option value="images">Images only (JPG, PNG, GIF, WEBP)</option>
+                        <option value="pdf">PDF only</option>
+                        <option value="documents">Documents (PDF, DOC, DOCX)</option>
+                        <option value="images,pdf">Images and PDF</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                        Upload Instructions <span className="font-normal text-slate-400">(optional)</span>
+                      </label>
+                      <textarea
+                        value={assessment.file_upload_instructions ?? ''}
+                        onChange={e => setAssessment({ ...assessment, file_upload_instructions: e.target.value })}
+                        rows={3}
+                        placeholder="e.g. Upload your essay as a PDF. Maximum 3 files, 10MB each."
+                        className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder-slate-400"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}

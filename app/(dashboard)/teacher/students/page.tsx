@@ -45,33 +45,47 @@ async function getTeacherStudents(teacherId: string): Promise<Student[]> {
 
   const sectionIds = [...new Set(assignments.map(a => a.section_id))]
 
-  // Get all students in those sections
+  // Get all students in those sections — flat select only, no FK joins
   const { data: students, error } = await supabase
     .from('students')
-    .select(`
-      id,
-      lrn,
-      grade_level,
-      section_id,
-      profile:school_profiles!inner(
-        id,
-        full_name,
-        avatar_url
-      ),
-      section:sections!inner(
-        id,
-        name
-      )
-    `)
+    .select('id, lrn, grade_level, section_id, profile_id')
     .in('section_id', sectionIds)
-    .order('profile(full_name)', { ascending: true })
 
   if (error) {
     console.error('Error fetching students:', error)
     return []
   }
 
-  return (students || []) as unknown as Student[]
+  if (!students || students.length === 0) return []
+
+  // Fetch school_profiles separately
+  const profileIds = [...new Set(students.map(s => s.profile_id).filter(Boolean))]
+  const { data: profiles } = profileIds.length > 0
+    ? await supabase
+        .from('school_profiles')
+        .select('id, full_name, avatar_url')
+        .in('id', profileIds)
+    : { data: [] }
+
+  // Fetch sections separately
+  const { data: sections } = await supabase
+    .from('sections')
+    .select('id, name')
+    .in('id', sectionIds)
+
+  const profileMap = new Map((profiles || []).map(p => [p.id, p]))
+  const sectionMap = new Map((sections || []).map(s => [s.id, s]))
+
+  // Merge and sort by full_name
+  const enriched = students
+    .map(s => ({
+      ...s,
+      profile: profileMap.get(s.profile_id) ?? { id: s.profile_id, full_name: 'Unknown', avatar_url: null },
+      section: sectionMap.get(s.section_id) ?? { id: s.section_id, name: 'Unknown Section' },
+    }))
+    .sort((a, b) => a.profile.full_name.localeCompare(b.profile.full_name))
+
+  return enriched as Student[]
 }
 
 async function StudentsContent() {

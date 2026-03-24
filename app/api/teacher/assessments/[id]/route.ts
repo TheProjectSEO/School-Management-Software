@@ -111,7 +111,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       total_points,
       status,
       questions,
-      grading_period_id
+      grading_period_id,
+      requires_file_upload,
+      file_upload_instructions,
+      allowed_file_types,
     } = body
 
     // First verify the assessment exists and teacher has access
@@ -150,6 +153,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         total_points,
         status,
         ...(grading_period_id !== undefined && { grading_period_id }),
+        ...(requires_file_upload !== undefined && { requires_file_upload }),
+        ...(file_upload_instructions !== undefined && { file_upload_instructions }),
+        ...(allowed_file_types !== undefined && { allowed_file_types }),
         updated_at: new Date().toISOString()
       })
       .eq('id', id)

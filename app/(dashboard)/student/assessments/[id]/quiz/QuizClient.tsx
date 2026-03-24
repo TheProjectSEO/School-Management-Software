@@ -34,6 +34,9 @@ interface QuizClientProps {
   totalPoints: number;
   attemptNumber: number;
   maxAttempts: number;
+  requiresFileUpload?: boolean;
+  fileUploadInstructions?: string | null;
+  allowedFileTypes?: string | null;
 }
 
 export default function QuizClient({
@@ -45,6 +48,9 @@ export default function QuizClient({
   totalPoints,
   attemptNumber,
   maxAttempts,
+  requiresFileUpload = false,
+  fileUploadInstructions,
+  allowedFileTypes = 'any',
 }: QuizClientProps) {
   const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -59,6 +65,9 @@ export default function QuizClient({
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [startTime] = useState(Date.now());
   const autoSaveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{url: string; path: string; name: string; size: number; fileType: string}>>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   // Fetch questions and start quiz
   useEffect(() => {
@@ -187,9 +196,84 @@ export default function QuizClient({
     }, 500);
   };
 
+  const fileAccept = (() => {
+    switch (allowedFileTypes) {
+      case 'images': return 'image/*';
+      case 'pdf': return 'application/pdf';
+      case 'documents': return '.pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+      case 'images,pdf': return 'image/*,application/pdf';
+      default: return '*';
+    }
+  })();
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !submissionId) return;
+
+    if (uploadedFiles.length >= 5) {
+      setUploadError('Maximum 5 files allowed');
+      return;
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('File size must be under 10MB');
+      return;
+    }
+
+    setUploadingFile(true);
+    setUploadError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('submissionId', submissionId);
+
+      const res = await authFetch(`/api/student/assessments/${assessmentId}/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setUploadError(data.error || 'Upload failed');
+        return;
+      }
+
+      setUploadedFiles(prev => [...prev, {
+        url: data.url,
+        path: data.path,
+        name: data.name,
+        size: data.size,
+        fileType: data.fileType,
+      }]);
+    } catch {
+      setUploadError('Upload failed. Please try again.');
+    } finally {
+      setUploadingFile(false);
+      // Reset file input
+      e.target.value = '';
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
   // Handle quiz submission
   const handleSubmit = async (autoSubmit = false) => {
     if (!submissionId) return;
+
+    // Validate file upload requirement
+    if (requiresFileUpload && uploadedFiles.length === 0 && !autoSubmit) {
+      setError('This assignment requires at least one file upload before submitting.');
+      return;
+    }
 
     if (!autoSubmit && !showConfirmDialog) {
       setIsSubmitStarted(true); // lock all inputs from this point forward
@@ -212,6 +296,7 @@ export default function QuizClient({
           submissionId,
           answers: answersArray,
           timeSpentSeconds,
+          fileAttachments: uploadedFiles,
         }),
       });
 
@@ -595,6 +680,85 @@ export default function QuizClient({
         </div>
       </div>
 
+      {/* File Upload Section */}
+      {requiresFileUpload && !isSubmitStarted && (
+        <div className="mt-6 p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
+          <h3 className="font-semibold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+            <span className="material-symbols-outlined text-blue-600 dark:text-blue-400 text-[20px]">attach_file</span>
+            File Submission
+            <span className="text-red-500 text-sm font-normal ml-1">*required</span>
+          </h3>
+          {fileUploadInstructions && (
+            <p className="text-sm text-slate-600 dark:text-slate-300 mb-3">{fileUploadInstructions}</p>
+          )}
+          <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+            Up to 5 files · Max 10MB each
+          </p>
+
+          {/* Uploaded files list */}
+          {uploadedFiles.length > 0 && (
+            <div className="space-y-2 mb-3">
+              {uploadedFiles.map((f, i) => (
+                <div key={i} className="flex items-center gap-3 p-2 bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700">
+                  <span className="material-symbols-outlined text-slate-400 text-[20px]">
+                    {f.fileType.startsWith('image/') ? 'image' : f.fileType === 'application/pdf' ? 'picture_as_pdf' : 'description'}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{f.name}</p>
+                    <p className="text-xs text-slate-400">{formatFileSize(f.size)}</p>
+                  </div>
+                  {f.fileType.startsWith('image/') && (
+                    <img src={f.url} alt={f.name} className="h-10 w-10 object-cover rounded" />
+                  )}
+                  <button
+                    onClick={() => removeFile(i)}
+                    className="p-1 text-slate-400 hover:text-red-500 transition-colors"
+                    type="button"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">close</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Upload button */}
+          {uploadedFiles.length < 5 && (
+            <label className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-dashed cursor-pointer transition-colors w-fit ${
+              uploadingFile
+                ? 'border-slate-300 text-slate-400 cursor-not-allowed'
+                : 'border-blue-300 dark:border-blue-700 text-blue-600 dark:text-blue-400 hover:bg-blue-100 dark:hover:bg-blue-900/30'
+            }`}>
+              {uploadingFile ? (
+                <>
+                  <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-r-transparent"></span>
+                  <span className="text-sm">Uploading…</span>
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-[20px]">upload</span>
+                  <span className="text-sm font-medium">Choose file to upload</span>
+                </>
+              )}
+              <input
+                type="file"
+                accept={fileAccept}
+                onChange={handleFileUpload}
+                disabled={uploadingFile || isSubmitStarted}
+                className="hidden"
+              />
+            </label>
+          )}
+
+          {uploadError && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+              <span className="material-symbols-outlined text-base">error</span>
+              {uploadError}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Navigation Buttons */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <button
@@ -633,7 +797,7 @@ export default function QuizClient({
                 </>
               ) : (
                 <>
-                  Submit Quiz
+                  {requiresFileUpload ? 'Submit Assignment' : 'Submit Quiz'}
                   <span className="material-symbols-outlined text-[20px]">send</span>
                 </>
               )}
@@ -653,7 +817,7 @@ export default function QuizClient({
                 </span>
               </div>
               <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                Submit Quiz?
+                {requiresFileUpload ? 'Submit Assignment?' : 'Submit Quiz?'}
               </h3>
               <p className="text-slate-600 dark:text-slate-400">
                 You have answered {answeredCount} of {questions.length} questions.

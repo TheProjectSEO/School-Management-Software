@@ -643,6 +643,7 @@ export async function computeAndSaveGeneralAverage(
           student_id:               studentId,
           academic_year:            academicYear,
           school_id:                schoolId,
+          is_released:              false,
           general_average:          generalAverage,
           general_average_rounded:  generalAverage !== null ? Math.round(generalAverage) : null,
           honors_status:            honorsResult.status,
@@ -916,5 +917,42 @@ export async function adminOverrideQuarterlyGrade(
     reason,
   })
 
+  return { success: true }
+}
+
+// ============================================================================
+// Release general averages
+// ============================================================================
+
+/**
+ * Release all computed general averages for a school and academic year.
+ * Filters by student_ids derived from deped_final_grades (to scope to this school).
+ */
+export async function releaseGeneralAverages(
+  schoolId: string,
+  academicYear: string
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = createServiceClient()
+
+  // Get student IDs scoped to this school via deped_final_grades
+  const { data: rows } = await supabase
+    .from('deped_final_grades')
+    .select('student_id')
+    .eq('school_id', schoolId)
+    .eq('academic_year', academicYear)
+
+  const studentIds = [...new Set((rows ?? []).map((r: { student_id: string }) => r.student_id))]
+  if (!studentIds.length) return { success: true }
+
+  const { error } = await supabase
+    .from('deped_general_average')
+    .update({
+      is_released: true,
+      updated_at:  new Date().toISOString(),
+    })
+    .in('student_id', studentIds)
+    .eq('academic_year', academicYear)
+
+  if (error) return { success: false, error: error.message }
   return { success: true }
 }

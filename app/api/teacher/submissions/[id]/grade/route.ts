@@ -173,12 +173,15 @@ export async function POST(
       }
     }
 
-    // Update submission status
+    // Update submission status AND sync score so quarterly grade computation picks it up
     const newStatus = autoRelease ? "released" : "graded";
     const { error: statusError } = await supabase
       .from("submissions")
       .update({
+        score: totalScore,
         status: newStatus,
+        graded_by: userId,
+        graded_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);

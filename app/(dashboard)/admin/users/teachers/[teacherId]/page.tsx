@@ -34,37 +34,56 @@ async function getTeacherDetails(teacherId: string) {
 
   if (error || !teacher) return null;
 
-  // Get assigned sections (as adviser)
-  const { data: sectionAssignments } = await supabase
+  // Get assigned sections (as adviser) — flat select, no FK joins
+  const { data: rawSectionAssignments } = await supabase
     .from("section_advisers")
-    .select(`
-      id,
-      sections (
-        id,
-        name,
-        grade_level
-      )
-    `)
+    .select("id, section_id")
     .eq("teacher_profile_id", teacherId);
 
-  // Get course assignments from teacher_assignments table
-  const { data: courseAssignments } = await supabase
+  // Get course assignments — flat select, no FK joins
+  const { data: rawCourseAssignments } = await supabase
     .from("teacher_assignments")
-    .select(`
-      id,
-      is_active,
-      courses:course_id (
-        id,
-        name,
-        subject_code
-      ),
-      sections:section_id (
-        id,
-        name,
-        grade_level
-      )
-    `)
+    .select("id, is_active, course_id, section_id")
     .eq("teacher_profile_id", teacherId);
+
+  // Collect all section IDs and course IDs needed
+  const adviserSectionIds = (rawSectionAssignments || []).map(a => a.section_id).filter(Boolean)
+  const assignmentSectionIds = (rawCourseAssignments || []).map(a => a.section_id).filter(Boolean)
+  const allSectionIds = [...new Set([...adviserSectionIds, ...assignmentSectionIds])]
+  const allCourseIds = [...new Set((rawCourseAssignments || []).map(a => a.course_id).filter(Boolean))]
+
+  // Fetch sections separately
+  const { data: sectionsData } = allSectionIds.length > 0
+    ? await supabase
+        .from("sections")
+        .select("id, name, grade_level")
+        .in("id", allSectionIds)
+    : { data: [] }
+
+  // Fetch courses separately
+  const { data: coursesData } = allCourseIds.length > 0
+    ? await supabase
+        .from("courses")
+        .select("id, name, subject_code")
+        .in("id", allCourseIds)
+    : { data: [] }
+
+  const sectionLookup = new Map((sectionsData || []).map(s => [s.id, s]))
+  const courseLookup = new Map((coursesData || []).map(c => [c.id, c]))
+
+  // Enrich section assignments
+  const sectionAssignments = (rawSectionAssignments || []).map(a => ({
+    id: a.id,
+    sections: sectionLookup.get(a.section_id) ?? null,
+  }))
+
+  // Enrich course assignments
+  const courseAssignments = (rawCourseAssignments || []).map(a => ({
+    id: a.id,
+    is_active: a.is_active,
+    courses: courseLookup.get(a.course_id) ?? null,
+    sections: sectionLookup.get(a.section_id) ?? null,
+  }))
 
   // Build schedule from course assignments
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
@@ -104,16 +123,8 @@ async function getTeacherDetails(teacherId: string) {
   let totalStudents = 0;
   let sectionCount = 0;
 
-  // Get unique section IDs from course assignments
-  const sectionIds = new Set<string>();
-  if (courseAssignments) {
-    courseAssignments.forEach((assignment) => {
-      const section = assignment.sections as unknown as { id: string };
-      if (section?.id) {
-        sectionIds.add(section.id);
-      }
-    });
-  }
+  // Get unique section IDs from course assignments (already available in assignmentSectionIds)
+  const sectionIds = new Set<string>(assignmentSectionIds);
 
   // Count students in each section
   for (const sectionId of sectionIds) {
@@ -133,8 +144,8 @@ async function getTeacherDetails(teacherId: string) {
 
   // Get attendance rate from live sessions (if any)
   let attendanceRate = 0;
-  // Get course IDs from teacher assignments
-  const courseIds = courseAssignments?.map((a: any) => a.courses?.id).filter(Boolean) || [];
+  // Use allCourseIds already computed above
+  const courseIds = allCourseIds;
   const { data: sessions } = courseIds.length > 0
     ? await supabase
         .from("live_sessions")
@@ -161,27 +172,33 @@ async function getTeacherDetails(teacherId: string) {
 
   // Get grading completion from submissions
   let gradingCompletion = 0;
-  if (courseAssignments && courseAssignments.length > 0) {
-    const courseIds = courseAssignments
-      .map((a) => (a.courses as unknown as { id: string })?.id)
-      .filter(Boolean);
+  if (allCourseIds.length > 0) {
+    // Fetch assessment IDs for these courses first — avoid FK join on submissions
+    const { data: assessmentRows } = await supabase
+      .from("assessments")
+      .select("id")
+      .in("course_id", allCourseIds);
 
-    if (courseIds.length > 0) {
-      const { count: totalSubmissions } = await supabase
-        .from("submissions")
-        .select("*, assessments!inner(course_id)", { count: "exact", head: true })
-        .in("assessments.course_id", courseIds);
+    const assessmentIds = (assessmentRows || []).map(a => a.id);
 
-      const { count: gradedSubmissions } = await supabase
-        .from("submissions")
-        .select("*, assessments!inner(course_id)", { count: "exact", head: true })
-        .in("assessments.course_id", courseIds)
-        .eq("status", "graded");
+    const { count: totalSubmissions } = assessmentIds.length > 0
+      ? await supabase
+          .from("submissions")
+          .select("*", { count: "exact", head: true })
+          .in("assessment_id", assessmentIds)
+      : { count: 0 };
 
-      gradingCompletion = totalSubmissions && totalSubmissions > 0
-        ? Math.round(((gradedSubmissions || 0) / totalSubmissions) * 100)
-        : 100; // 100% if no submissions
-    }
+    const { count: gradedSubmissions } = assessmentIds.length > 0
+      ? await supabase
+          .from("submissions")
+          .select("*", { count: "exact", head: true })
+          .in("assessment_id", assessmentIds)
+          .eq("status", "graded")
+      : { count: 0 };
+
+    gradingCompletion = totalSubmissions && totalSubmissions > 0
+      ? Math.round(((gradedSubmissions || 0) / totalSubmissions) * 100)
+      : 100; // 100% if no submissions
   } else {
     gradingCompletion = 100; // Default if no courses
   }

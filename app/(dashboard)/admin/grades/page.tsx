@@ -61,6 +61,7 @@ export default function AdminGradesPage() {
   const [finalLoading, setFinalLoading] = useState(false)
   const [finalComputing, setFinalComputing] = useState(false)
   const [finalReleasing, setFinalReleasing] = useState(false)
+  const [releasingAll, setReleasingAll] = useState(false)
   const [finalMessage, setFinalMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
@@ -139,6 +140,34 @@ export default function AdminGradesPage() {
       setFinalMessage({ type: 'error', text: 'Network error.' })
     } finally {
       setFinalReleasing(false)
+    }
+  }
+
+  async function releaseAllGrades() {
+    if (!academicYear) return
+    if (!confirm(`Release ALL final grades and general averages for ${academicYear}? This will make grades visible to ALL students for the entire year.`)) return
+    setReleasingAll(true)
+    setFinalMessage(null)
+    try {
+      const res = await authFetch('/api/admin/grades/deped/release-all', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ academicYear }),
+      })
+      const data = await res.json()
+      if (data.success) {
+        setFinalMessage({
+          type: 'success',
+          text: `All grades released for ${academicYear}. General averages computed for ${data.generalAveragesComputed ?? 0} student(s).`,
+        })
+        fetchFinalGrades()
+      } else {
+        setFinalMessage({ type: 'error', text: data.error ?? 'Release all failed.' })
+      }
+    } catch {
+      setFinalMessage({ type: 'error', text: 'Network error.' })
+    } finally {
+      setReleasingAll(false)
     }
   }
 
@@ -455,6 +484,17 @@ export default function AdminGradesPage() {
                   {finalReleasing ? 'Releasing…' : 'Release to Students'}
                 </button>
               )}
+
+              <button
+                onClick={releaseAllGrades}
+                disabled={releasingAll || !academicYear}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <span className="material-symbols-outlined text-[18px]">
+                  {releasingAll ? 'hourglass_empty' : 'publish'}
+                </span>
+                {releasingAll ? 'Releasing…' : 'Release All Grades'}
+              </button>
             </div>
 
             {finalMessage && (

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 import { submitQuiz } from "@/lib/dal";
 import type { QuizSubmissionPayload } from "@/lib/dal/types";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export async function POST(
   request: NextRequest,
@@ -16,7 +17,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { submissionId, answers, timeSpentSeconds } = body;
+    const { submissionId, answers, timeSpentSeconds, fileAttachments } = body;
 
     if (!submissionId || !answers || !Array.isArray(answers)) {
       return NextResponse.json(
@@ -42,6 +43,18 @@ export async function POST(
         { error: "Failed to submit quiz" },
         { status: 500 }
       );
+    }
+
+    // Save file attachments if any were uploaded
+    if (fileAttachments && Array.isArray(fileAttachments) && fileAttachments.length > 0) {
+      const supabase = createServiceClient()
+      const { error: fileError } = await supabase
+        .from('submissions')
+        .update({ file_attachments: fileAttachments })
+        .eq('id', submissionId)
+      if (fileError) {
+        console.error('Error saving file attachments:', fileError)
+      }
     }
 
     return NextResponse.json({

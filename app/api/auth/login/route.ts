@@ -8,8 +8,6 @@ import {
   storeRefreshToken,
   logAuthEvent,
   getUserPermissionOverrides,
-  checkActiveSession,
-  revokeAllUserTokens,
 } from '@/lib/supabase/admin';
 import { setAuthCookies } from '@/lib/auth/session';
 import { getDashboardPath } from '@/lib/auth/rbac';
@@ -63,29 +61,9 @@ export async function POST(request: NextRequest) {
 
     const userId = authData.user.id;
 
-    // --- Concurrent device block ---
-    // If this user already has an active session from a different device/IP,
-    // block the new login and notify the active device.
     const incomingIp =
       request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined;
     const incomingUa = request.headers.get('user-agent') || undefined;
-
-    const existingSession = await checkActiveSession(userId, incomingIp, incomingUa);
-    if (existingSession !== null) {
-      // IP changed — expire the old session and allow the new login from the new location
-      await Promise.all([
-        revokeAllUserTokens(userId),
-        logAuthEvent(
-          userId,
-          'session_expired_ip_change',
-          { previous_ip: existingSession.activeIp, new_ip: incomingIp },
-          incomingUa,
-          incomingIp
-        ),
-      ]);
-      // Fall through to issue new tokens below
-    }
-    // --- End concurrent device block ---
 
     // Get user role and profile
     const roleData = await getUserRole(userId);

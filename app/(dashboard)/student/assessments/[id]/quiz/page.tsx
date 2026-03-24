@@ -43,6 +43,9 @@ export default async function QuizPage({
       totalPoints={assessment.total_points}
       attemptNumber={attemptCount + 1}
       maxAttempts={assessment.max_attempts || 1}
+      requiresFileUpload={assessment.requires_file_upload ?? false}
+      fileUploadInstructions={assessment.file_upload_instructions ?? null}
+      allowedFileTypes={assessment.allowed_file_types ?? 'any'}
     />
   );
 }

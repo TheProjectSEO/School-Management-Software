@@ -59,7 +59,7 @@ export async function getTeacherReportCards(
 
     const sectionIds = Array.from(new Set(teacherSections.map((s) => s.section_id)));
 
-    // Build query for report cards
+    // Build query for report cards — flat columns only (no FK joins)
     let query = supabase
       .from("report_cards")
       .select(
@@ -83,28 +83,7 @@ export async function getTeacherReportCards(
         pdf_url,
         pdf_generated_at,
         created_at,
-        updated_at,
-        grading_period:grading_periods(
-          id,
-          name,
-          academic_year,
-          start_date,
-          end_date
-        ),
-        student:students(
-          id,
-          lrn,
-          section_id,
-          section:sections(
-            id,
-            name,
-            grade_level
-          ),
-          profile:school_profiles(
-            full_name,
-            avatar_url
-          )
-        )
+        updated_at
       `
       )
       .order("generated_at", { ascending: false });
@@ -150,14 +129,106 @@ export async function getTeacherReportCards(
       query = query.eq("student_id", filters.student_id);
     }
 
-    const { data, error } = await query;
+    const { data: reportCards, error } = await query;
 
     if (error) {
       console.error("Error fetching teacher report cards:", error);
       return [];
     }
 
-    return (data || []).map(transformReportCardData);
+    if (!reportCards?.length) {
+      return [];
+    }
+
+    // Collect IDs for related data
+    const gradingPeriodIds = Array.from(
+      new Set(reportCards.map((rc) => rc.grading_period_id).filter(Boolean))
+    );
+    const studentIds = Array.from(
+      new Set(reportCards.map((rc) => rc.student_id).filter(Boolean))
+    );
+
+    // Fetch grading periods separately
+    const gradingPeriodsMap = new Map<
+      string,
+      { id: string; name: string; academic_year: string; start_date?: string; end_date?: string }
+    >();
+    if (gradingPeriodIds.length) {
+      const { data: periods } = await supabase
+        .from("grading_periods")
+        .select("id, name, academic_year, start_date, end_date")
+        .in("id", gradingPeriodIds);
+      (periods || []).forEach((p) => gradingPeriodsMap.set(p.id, p));
+    }
+
+    // Fetch students with section_id and profile_id separately
+    const studentsMap = new Map<
+      string,
+      { id: string; lrn: string; section_id: string; profile_id: string }
+    >();
+    if (studentIds.length) {
+      const { data: students } = await supabase
+        .from("students")
+        .select("id, lrn, section_id, profile_id")
+        .in("id", studentIds);
+      (students || []).forEach((s) => studentsMap.set(s.id, s));
+    }
+
+    // Collect section IDs and profile IDs from students
+    const allSectionIds = Array.from(
+      new Set([...studentsMap.values()].map((s) => s.section_id).filter(Boolean))
+    );
+    const allProfileIds = Array.from(
+      new Set([...studentsMap.values()].map((s) => s.profile_id).filter(Boolean))
+    );
+
+    // Fetch sections separately
+    const sectionsMap = new Map<string, { id: string; name: string; grade_level: string }>();
+    if (allSectionIds.length) {
+      const { data: sections } = await supabase
+        .from("sections")
+        .select("id, name, grade_level")
+        .in("id", allSectionIds);
+      (sections || []).forEach((s) => sectionsMap.set(s.id, s));
+    }
+
+    // Fetch school profiles separately
+    const profilesMap = new Map<string, { id: string; full_name: string; avatar_url?: string }>();
+    if (allProfileIds.length) {
+      const { data: profiles } = await supabase
+        .from("school_profiles")
+        .select("id, full_name, avatar_url")
+        .in("id", allProfileIds);
+      (profiles || []).forEach((p) => profilesMap.set(p.id, p));
+    }
+
+    // Merge and transform
+    return reportCards.map((rc) => {
+      const gradingPeriod = gradingPeriodIds.length
+        ? gradingPeriodsMap.get(rc.grading_period_id) || null
+        : null;
+      const studentRow = studentsMap.get(rc.student_id) || null;
+      const section = studentRow ? sectionsMap.get(studentRow.section_id) || null : null;
+      const profile = studentRow ? profilesMap.get(studentRow.profile_id) || null : null;
+
+      const enriched: Record<string, unknown> = {
+        ...rc,
+        grading_period: gradingPeriod,
+        student: studentRow
+          ? {
+              id: studentRow.id,
+              lrn: studentRow.lrn,
+              section_id: studentRow.section_id,
+              section: section || undefined,
+              profile: profile
+                ? { full_name: profile.full_name, avatar_url: profile.avatar_url }
+                : undefined,
+            }
+          : null,
+      };
+
+      return transformReportCardData(enriched);
+    });
   } catch (error) {
     console.error("Unexpected error in getTeacherReportCards:", error);
     return [];
@@ -181,13 +252,16 @@ export async function getSectionReportCardsList(
     // Get students in section
     const { data: students } = await supabase
       .from("students")
-      .select("id")
+      .select("id, lrn, profile_id")
       .eq("section_id", sectionId);
 
     if (!students?.length) {
       return [];
     }
 
+    const studentIds = students.map((s) => s.id);
+
+    // Fetch report cards — flat columns only (no FK joins)
     let query = supabase
       .from("report_cards")
       .select(
@@ -200,19 +274,10 @@ export async function getSectionReportCardsList(
         teacher_remarks_json,
         status,
         generated_at,
-        pdf_url,
-        student:students(
-          id,
-          lrn,
-          section:sections(name, grade_level),
-          profile:school_profiles(full_name, avatar_url)
-        )
+        pdf_url
       `
       )
-      .in(
-        "student_id",
-        students.map((s) => s.id)
-      )
+      .in("student_id", studentIds)
       .order("generated_at", { ascending: false });
 
     if (gradingPeriodId) {
@@ -226,23 +291,50 @@ export async function getSectionReportCardsList(
       return [];
     }
 
-    return (data || []).map((item) => {
+    if (!data?.length) {
+      return [];
+    }
+
+    // Fetch section info for display
+    const { data: sectionRow } = await supabase
+      .from("sections")
+      .select("id, name, grade_level")
+      .eq("id", sectionId)
+      .maybeSingle();
+
+    // Build maps for student info
+    const studentsMap = new Map(students.map((s) => [s.id, s]));
+
+    // Collect profile IDs and fetch profiles
+    const profileIds = Array.from(
+      new Set(students.map((s) => s.profile_id).filter(Boolean))
+    );
+    const profilesMap = new Map<string, { id: string; full_name: string; avatar_url?: string }>();
+    if (profileIds.length) {
+      const { data: profiles } = await supabase
+        .from("school_profiles")
+        .select("id, full_name, avatar_url")
+        .in("id", profileIds);
+      (profiles || []).forEach((p) => profilesMap.set(p.id, p));
+    }
+
+    return data.map((item) => {
       const studentInfo = item.student_info_json as ReportCardStudentInfo;
       const gpa = item.gpa_snapshot_json as ReportCardGPA;
       const attendance = item.attendance_summary_json as ReportCardAttendance;
       const remarks = item.teacher_remarks_json as TeacherRemark[];
-      const student = item.student as unknown as Record<string, unknown>;
-      const section = student?.section as { name?: string; grade_level?: string };
-      const profile = student?.profile as { full_name?: string; avatar_url?: string };
+
+      const studentRow = studentsMap.get(item.student_id as string);
+      const profile = studentRow ? profilesMap.get(studentRow.profile_id) : undefined;
 
       return {
         id: item.id as string,
         student_id: item.student_id as string,
         student_name: studentInfo?.full_name || profile?.full_name || "Unknown",
-        student_lrn: studentInfo?.lrn || (student?.lrn as string) || "",
+        student_lrn: studentInfo?.lrn || studentRow?.lrn || "",
         student_avatar: profile?.avatar_url,
-        section_name: studentInfo?.section_name || section?.name || "",
-        grade_level: studentInfo?.grade_level || section?.grade_level || "",
+        section_name: studentInfo?.section_name || sectionRow?.name || "",
+        grade_level: studentInfo?.grade_level || sectionRow?.grade_level || "",
         term_gpa: gpa?.term_gpa || 0,
         attendance_rate: attendance?.attendance_rate || 0,
         status: item.status as ReportCardStatus,
@@ -271,6 +363,7 @@ export async function getReportCard(
   try {
     const supabase = createServiceClient();
 
+    // Fetch report card — flat columns only (no FK joins)
     let query = supabase
       .from("report_cards")
       .select(
@@ -294,28 +387,7 @@ export async function getReportCard(
         pdf_url,
         pdf_generated_at,
         created_at,
-        updated_at,
-        grading_period:grading_periods(
-          id,
-          name,
-          academic_year,
-          start_date,
-          end_date
-        ),
-        school:schools(
-          id,
-          name,
-          address,
-          logo_url
-        ),
-        student:students(
-          id,
-          lrn,
-          profile:school_profiles(
-            full_name,
-            avatar_url
-          )
-        )
+        updated_at
       `
       )
       .eq("id", reportCardId);
@@ -325,18 +397,81 @@ export async function getReportCard(
       query = query.eq("student_id", studentId);
     }
 
-    const { data, error } = await query.maybeSingle();
+    const { data: rc, error } = await query.maybeSingle();
 
     if (error) {
       console.error("Error fetching report card:", error);
       return null;
     }
 
-    if (!data) {
+    if (!rc) {
       return null;
     }
 
-    return transformReportCardData(data);
+    // Fetch grading period separately
+    let gradingPeriod: {
+      id: string;
+      name: string;
+      academic_year: string;
+      start_date?: string;
+      end_date?: string;
+    } | null = null;
+    if (rc.grading_period_id) {
+      const { data: gp } = await supabase
+        .from("grading_periods")
+        .select("id, name, academic_year, start_date, end_date")
+        .eq("id", rc.grading_period_id)
+        .maybeSingle();
+      gradingPeriod = gp || null;
+    }
+
+    // Fetch school separately
+    let school: { id: string; name: string; address?: string; logo_url?: string } | null = null;
+    if (rc.school_id) {
+      const { data: schoolRow } = await supabase
+        .from("schools")
+        .select("id, name, address, logo_url")
+        .eq("id", rc.school_id)
+        .maybeSingle();
+      school = schoolRow || null;
+    }
+
+    // Fetch student separately
+    let student: {
+      id: string;
+      lrn: string;
+      profile?: { full_name: string; avatar_url?: string };
+    } | null = null;
+    if (rc.student_id) {
+      const { data: studentRow } = await supabase
+        .from("students")
+        .select("id, lrn, profile_id")
+        .eq("id", rc.student_id)
+        .maybeSingle();
+      if (studentRow) {
+        let profile: { full_name: string; avatar_url?: string } | undefined;
+        if (studentRow.profile_id) {
+          const { data: profileRow } = await supabase
+            .from("school_profiles")
+            .select("full_name, avatar_url")
+            .eq("id", studentRow.profile_id)
+            .maybeSingle();
+          if (profileRow) {
+            profile = { full_name: profileRow.full_name, avatar_url: profileRow.avatar_url };
+          }
+        }
+        student = { id: studentRow.id, lrn: studentRow.lrn, profile };
+      }
+    }
+
+    const enriched: Record<string, unknown> = {
+      ...rc,
+      grading_period: gradingPeriod,
+      school,
+      student,
+    };
+
+    return transformReportCardData(enriched);
   } catch (error) {
     console.error("Unexpected error in getReportCard:", error);
     return null;
@@ -788,7 +923,8 @@ export async function getStudentReportCards(
   try {
     const supabase = createServiceClient();
 
-    const { data, error } = await supabase
+    // Fetch report cards — flat columns only (no FK joins)
+    const { data: reportCards, error } = await supabase
       .from("report_cards")
       .select(
         `
@@ -807,14 +943,7 @@ export async function getStudentReportCards(
         pdf_url,
         pdf_generated_at,
         created_at,
-        updated_at,
-        grading_period:grading_periods(
-          id,
-          name,
-          academic_year,
-          start_date,
-          end_date
-        )
+        updated_at
       `
       )
       .eq("student_id", studentId)
@@ -826,7 +955,32 @@ export async function getStudentReportCards(
       return [];
     }
 
-    return (data || []).map(transformReportCardData);
+    if (!reportCards?.length) {
+      return [];
+    }
+
+    // Collect grading period IDs and fetch separately
+    const gradingPeriodIds = Array.from(
+      new Set(reportCards.map((rc) => rc.grading_period_id).filter(Boolean))
+    );
+    const gradingPeriodsMap = new Map<
+      string,
+      { id: string; name: string; academic_year: string; start_date?: string; end_date?: string }
+    >();
+    if (gradingPeriodIds.length) {
+      const { data: periods } = await supabase
+        .from("grading_periods")
+        .select("id, name, academic_year, start_date, end_date")
+        .in("id", gradingPeriodIds);
+      (periods || []).forEach((p) => gradingPeriodsMap.set(p.id, p));
+    }
+
+    return reportCards.map((rc) => {
+      const gradingPeriod = rc.grading_period_id
+        ? gradingPeriodsMap.get(rc.grading_period_id) || null
+        : null;
+      return transformReportCardData({ ...rc, grading_period: gradingPeriod });
+    });
   } catch (error) {
     console.error("Unexpected error in getStudentReportCards:", error);
     return [];
@@ -845,7 +999,8 @@ export async function getLatestReportCard(
   try {
     const supabase = createServiceClient();
 
-    const { data, error } = await supabase
+    // Fetch report card — flat columns only (no FK joins)
+    const { data: rc, error } = await supabase
       .from("report_cards")
       .select(
         `
@@ -864,14 +1019,7 @@ export async function getLatestReportCard(
         pdf_url,
         pdf_generated_at,
         created_at,
-        updated_at,
-        grading_period:grading_periods(
-          id,
-          name,
-          academic_year,
-          start_date,
-          end_date
-        )
+        updated_at
       `
       )
       .eq("student_id", studentId)
@@ -885,11 +1033,28 @@ export async function getLatestReportCard(
       return null;
     }
 
-    if (!data) {
+    if (!rc) {
       return null;
     }
 
-    return transformReportCardData(data);
+    // Fetch grading period separately
+    let gradingPeriod: {
+      id: string;
+      name: string;
+      academic_year: string;
+      start_date?: string;
+      end_date?: string;
+    } | null = null;
+    if (rc.grading_period_id) {
+      const { data: gp } = await supabase
+        .from("grading_periods")
+        .select("id, name, academic_year, start_date, end_date")
+        .eq("id", rc.grading_period_id)
+        .maybeSingle();
+      gradingPeriod = gp || null;
+    }
+
+    return transformReportCardData({ ...rc, grading_period: gradingPeriod });
   } catch (error) {
     console.error("Unexpected error in getLatestReportCard:", error);
     return null;
@@ -910,18 +1075,10 @@ export async function getAvailableReportCardPeriods(
   try {
     const supabase = createServiceClient();
 
-    const { data, error } = await supabase
+    // Fetch only grading_period_id — flat column (no FK join)
+    const { data: reportCards, error } = await supabase
       .from("report_cards")
-      .select(
-        `
-        grading_period_id,
-        grading_period:grading_periods(
-          id,
-          name,
-          academic_year
-        )
-      `
-      )
+      .select("grading_period_id")
       .eq("student_id", studentId)
       .eq("status", "released");
 
@@ -930,28 +1087,30 @@ export async function getAvailableReportCardPeriods(
       return [];
     }
 
-    // Deduplicate and format
-    const periodsMap = new Map<
-      string,
-      { id: string; name: string; academic_year: string }
-    >();
+    if (!reportCards?.length) {
+      return [];
+    }
 
-    (data || []).forEach((item: Record<string, unknown>) => {
-      const gp = item.grading_period as {
-        id?: string;
-        name?: string;
-        academic_year?: string;
-      };
-      if (gp?.id && !periodsMap.has(gp.id)) {
-        periodsMap.set(gp.id, {
-          id: gp.id,
-          name: gp.name || "Unknown",
-          academic_year: gp.academic_year || "Unknown",
-        });
-      }
-    });
+    // Deduplicate period IDs
+    const periodIds = Array.from(
+      new Set(reportCards.map((rc) => rc.grading_period_id).filter(Boolean))
+    );
 
-    return Array.from(periodsMap.values());
+    if (!periodIds.length) {
+      return [];
+    }
+
+    // Fetch grading periods separately
+    const { data: periods } = await supabase
+      .from("grading_periods")
+      .select("id, name, academic_year")
+      .in("id", periodIds);
+
+    return (periods || []).map((p) => ({
+      id: p.id,
+      name: p.name || "Unknown",
+      academic_year: p.academic_year || "Unknown",
+    }));
   } catch (error) {
     console.error("Unexpected error in getAvailableReportCardPeriods:", error);
     return [];

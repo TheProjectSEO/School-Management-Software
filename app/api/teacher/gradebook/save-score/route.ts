@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
-import { getTeacherProfile } from '@/lib/dal/teacher'
+import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI'
 
 /**
  * POST /api/teacher/gradebook/save-score
@@ -9,13 +9,9 @@ import { getTeacherProfile } from '@/lib/dal/teacher'
 export async function POST(request: NextRequest) {
   try {
     // Get authenticated teacher
-    const teacherProfile = await getTeacherProfile()
-    if (!teacherProfile) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      )
-    }
+    const auth = await requireTeacherAPI()
+    if (!auth.success) return auth.response
+    const { teacherId, profileId } = auth.teacher
 
     // Parse request body
     const body = await request.json()
@@ -34,7 +30,7 @@ export async function POST(request: NextRequest) {
     const { count: accessCount } = await supabase
       .from('teacher_assignments')
       .select('*', { count: 'exact', head: true })
-      .eq('teacher_profile_id', teacherProfile.id)
+      .eq('teacher_profile_id', teacherId)
       .eq('course_id', courseId)
 
     if (!accessCount || accessCount === 0) {
@@ -60,7 +56,7 @@ export async function POST(request: NextRequest) {
           score: score,
           status: score !== null ? 'graded' : 'submitted',
           graded_at: score !== null ? new Date().toISOString() : null,
-          graded_by: score !== null ? teacherProfile.profile_id : null,
+          graded_by: score !== null ? profileId : null,
         })
         .eq('id', existingSubmission.id)
 
@@ -82,7 +78,7 @@ export async function POST(request: NextRequest) {
           status: score !== null ? 'graded' : 'submitted',
           submitted_at: new Date().toISOString(),
           graded_at: score !== null ? new Date().toISOString() : null,
-          graded_by: score !== null ? teacherProfile.profile_id : null,
+          graded_by: score !== null ? profileId : null,
         })
 
       if (insertError) {

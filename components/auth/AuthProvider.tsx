@@ -174,27 +174,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Refresh token
   const refresh = useCallback(async (): Promise<void> => {
     try {
-      const response = await authFetch('/api/auth/refresh', {
+      // Use plain fetch (not authFetch) to avoid recursive TOKEN_EXPIRED handling
+      const response = await fetch('/api/auth/refresh', {
         method: 'POST',
         credentials: 'include',
       });
 
       if (!response.ok) {
-        // Refresh failed, logout
-        await logout();
+        if (response.status === 401) {
+          let body: Record<string, string> = {};
+          try { body = await response.clone().json(); } catch { /* ignore */ }
+          // "Refresh token has been revoked" = multi-tab race condition, do NOT logout.
+          // Any other 401 (user deleted, truly expired 7-day token) = real failure → logout.
+          if (body.error && body.error !== 'Refresh token has been revoked') {
+            await logout();
+          }
+        }
+        // 5xx or other: transient error — silently ignore.
+        // authFetch handles TOKEN_EXPIRED on actual API calls; this timer is just proactive.
         return;
       }
 
       const data = await response.json();
-
       setState((prev) => ({
         ...prev,
         user: data.user as AuthUser,
         isAuthenticated: true,
       }));
-    } catch (error) {
-      console.error('Token refresh error:', error);
-      await logout();
+    } catch {
+      // Network error during proactive refresh — silently ignore.
+      // The user remains authenticated; authFetch will handle the next expired request.
+      console.warn('Proactive token refresh failed (non-critical, will retry at next interval)');
     }
   }, [logout]);
 

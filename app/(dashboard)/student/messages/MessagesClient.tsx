@@ -10,7 +10,7 @@ import { usePresence } from "@/hooks/usePresence";
 import { TypingIndicator } from "@/components/ui/TypingIndicator";
 import { ReadReceiptTicks, getMessageStatus } from "@/components/ui/ReadReceiptTicks";
 import { OnlineStatus } from "@/components/ui/OnlineIndicator";
-import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import { authFetch } from "@/lib/utils/authFetch";
 import { playMessageSound } from "@/lib/utils/notificationSound";
 import { useStudentTheme } from "@/components/student/providers/StudentThemeProvider";
 
@@ -384,7 +384,7 @@ export function MessagesClient({
         partnerRole === "student"
           ? `/api/student/messages/peers/${partnerProfileId}`
           : `/api/student/messages/${partnerProfileId}`;
-      const res = await fetchWithAuth(url);
+      const res = await authFetch(url);
       if (res.ok) {
         const data = await res.json();
         setMessages(data.messages || []);
@@ -400,7 +400,7 @@ export function MessagesClient({
   const fetchGroupMessages = useCallback(async (groupId: string) => {
     setIsLoading(true);
     try {
-      const res = await fetchWithAuth(`/api/student/messages/groups/${groupId}`);
+      const res = await authFetch(`/api/student/messages/groups/${groupId}`);
       if (res.ok) {
         const data = await res.json();
         setGroupMessages(data.messages || []);
@@ -459,7 +459,7 @@ export function MessagesClient({
           ? `/api/student/messages/peers/${selectedConversation.partner_profile_id}`
           : `/api/student/messages/${selectedConversation.partner_profile_id}`;
 
-      const res = await fetchWithAuth(url, {
+      const res = await authFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: messageBody }),
@@ -517,7 +517,7 @@ export function MessagesClient({
     setIsSending(true);
 
     try {
-      const res = await fetchWithAuth(`/api/student/messages/groups/${selectedGroupChat.id}`, {
+      const res = await authFetch(`/api/student/messages/groups/${selectedGroupChat.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: messageBody }),

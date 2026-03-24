@@ -12,6 +12,14 @@ interface GradesClientProps {
   depedReport: DepEdStudentReport | null;
   academicYears: string[];
   studentId: string;
+  quarterlyGrades: Array<{
+    course_id: string;
+    course_name: string;
+    q1: number | null;
+    q2: number | null;
+    q3: number | null;
+    q4: number | null;
+  }>;
 }
 
 // ============================================================================
@@ -66,6 +74,7 @@ export default function GradesClient({
   depedReport,
   academicYears,
   studentId,
+  quarterlyGrades,
 }: GradesClientProps) {
   const { isPlayful } = useStudentTheme();
   const [activeTab, setActiveTab] = useState<TabType>("quarters");
@@ -153,37 +162,25 @@ export default function GradesClient({
       {/* ── TAB: Quarterly Grades ───────────────────────────────────────── */}
       {activeTab === "quarters" && (
         <div className="space-y-6">
-          {!depedReport || depedReport.final_grades.length === 0 ? (
+          {quarterlyGrades.length === 0 ? (
             noDataMsg
           ) : (
             <>
-              {/* Summary cards */}
+              {/* Summary cards — average per quarter */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                {(["Q1","Q2","Q3","Q4"] as const).map((q, i) => {
-                  const avg = depedReport.final_grades.reduce((sum, g) => {
-                    const val = [g.q1_grade, g.q2_grade, g.q3_grade, g.q4_grade][i]
-                    return sum + (val ?? 0)
-                  }, 0) / (depedReport.final_grades.filter((g) => {
-                    return [g.q1_grade, g.q2_grade, g.q3_grade, g.q4_grade][i] !== null
-                  }).length || 1)
-
-                  const hasData = depedReport.final_grades.some((g) =>
-                    [g.q1_grade, g.q2_grade, g.q3_grade, g.q4_grade][i] !== null
-                  )
-
+                {(["q1","q2","q3","q4"] as const).map((q, i) => {
+                  const label = ["Q1","Q2","Q3","Q4"][i]
+                  const vals = quarterlyGrades.map((g) => g[q]).filter((v): v is number => v !== null)
+                  const avg = vals.length ? vals.reduce((a,b) => a+b, 0) / vals.length : null
                   return (
                     <div key={q} className={`p-4 rounded-xl border ${
                       isPlayful
                         ? "border-pink-200 bg-gradient-to-br from-pink-50 to-purple-50"
                         : "border-slate-200 bg-white dark:bg-[#1a2634] dark:border-slate-700"
                     }`}>
-                      <div className={`text-xs font-bold uppercase mb-1 ${
-                        isPlayful ? "text-purple-500" : "text-slate-400"
-                      }`}>{q} Average</div>
-                      <div className={`text-2xl font-bold ${
-                        hasData ? gradeColor(Math.round(avg)) : "text-slate-300"
-                      }`}>
-                        {hasData ? Math.round(avg) : "—"}
+                      <div className={`text-xs font-bold uppercase mb-1 ${isPlayful ? "text-purple-500" : "text-slate-400"}`}>{label} Average</div>
+                      <div className={`text-2xl font-bold ${avg !== null ? gradeColor(Math.round(avg)) : "text-slate-300"}`}>
+                        {avg !== null ? Math.round(avg) : "—"}
                       </div>
                     </div>
                   )
@@ -192,45 +189,37 @@ export default function GradesClient({
 
               {/* Per-subject quarterly table */}
               <div className={`rounded-xl border overflow-hidden ${
-                isPlayful
-                  ? "border-pink-200"
-                  : "border-slate-200 dark:border-slate-700"
+                isPlayful ? "border-pink-200" : "border-slate-200 dark:border-slate-700"
               }`}>
                 <div className="overflow-x-auto -mx-px">
-                <table className="w-full min-w-[480px] text-sm">
-                  <thead className={`${
-                    isPlayful
-                      ? "bg-gradient-to-r from-pink-100 to-purple-100"
-                      : "bg-slate-50 dark:bg-slate-800"
-                  }`}>
-                    <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Subject</th>
-                      <th className="px-3 py-3 text-center font-semibold text-slate-700 dark:text-slate-300">Q1</th>
-                      <th className="px-3 py-3 text-center font-semibold text-slate-700 dark:text-slate-300">Q2</th>
-                      <th className="px-3 py-3 text-center font-semibold text-slate-700 dark:text-slate-300">Q3</th>
-                      <th className="px-3 py-3 text-center font-semibold text-slate-700 dark:text-slate-300">Q4</th>
-                    </tr>
-                  </thead>
-                  <tbody className={`divide-y ${
-                    isPlayful ? "divide-pink-100" : "divide-slate-100 dark:divide-slate-800"
-                  }`}>
-                    {depedReport.final_grades.map((grade) => (
-                      <tr key={grade.id} className={`${
-                        isPlayful ? "hover:bg-pink-50" : "hover:bg-slate-50 dark:hover:bg-slate-800/40"
-                      } transition-colors`}>
-                        <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">
-                          {grade.course_name}
-                        </td>
-                        <td className="px-3 py-3 text-center"><GradeCell grade={grade.q1_grade} /></td>
-                        <td className="px-3 py-3 text-center"><GradeCell grade={grade.q2_grade} /></td>
-                        <td className="px-3 py-3 text-center"><GradeCell grade={grade.q3_grade} /></td>
-                        <td className="px-3 py-3 text-center"><GradeCell grade={grade.q4_grade} /></td>
+                  <table className="w-full min-w-[480px] text-sm">
+                    <thead className={`${isPlayful ? "bg-gradient-to-r from-pink-100 to-purple-100" : "bg-slate-50 dark:bg-slate-800"}`}>
+                      <tr>
+                        <th className="px-4 py-3 text-left font-semibold text-slate-700 dark:text-slate-300">Subject</th>
+                        <th className="px-3 py-3 text-center font-semibold text-slate-700 dark:text-slate-300">Q1</th>
+                        <th className="px-3 py-3 text-center font-semibold text-slate-700 dark:text-slate-300">Q2</th>
+                        <th className="px-3 py-3 text-center font-semibold text-slate-700 dark:text-slate-300">Q3</th>
+                        <th className="px-3 py-3 text-center font-semibold text-slate-700 dark:text-slate-300">Q4</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className={`divide-y ${isPlayful ? "divide-pink-100" : "divide-slate-100 dark:divide-slate-800"}`}>
+                      {quarterlyGrades.map((grade) => (
+                        <tr key={grade.course_id} className={`${isPlayful ? "hover:bg-pink-50" : "hover:bg-slate-50 dark:hover:bg-slate-800/40"} transition-colors`}>
+                          <td className="px-4 py-3 font-medium text-slate-900 dark:text-slate-100">{grade.course_name}</td>
+                          <td className="px-3 py-3 text-center"><GradeCell grade={grade.q1} /></td>
+                          <td className="px-3 py-3 text-center"><GradeCell grade={grade.q2} /></td>
+                          <td className="px-3 py-3 text-center"><GradeCell grade={grade.q3} /></td>
+                          <td className="px-3 py-3 text-center"><GradeCell grade={grade.q4} /></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
+
+              <p className="text-xs text-slate-400 dark:text-slate-500 text-center">
+                Quarterly grades released by your teachers. Unreleased quarters show —.
+              </p>
             </>
           )}
         </div>

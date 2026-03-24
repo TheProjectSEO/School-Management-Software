@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { playMessageSound } from "@/lib/utils/notificationSound";
-import { fetchWithAuth } from "@/lib/utils/fetchWithAuth";
+import { authFetch } from "@/lib/utils/authFetch";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { TypingIndicator } from "@/components/teacher/ui/TypingIndicator";
 import { ReadReceiptTicks, getMessageStatus } from "@/components/teacher/ui/ReadReceiptTicks";
@@ -131,7 +131,7 @@ export default function MessagesInterface({
   const fetchConversations = useCallback(async () => {
     try {
       setError(null);
-      const response = await fetchWithAuth("/api/teacher/messages");
+      const response = await authFetch("/api/teacher/messages");
 
       if (!response.ok) {
         throw new Error("Failed to fetch conversations");
@@ -169,7 +169,7 @@ export default function MessagesInterface({
   // Fetch group chats
   const fetchGroupChats = useCallback(async () => {
     try {
-      const response = await fetchWithAuth("/api/teacher/messages/groups");
+      const response = await authFetch("/api/teacher/messages/groups");
       if (response.ok) {
         const data = await response.json();
         setGroupChats(data.groupChats || []);
@@ -182,7 +182,7 @@ export default function MessagesInterface({
   // Fetch available admins
   const fetchAdmins = useCallback(async () => {
     try {
-      const response = await fetchWithAuth("/api/teacher/messages/admins");
+      const response = await authFetch("/api/teacher/messages/admins");
       if (response.ok) {
         const data = await response.json();
         setAvailableAdmins(data.admins || []);
@@ -199,7 +199,7 @@ export default function MessagesInterface({
   // Sync/create group chats for teacher's sections
   const syncGroupChats = useCallback(async () => {
     try {
-      const response = await fetchWithAuth("/api/teacher/messages/groups", {
+      const response = await authFetch("/api/teacher/messages/groups", {
         method: "POST",
       });
       if (response.ok) {
@@ -219,7 +219,7 @@ export default function MessagesInterface({
   // Fetch messages for selected group chat
   const fetchGroupMessages = useCallback(async (groupId: string) => {
     try {
-      const response = await fetchWithAuth(`/api/teacher/messages/groups/${groupId}`);
+      const response = await authFetch(`/api/teacher/messages/groups/${groupId}`);
       if (response.ok) {
         const data = await response.json();
         setGroupMessages(data.messages || []);
@@ -266,7 +266,7 @@ export default function MessagesInterface({
     setIsSending(true);
 
     try {
-      const response = await fetchWithAuth(`/api/teacher/messages/groups/${selectedGroupChat.id}`, {
+      const response = await authFetch(`/api/teacher/messages/groups/${selectedGroupChat.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message: messageContent }),
@@ -301,7 +301,7 @@ export default function MessagesInterface({
 
     setIsSearching(true);
     try {
-      const response = await fetchWithAuth(
+      const response = await authFetch(
         `/api/teacher/messages/search?q=${encodeURIComponent(query)}`
       );
       if (response.ok) {
@@ -402,7 +402,7 @@ export default function MessagesInterface({
       const url = isAdmin
         ? `/api/teacher/messages/admins/${studentProfileId}`
         : `/api/teacher/messages/${studentProfileId}`;
-      const response = await fetchWithAuth(url);
+      const response = await authFetch(url);
 
       if (!response.ok) {
         throw new Error("Failed to fetch messages");
@@ -630,7 +630,7 @@ export default function MessagesInterface({
         ? { content: messageContent }
         : { studentProfileId, content: messageContent };
 
-      const response = await fetchWithAuth(url, {
+      const response = await authFetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

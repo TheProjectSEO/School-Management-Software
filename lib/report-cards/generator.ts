@@ -330,7 +330,7 @@ async function fetchStudentGPA(
 
     const gradeValues = (grades || [])
       .map((g: any) => g.quarterly_grade ?? g.numeric_grade ?? 0)
-      .filter((v: number) => v > 0)
+      .filter((v: number) => v !== null && v !== undefined && !isNaN(v))
 
     const termGPA = gradeValues.length > 0
       ? Math.round((gradeValues.reduce((a: number, b: number) => a + b, 0) / gradeValues.length) * 100) / 100

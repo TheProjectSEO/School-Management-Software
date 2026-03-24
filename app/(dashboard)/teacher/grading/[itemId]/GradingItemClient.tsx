@@ -14,6 +14,7 @@ interface GradingItem {
     status: string
     score: number | null
     feedback: string | null
+    file_attachments: { url: string; name: string; size: number; fileType: string }[] | null
   }
   student: {
     id: string
@@ -183,6 +184,57 @@ export default function GradingItemClient({ item }: GradingItemClientProps) {
               </div>
             </div>
           </div>
+
+          {/* File Attachments */}
+          {item.submission.file_attachments && item.submission.file_attachments.length > 0 && (
+            <div className="bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 p-6">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-[18px]">attach_file</span>
+                Submitted Files ({item.submission.file_attachments.length})
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {item.submission.file_attachments.map((file, idx) => {
+                  const isImage = file.fileType?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(file.name);
+                  const isPDF = file.fileType === 'application/pdf' || file.name.endsWith('.pdf');
+                  return (
+                    <div key={idx} className="border border-slate-200 dark:border-slate-600 rounded-lg overflow-hidden">
+                      {isImage ? (
+                        <a href={file.url} target="_blank" rel="noopener noreferrer">
+                          <img
+                            src={file.url}
+                            alt={file.name}
+                            className="w-full h-48 object-cover hover:opacity-90 transition-opacity"
+                          />
+                        </a>
+                      ) : (
+                        <div className="h-32 bg-slate-50 dark:bg-slate-800 flex flex-col items-center justify-center gap-2">
+                          <span className="material-symbols-outlined text-4xl text-slate-400">
+                            {isPDF ? 'picture_as_pdf' : 'description'}
+                          </span>
+                          <span className="text-xs text-slate-500">{isPDF ? 'PDF Document' : 'File'}</span>
+                        </div>
+                      )}
+                      <div className="p-3 flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-900 dark:text-white truncate">{file.name}</p>
+                          <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</p>
+                        </div>
+                        <a
+                          href={file.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-shrink-0 p-2 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                          title="Open file"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+                        </a>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Answers */}
           {item.answers.map((answer, index) => (

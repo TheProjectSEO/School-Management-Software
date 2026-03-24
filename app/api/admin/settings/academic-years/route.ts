@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminAPI } from "@/lib/dal/admin";
+import { createServiceClient } from "@/lib/supabase/service";
 import {
   getAcademicYears,
   getCurrentAcademicYear,
@@ -88,6 +89,34 @@ export async function POST(request: NextRequest) {
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });
+    }
+
+    if (result.success && result.data) {
+      const yearId = result.data.id;
+      const startMs = new Date(startDate).getTime();
+      const endMs = new Date(endDate).getTime();
+      const quarterMs = Math.floor((endMs - startMs) / 4);
+
+      const quarterNames = ['First Quarter', 'Second Quarter', 'Third Quarter', 'Fourth Quarter'];
+      const supabase = createServiceClient();
+
+      for (let i = 0; i < 4; i++) {
+        const qStart = new Date(startMs + i * quarterMs);
+        const qEnd = i === 3 ? new Date(endMs) : new Date(startMs + (i + 1) * quarterMs - 86400000);
+        await supabase
+          .from('grading_periods')
+          .insert({
+            school_id: admin.schoolId,
+            academic_year_id: yearId,
+            name: quarterNames[i],
+            start_date: qStart.toISOString().split('T')[0],
+            end_date: qEnd.toISOString().split('T')[0],
+            order: i + 1,
+            is_active: false,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+      }
     }
 
     return NextResponse.json({ success: true, id: result.data?.id }, { status: 201 });

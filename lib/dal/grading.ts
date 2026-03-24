@@ -18,6 +18,7 @@ export interface GradingItem {
     status: string
     score: number | null
     feedback: string | null
+    file_attachments: { url: string; name: string; size: number; fileType: string }[] | null
   }
   student: {
     id: string
@@ -80,7 +81,7 @@ export async function getGradingItem(
   // 1. Fetch submission (flat)
   const { data: submission, error } = await supabase
     .from('submissions')
-    .select('id, assessment_id, student_id, score, status, feedback, submitted_at, graded_at, attempt_number')
+    .select('id, assessment_id, student_id, score, status, feedback, submitted_at, graded_at, attempt_number, file_attachments')
     .eq('id', itemId)
     .single()
 
@@ -175,7 +176,8 @@ export async function getGradingItem(
       attempt_number: submission.attempt_number || 1,
       status: submission.status || 'pending',
       score: submission.score,
-      feedback: submission.feedback
+      feedback: submission.feedback,
+      file_attachments: (submission as any).file_attachments || null,
     },
     student: {
       id: student?.id || '',

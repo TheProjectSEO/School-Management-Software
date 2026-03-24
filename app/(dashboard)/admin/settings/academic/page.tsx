@@ -154,63 +154,89 @@ export default function AcademicSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const response = await authFetch("/api/admin/settings/academic", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
+      // Save scalar settings
+      const settingsRes = await authFetch('/api/admin/settings/academic', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
       });
 
-      if (response.ok) {
+      // Save grading period edits (only periods with real DB IDs — not temp ones)
+      const periodSaves = settings.gradingPeriods
+        .filter(p => p.id && p.id.length > 10) // real UUIDs are long; Date.now() IDs are short
+        .map(p =>
+          authFetch(`/api/admin/settings/grading-periods/${p.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: p.name,
+              start_date: p.startDate,
+              end_date: p.endDate,
+              weight: p.weight,
+            }),
+          })
+        );
+
+      await Promise.all(periodSaves);
+
+      if (settingsRes.ok) {
         setHasChanges(false);
       }
     } catch (error) {
-      console.error("Failed to save settings:", error);
+      console.error('Failed to save settings:', error);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleAddYear = () => {
+  const handleAddYear = async () => {
     if (!newYear.name || !newYear.startDate || !newYear.endDate) return;
-
-    setSettings((prev) => ({
-      ...prev,
-      academicYears: [
-        ...prev.academicYears,
-        {
-          id: Date.now().toString(),
-          name: newYear.name,
-          startDate: newYear.startDate,
-          endDate: newYear.endDate,
-          isCurrent: false,
-        },
-      ],
-    }));
-
-    setNewYear({ name: "", startDate: "", endDate: "" });
-    setShowAddYearModal(false);
-    setHasChanges(true);
+    setSaving(true);
+    try {
+      const res = await authFetch('/api/admin/settings/academic-years', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newYear.name, startDate: newYear.startDate, endDate: newYear.endDate }),
+      });
+      if (res.ok) {
+        setNewYear({ name: '', startDate: '', endDate: '' });
+        setShowAddYearModal(false);
+        await fetchSettings(); // Refresh so new quarters auto-created by server appear
+      }
+    } catch (error) {
+      console.error('Failed to add year:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleSetCurrentYear = (yearId: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      academicYears: prev.academicYears.map((year) => ({
-        ...year,
-        isCurrent: year.id === yearId,
-      })),
-      currentAcademicYear: prev.academicYears.find((y) => y.id === yearId)?.name || prev.currentAcademicYear,
-    }));
-    setHasChanges(true);
+  const handleSetCurrentYear = async (yearId: string) => {
+    try {
+      const res = await authFetch('/api/admin/settings/academic-years', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ yearId }),
+      });
+      if (res.ok) {
+        await fetchSettings();
+      }
+    } catch (error) {
+      console.error('Failed to set current year:', error);
+    }
   };
 
-  const handleDeleteYear = (yearId: string) => {
-    setSettings((prev) => ({
-      ...prev,
-      academicYears: prev.academicYears.filter((year) => year.id !== yearId),
-    }));
-    setShowDeleteModal(null);
-    setHasChanges(true);
+  const handleDeleteYear = async (yearId: string) => {
+    try {
+      const res = await authFetch(`/api/admin/settings/academic-years?yearId=${yearId}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        setShowDeleteModal(null);
+        await fetchSettings();
+      }
+    } catch (error) {
+      console.error('Failed to delete year:', error);
+    }
   };
 
   const handleGradingPeriodChange = (id: string, field: keyof GradingPeriod, value: string | number) => {

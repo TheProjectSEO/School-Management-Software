@@ -15,6 +15,8 @@ import { ReactionsBar } from '@/components/live-sessions/ReactionsBar';
 import { QAPanel } from '@/components/live-sessions/QAPanel';
 import { ParticipantsList } from '@/components/live-sessions/ParticipantsList';
 import { RecordingIndicator } from '@/components/live-sessions/RecordingIndicator';
+import { SessionChatPanel } from '@/components/live-sessions/SessionChatPanel';
+import { SessionNotesPanel } from '@/components/live-sessions/SessionNotesPanel';
 import { getClassroomTheme } from '@/lib/utils/classroom/theme';
 
 interface LiveSessionClientProps {
@@ -50,6 +52,7 @@ export function LiveSessionClient({
   const [error, setError] = useState<string | null>(null);
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [activeTab, setActiveTab] = useState<'chat' | 'qa' | 'notes'>('chat');
 
   // Join session on mount — skip API call if context already has this session active
   // (happens when returning to the page while floating, or after client-side navigation)
@@ -239,9 +242,37 @@ export function LiveSessionClient({
         <ReactionsBar sessionId={sessionId} gradeLevel={gradeLevel} />
       </div>
 
-      {/* Q&A Panel */}
-      <div className="h-[300px] sm:h-[400px]">
-        <QAPanel sessionId={sessionId} gradeLevel={gradeLevel} />
+      {/* Tabbed panel: Chat | Q&A | Notes */}
+      <div className="flex flex-col h-[420px] sm:h-[460px]">
+        {/* Tab bar */}
+        <div className={`flex gap-1 mb-2 p-1 rounded-xl ${isPlayful ? 'bg-purple-100 dark:bg-purple-900/30' : 'bg-slate-100 dark:bg-slate-800'}`}>
+          {(['chat', 'qa', 'notes'] as const).map((tab) => {
+            const labels = { chat: isPlayful ? '💬 Chat' : 'Chat', qa: isPlayful ? '❓ Q&A' : 'Q&A', notes: isPlayful ? '📝 Notes' : 'Notes' };
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-all ${
+                  activeTab === tab
+                    ? isPlayful
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-sm'
+                      : 'bg-white dark:bg-slate-700 text-[#7B1113] shadow-sm'
+                    : isPlayful
+                      ? 'text-purple-600 dark:text-purple-300 hover:text-purple-800'
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
+                }`}
+              >
+                {labels[tab]}
+              </button>
+            );
+          })}
+        </div>
+        {/* Tab content */}
+        <div className="flex-1 min-h-0">
+          {activeTab === 'chat' && <SessionChatPanel sessionId={sessionId} gradeLevel={gradeLevel} role="student" />}
+          {activeTab === 'qa' && <QAPanel sessionId={sessionId} gradeLevel={gradeLevel} />}
+          {activeTab === 'notes' && <SessionNotesPanel sessionId={sessionId} gradeLevel={gradeLevel} role="student" />}
+        </div>
       </div>
     </div>
   );

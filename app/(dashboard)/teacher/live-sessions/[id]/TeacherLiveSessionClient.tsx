@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { authFetch } from '@/lib/utils/authFetch';
 import { LiveSessionRoom } from '@/components/live-sessions/LiveSessionRoom';
 import { useLiveSession } from '@/contexts/LiveSessionContext';
+import { SessionChatPanel } from '@/components/live-sessions/SessionChatPanel';
+import { SessionNotesPanel } from '@/components/live-sessions/SessionNotesPanel';
 
 interface TeacherLiveSessionClientProps {
   sessionId: string;
@@ -28,6 +30,7 @@ export function TeacherLiveSessionClient({
   const [isEnding, setIsEnding] = useState(false);
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [activeTab, setActiveTab] = useState<'chat' | 'notes'>('chat');
 
   // Fetch owner token on mount — skip if context already has this session active
   // (happens when returning to the page while floating, or after client-side navigation)
@@ -152,22 +155,50 @@ export function TeacherLiveSessionClient({
         </div>
       </div>
 
-      {/* Video iframe */}
-      <div className="rounded-xl overflow-hidden border border-slate-200 bg-black" style={{ height: 'calc(100vh - 180px)', minHeight: '520px' }}>
-        {isFloating ? (
-          <div className="flex flex-col items-center justify-center h-full bg-slate-900 gap-3">
-            <span className="material-symbols-outlined text-5xl text-slate-400">picture_in_picture_alt</span>
-            <p className="text-slate-400 text-sm">Video is floating</p>
-            <button
-              onClick={() => setFloating(false)}
-              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-lg transition-colors"
-            >
-              Bring back
-            </button>
+      {/* Video + Side Panel */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4" style={{ height: 'calc(100vh - 180px)', minHeight: '520px' }}>
+        {/* Video — 2/3 width on desktop */}
+        <div className="lg:col-span-2 rounded-xl overflow-hidden border border-slate-200 bg-black h-full">
+          {isFloating ? (
+            <div className="flex flex-col items-center justify-center h-full bg-slate-900 gap-3">
+              <span className="material-symbols-outlined text-5xl text-slate-400">picture_in_picture_alt</span>
+              <p className="text-slate-400 text-sm">Video is floating</p>
+              <button
+                onClick={() => setFloating(false)}
+                className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-lg transition-colors"
+              >
+                Bring back
+              </button>
+            </div>
+          ) : (
+            <LiveSessionRoom roomUrl={roomUrl} token={token} className="h-full" />
+          )}
+        </div>
+
+        {/* Side panel — 1/3 width on desktop */}
+        <div className="flex flex-col h-full min-h-[400px] lg:min-h-0">
+          {/* Tab bar */}
+          <div className="flex gap-1 mb-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl shrink-0">
+            {(['chat', 'notes'] as const).map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-all capitalize ${
+                  activeTab === tab
+                    ? 'bg-white dark:bg-slate-700 text-[#7B1113] shadow-sm'
+                    : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
+                }`}
+              >
+                {tab === 'chat' ? 'Chat' : 'Notes'}
+              </button>
+            ))}
           </div>
-        ) : (
-          <LiveSessionRoom roomUrl={roomUrl} token={token} className="h-full" />
-        )}
+          {/* Tab content */}
+          <div className="flex-1 min-h-0">
+            {activeTab === 'chat' && <SessionChatPanel sessionId={sessionId} gradeLevel="10" role="teacher" />}
+            {activeTab === 'notes' && <SessionNotesPanel sessionId={sessionId} gradeLevel="10" role="teacher" />}
+          </div>
+        </div>
       </div>
     </div>
   );

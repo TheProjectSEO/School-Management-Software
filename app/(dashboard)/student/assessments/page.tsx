@@ -2,8 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentStudent, getUpcomingAssessments, getAssessmentStats } from "@/lib/dal";
 import { getClassroomTheme } from "@/lib/utils/classroom/theme";
+import { RealtimeRefresher } from '@/components/shared/RealtimeRefresher';
 
-export const revalidate = 60; // 1 minute - deadlines
+export const dynamic = 'force-dynamic';
 
 import { AssessmentSearch } from './AssessmentSearch';
 
@@ -137,6 +138,7 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
 
   return (
     <>
+      <RealtimeRefresher tables={['assessments', 'submissions']} debounceMs={1500} />
       {/* Page Heading & Stats Row */}
       <div className="flex flex-col gap-6 mb-8">
         {/* Heading */}

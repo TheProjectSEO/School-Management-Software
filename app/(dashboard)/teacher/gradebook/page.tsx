@@ -7,6 +7,7 @@ import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import EmptyState from '@/components/ui/EmptyState'
+import { RealtimeRefresher } from '@/components/shared/RealtimeRefresher'
 
 export const metadata = {
   title: 'Gradebook | MSU Teacher Portal',
@@ -133,6 +134,7 @@ async function GradebookCourseList() {
 export default function GradebookPage() {
   return (
     <div className="space-y-6">
+      <RealtimeRefresher tables={['grades', 'submissions', 'enrollments']} debounceMs={1500} />
       {/* Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">

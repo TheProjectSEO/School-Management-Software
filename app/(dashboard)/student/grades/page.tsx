@@ -3,6 +3,7 @@ import { getCurrentStudent } from "@/lib/dal";
 import { getStudentDepEdGrades } from "@/lib/dal/deped-grades";
 import { createServiceClient } from "@/lib/supabase/service";
 import GradesClient from "./GradesClient";
+import { RealtimeRefresher } from '@/components/shared/RealtimeRefresher';
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -38,10 +39,13 @@ export default async function GradesPage() {
   const depedReport = await getStudentDepEdGrades(student.id, latestYear);
 
   return (
-    <GradesClient
-      depedReport={depedReport}
-      academicYears={academicYears}
-      studentId={student.id}
-    />
+    <>
+      <RealtimeRefresher tables={['grades', 'grade_components']} debounceMs={1500} />
+      <GradesClient
+        depedReport={depedReport}
+        academicYears={academicYears}
+        studentId={student.id}
+      />
+    </>
   );
 }

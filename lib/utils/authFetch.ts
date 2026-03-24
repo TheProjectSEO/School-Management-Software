@@ -12,7 +12,17 @@ async function refreshToken(): Promise<boolean> {
       method: 'POST',
       credentials: 'include',
     });
-    return response.ok;
+    if (response.ok) return true;
+
+    // On failure, wait 700ms and retry once.
+    // This handles the multi-tab rotation race: another tab may have just
+    // refreshed and placed a new valid refresh token in the shared cookies.
+    await new Promise((r) => setTimeout(r, 700));
+    const retry = await fetch('/api/auth/refresh', {
+      method: 'POST',
+      credentials: 'include',
+    });
+    return retry.ok;
   } catch {
     return false;
   }

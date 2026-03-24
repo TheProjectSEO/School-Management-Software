@@ -9,6 +9,7 @@ import EmptyState from '@/components/ui/EmptyState'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { Suspense } from 'react'
 import CreateAssessmentButton from './CreateAssessmentButton'
+import { RealtimeRefresher } from '@/components/shared/RealtimeRefresher'
 
 export const metadata = {
   title: 'Assessments | MSU Teacher Portal',
@@ -301,6 +302,7 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <RealtimeRefresher tables={['assessments', 'submissions']} />
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>

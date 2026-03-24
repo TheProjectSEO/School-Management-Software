@@ -8,6 +8,7 @@ import Badge from '@/components/ui/Badge'
 import EmptyState from '@/components/ui/EmptyState'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
 import { Suspense } from 'react'
+import { RealtimeRefresher } from '@/components/shared/RealtimeRefresher'
 
 export const metadata = {
   title: 'Grading Inbox | MSU Teacher Portal',
@@ -566,6 +567,7 @@ export default async function SubmissionsPage({ searchParams }: PageProps) {
 
   return (
     <div className="space-y-6">
+      <RealtimeRefresher tables={['submissions', 'teacher_assessment_questions']} />
       {/* Header */}
       <div>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-slate-100 mb-1">

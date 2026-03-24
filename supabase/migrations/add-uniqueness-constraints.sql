@@ -4,8 +4,38 @@
 -- =====================================================================
 -- 1. SECTIONS: (name, grade_level) must be unique per school
 -- API already validates this, adding DB constraint as safety net
+-- First rename any existing duplicates to avoid constraint failure
 -- =====================================================================
-DO $$ BEGIN
+DO $$
+DECLARE
+  dup  RECORD;
+  rec  RECORD;
+  cnt  INT;
+BEGIN
+  -- Rename duplicate sections (keep earliest, suffix the rest)
+  FOR dup IN (
+    SELECT school_id, name, grade_level
+    FROM sections
+    GROUP BY school_id, name, grade_level
+    HAVING COUNT(*) > 1
+  ) LOOP
+    cnt := 2;
+    FOR rec IN (
+      SELECT id FROM sections
+      WHERE school_id = dup.school_id
+        AND name = dup.name
+        AND grade_level = dup.grade_level
+      ORDER BY created_at ASC
+      OFFSET 1
+    ) LOOP
+      UPDATE sections
+        SET name = dup.name || ' (' || cnt || ')'
+        WHERE id = rec.id;
+      cnt := cnt + 1;
+    END LOOP;
+  END LOOP;
+
+  -- Now safe to add the unique constraint
   IF NOT EXISTS (
     SELECT 1 FROM pg_constraint
     WHERE conname = 'sections_school_name_grade_unique'

@@ -116,27 +116,65 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }, { status: 500 });
   }
   let authUserId = authCreated?.user?.id;
-  
-  if (!authUserId) {
-    // User already exists — look up their auth_user_id via school_profiles (reliable, no pagination)
-    const { data: existingProfile } = await supabase
-      .from("school_profiles")
-      .select("auth_user_id")
-      .eq("email", application.email)
-      .maybeSingle();
-    authUserId = existingProfile?.auth_user_id ?? undefined;
 
-    // Fallback: scan auth users if not yet in school_profiles (e.g. partial prior run)
+  if (!authUserId) {
+    // Strategy 1: direct auth.users lookup via SQL function (most reliable)
+    const { data: fnResult, error: fnErr } = await supabase.rpc("get_auth_user_id_by_email", {
+      p_email: application.email,
+    });
+    if (fnResult) {
+      authUserId = fnResult as string;
+      console.log("[approve] found auth user via DB function:", authUserId);
+    } else if (fnErr) {
+      console.warn("[approve] get_auth_user_id_by_email RPC error (migration may not be run yet):", fnErr.message);
+    }
+
+    // Strategy 2: school_profiles email lookup
     if (!authUserId) {
-      const { data: page1 } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
-      authUserId = page1?.users?.find((u) => u.email === application.email)?.id;
+      const { data: spData } = await supabase
+        .from("school_profiles")
+        .select("auth_user_id")
+        .ilike("email", application.email)
+        .maybeSingle();
+      if (spData?.auth_user_id) {
+        authUserId = spData.auth_user_id;
+        console.log("[approve] found auth user via school_profiles:", authUserId);
+      }
+    }
+
+    // Strategy 3: paginated auth users scan (fallback, handles any DB size)
+    if (!authUserId) {
+      const emailLower = application.email.toLowerCase().trim();
+      let page = 1;
+      while (page <= 20) {
+        const { data: pageData, error: listErr } = await supabase.auth.admin.listUsers({
+          page,
+          perPage: 1000,
+        });
+        if (listErr) {
+          console.error(`[approve] listUsers page ${page} error:`, listErr.message);
+          break;
+        }
+        const raw = pageData as any;
+        const users: any[] = Array.isArray(raw) ? raw : (raw?.users ?? []);
+        const match = users.find((u: any) => u.email?.toLowerCase() === emailLower);
+        if (match) {
+          authUserId = match.id;
+          console.log("[approve] found auth user via listUsers page", page, ":", authUserId);
+          break;
+        }
+        if (users.length < 1000) break;
+        page++;
+      }
     }
   }
 
   if (!authUserId) {
-    console.error("Unable to resolve auth user for email:", application.email);
-    return NextResponse.json({ 
-      error: `Unable to create or find auth user. Error: ${authError?.message || 'Unknown error'}` 
+    console.error("[approve] All lookup strategies failed for email:", application.email);
+    return NextResponse.json({
+      error:
+        "Could not resolve the auth account for this email. " +
+        "Please run the migration: supabase/migrations/add-get-user-by-email-fn.sql in your Supabase SQL Editor, then try again.",
     }, { status: 500 });
   }
 

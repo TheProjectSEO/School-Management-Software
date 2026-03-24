@@ -125,7 +125,7 @@ export function AdminNotificationProvider({
     // Fetch initial counts
     fetchCounts();
 
-    // Subscribe to new messages
+    // Subscribe to new messages + new applications in one channel
     const channel = supabase
       .channel(`admin-notifications:${profileId}`)
       .on(
@@ -143,23 +143,17 @@ export function AdminNotificationProvider({
             body: string;
           };
 
-          // Increment unread count
           setUnreadMessageCount((prev) => prev + 1);
-
-          // Play sound
           playMessageSound();
 
-          // Get sender name
           const { data: senderProfile } = await supabase
             .from("school_profiles")
             .select("full_name")
             .eq("id", message.from_profile_id)
             .single();
 
-          // Show toast
           showMessageToast(senderProfile?.full_name || "Unknown", message.body);
 
-          // Browser notification if tab hidden
           if (typeof window !== "undefined" && document.hidden && "Notification" in window) {
             if (Notification.permission === "granted") {
               new Notification(`New message from ${senderProfile?.full_name || "Unknown"}`, {
@@ -169,6 +163,46 @@ export function AdminNotificationProvider({
               });
             }
           }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "student_applications",
+        },
+        (payload) => {
+          const app = payload.new as {
+            first_name?: string;
+            last_name?: string;
+          };
+          const name = [app.first_name, app.last_name].filter(Boolean).join(" ") || "Someone";
+          setPendingApplicationsCount((prev) => prev + 1);
+          playAlertSound();
+          showApplicationToast(name);
+
+          if (typeof window !== "undefined" && document.hidden && "Notification" in window) {
+            if (Notification.permission === "granted") {
+              new Notification("New Application Received", {
+                body: `${name} submitted an application`,
+                icon: "/brand/logo.png",
+                tag: `admin-application-${Date.now()}`,
+              });
+            }
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "student_applications",
+        },
+        () => {
+          // Re-fetch counts so badge stays accurate after approvals/rejections
+          fetchCounts();
         }
       )
       .subscribe((status) => {

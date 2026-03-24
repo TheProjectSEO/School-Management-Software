@@ -150,12 +150,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.redirect(new URL(redirectTo, request.url));
   } catch (error) {
-    console.error('Token refresh error:', error);
-    // Do NOT redirect to login on unexpected errors — only on explicit auth failures
-    const fallbackRedirect = request.nextUrl.searchParams.get('redirect') || '/';
-    const loginUrl = new URL('/login', request.url);
-    loginUrl.searchParams.set('redirect', fallbackRedirect);
-    return NextResponse.redirect(loginUrl);
+    console.error('Token refresh GET error (transient):', error);
+    // Transient error (DB timeout, network blip) — do NOT log the user out.
+    // Redirect back to the original page; cookies are unchanged so the
+    // middleware will retry the refresh on the next navigation.
+    const redirectTo = request.nextUrl.searchParams.get('redirect') || '/';
+    return NextResponse.redirect(new URL(redirectTo, request.url));
   }
 }
 
@@ -181,7 +181,15 @@ export async function POST(request: NextRequest) {
     const result = await performTokenRefresh(request, refreshToken);
 
     if ('error' in result) {
-      await clearAuthCookies();
+      // Only clear cookies for hard auth failures (invalid JWT, user deleted).
+      // Do NOT clear on "token revoked" — another tab may have just rotated
+      // the token and placed new valid cookies; clearing would log out all tabs.
+      const isHardFailure =
+        result.error !== 'Refresh token has been revoked' &&
+        result.error !== 'Invalid or expired refresh token';
+      if (isHardFailure) {
+        await clearAuthCookies();
+      }
       return NextResponse.json(
         { error: result.error },
         { status: result.status }

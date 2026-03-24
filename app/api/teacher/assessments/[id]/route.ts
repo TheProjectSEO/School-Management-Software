@@ -20,41 +20,52 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get assessment with questions
-    const { data: assessment, error } = await supabase
+    // Flat select — no FK joins (BUG-001: FK joins silently return empty without DB constraints)
+    const { data: assessmentRow, error } = await supabase
       .from('assessments')
-      .select(`
-        *,
-        courses:course_id (
-          id,
-          name,
-          subject_code
-        ),
-        sections:section_id (
-          id,
-          name
-        ),
-        questions:teacher_assessment_questions (
-          id,
-          question_text,
-          question_type,
-          choices_json,
-          answer_key_json,
-          points,
-          order_index
-        )
-      `)
+      .select('*')
       .eq('id', id)
       .single()
 
-    if (error) {
+    if (error || !assessmentRow) {
       console.error('Error fetching assessment:', error)
-      return NextResponse.json({ error: error.message }, { status: 404 })
+      return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
     }
 
-    // Sort questions by order_index
-    if (assessment.questions) {
-      assessment.questions.sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0))
+    // Fetch course separately
+    let course = null
+    if (assessmentRow.course_id) {
+      const { data: courseRow } = await supabase
+        .from('courses')
+        .select('id, name, subject_code')
+        .eq('id', assessmentRow.course_id)
+        .single()
+      course = courseRow
+    }
+
+    // Fetch section separately
+    let section = null
+    if (assessmentRow.section_id) {
+      const { data: sectionRow } = await supabase
+        .from('sections')
+        .select('id, name')
+        .eq('id', assessmentRow.section_id)
+        .single()
+      section = sectionRow
+    }
+
+    // Fetch questions separately
+    const { data: questionRows } = await supabase
+      .from('teacher_assessment_questions')
+      .select('id, question_text, question_type, choices_json, answer_key_json, points, order_index, explanation')
+      .eq('assessment_id', id)
+      .order('order_index', { ascending: true })
+
+    const assessment = {
+      ...assessmentRow,
+      course,
+      section,
+      questions: (questionRows || []).sort((a: any, b: any) => (a.order_index || 0) - (b.order_index || 0)),
     }
 
     return NextResponse.json({ assessment })
@@ -90,6 +101,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const {
       title,
+      description,
       type,
       instructions,
       available_from,
@@ -98,7 +110,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       max_attempts,
       total_points,
       status,
-      questions
+      questions,
+      grading_period_id
     } = body
 
     // First verify the assessment exists and teacher has access
@@ -127,6 +140,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       .from('assessments')
       .update({
         title,
+        description,
         type,
         instructions,
         available_from,
@@ -135,6 +149,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         max_attempts,
         total_points,
         status,
+        ...(grading_period_id !== undefined && { grading_period_id }),
         updated_at: new Date().toISOString()
       })
       .eq('id', id)
@@ -163,7 +178,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
           choices_json: q.choices_json || null,
           answer_key_json: q.answer_key_json || null,
           points: q.points || 1,
-          order_index: q.order_index !== undefined ? q.order_index : (q.order !== undefined ? q.order : index)
+          order_index: q.order_index !== undefined ? q.order_index : (q.order !== undefined ? q.order : index),
+          explanation: q.explanation || null,
         }))
 
         const { error: questionsError } = await supabase

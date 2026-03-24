@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { authFetch } from '@/lib/utils/authFetch';
 
 export type ReactionType =
   | 'raise_hand'
@@ -92,7 +93,7 @@ export function useLiveReactions(
 
   const sendReaction = async (type: ReactionType) => {
     try {
-      const response = await fetch(`/api/student/live-sessions/${sessionId}/react`, {
+      const response = await authFetch(`/api/student/live-sessions/${sessionId}/react`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reaction_type: type }),

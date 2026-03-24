@@ -147,7 +147,8 @@ export async function POST(request: NextRequest) {
         choices_json: q.choices_json || null,
         answer_key_json: q.answer_key_json || null,
         points: q.points || 1,
-        order_index: q.order_index !== undefined ? q.order_index : (q.order !== undefined ? q.order : index)
+        order_index: q.order_index !== undefined ? q.order_index : (q.order !== undefined ? q.order : index),
+        explanation: q.explanation || null,
       }))
 
       const { error: questionsError } = await supabase

@@ -24,21 +24,10 @@ export async function POST(
     if (!question || typeof question !== "string") {
       return NextResponse.json({ error: "Question is required" }, { status: 400 });
     }
-    // Simplified query - live_sessions may not have direct section relation
-    // Use service client to bypass RLS
-    const serviceClient = createServiceClient();
-    const { data: session, error: sessionError } = await serviceClient
+    // Flat select — no FK joins (BUG-001: FK joins silently return empty rows)
+    const { data: session, error: sessionError } = await supabase
       .from("live_sessions")
-      .select(
-        `
-        id,
-        course_id,
-        title,
-        description,
-        teacher_profile_id,
-        course:courses(id, name, subject_code, section_id)
-      `
-      )
+      .select("id, course_id, title, description, teacher_profile_id")
       .eq("id", sessionId)
       .single();
 
@@ -46,6 +35,13 @@ export async function POST(
       console.error("Session query error:", sessionError, "sessionId:", sessionId);
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
+
+    // Separate course fetch (flat select — no FK joins per BUG-001)
+    const { data: course } = await supabase
+      .from("courses")
+      .select("id, name, subject_code")
+      .eq("id", session.course_id)
+      .single();
 
     let studentId: string | null = null;
     let gradeLevel: string | null = null;
@@ -131,10 +127,8 @@ export async function POST(
       ? chunks.map((c: { content: string }) => c.content).join("\n\n")
       : "";
 
-    // Handle course data - could be object or array depending on Supabase response
-    const courseData = Array.isArray(session.course) ? session.course[0] : session.course;
-    const courseName = courseData?.name ?? "Course";
-    const subjectCode = courseData?.subject_code ?? "N/A";
+    const courseName = course?.name ?? "Course";
+    const subjectCode = course?.subject_code ?? "N/A";
 
     const systemPrompt = `
 You are a friendly K-12 STEM learning assistant. Be clear, concise, and age-appropriate.

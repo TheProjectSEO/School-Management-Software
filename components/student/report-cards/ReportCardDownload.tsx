@@ -200,7 +200,7 @@ export function ReportCardDownload({
 
                 {/* View Full Report */}
                 <a
-                  href={`/report-cards/${reportCard.id}`}
+                  href={`/student/grades/report-cards/${reportCard.id}`}
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-left text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors"
                 >
                   <span className="material-symbols-outlined text-[18px] text-slate-500 dark:text-slate-400">

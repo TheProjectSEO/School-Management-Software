@@ -3,6 +3,7 @@
 import { authFetch } from "@/lib/utils/authFetch";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type {
   ReportCard,
@@ -433,7 +434,6 @@ function AttendanceTab({
 function RemarksTab({
   remarks,
   canEdit,
-  onAddRemarks,
   reportCardId,
 }: {
   remarks: TeacherRemark[];
@@ -441,9 +441,11 @@ function RemarksTab({
   onAddRemarks?: (remarks: string, subject: string) => Promise<void>;
   reportCardId: string;
 }) {
+  const router = useRouter();
   const [newRemarks, setNewRemarks] = useState("");
   const [subject, setSubject] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // AI Progress Report state
   const [aiReport, setAiReport] = useState<AIProgressReport | null>(null);
@@ -454,13 +456,25 @@ function RemarksTab({
   const [selectedTone, setSelectedTone] = useState<string>("professional");
 
   const handleSubmit = async () => {
-    if (!newRemarks.trim() || !subject.trim() || !onAddRemarks) return;
+    if (!newRemarks.trim() || !subject.trim()) return;
 
     setIsSubmitting(true);
+    setSaveError(null);
     try {
-      await onAddRemarks(newRemarks, subject);
+      const res = await authFetch(`/api/teacher/report-cards/${reportCardId}/remarks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subject, remarks: newRemarks }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to save remarks');
+      }
       setNewRemarks("");
       setSubject("");
+      router.refresh();
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save remarks');
     } finally {
       setIsSubmitting(false);
     }
@@ -546,7 +560,7 @@ function RemarksTab({
       )}
 
       {/* Add Remarks Form */}
-      {canEdit && onAddRemarks && (
+      {canEdit && (
         <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
           <div className="flex items-center justify-between mb-4">
             <h4 className="font-medium text-slate-900 dark:text-white">
@@ -724,6 +738,9 @@ function RemarksTab({
                 className="w-full px-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#0d1520] text-slate-900 dark:text-white placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none"
               />
             </div>
+            {saveError && (
+              <p className="text-sm text-red-600 dark:text-red-400">{saveError}</p>
+            )}
             <button
               onClick={handleSubmit}
               disabled={!newRemarks.trim() || !subject.trim() || isSubmitting}

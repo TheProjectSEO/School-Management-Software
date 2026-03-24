@@ -380,7 +380,7 @@ export default function GradingQueuePage({ teacherId }: GradingQueuePageProps) {
                   </td>
                   <td className="whitespace-nowrap px-6 py-4 text-right">
                     <Link
-                      href={`/teacher/grading/${item.id}`}
+                      href={`/teacher/grading/${item.submission_id}`}
                       className="rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary/90"
                     >
                       Grade

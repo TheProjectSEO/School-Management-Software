@@ -4,6 +4,12 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { authFetch } from "@/lib/utils/authFetch";
 
+interface GradingPeriod {
+  id: string
+  name: string
+  is_active: boolean
+}
+
 interface Subject {
   id: string
   name: string
@@ -31,12 +37,15 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
   const idempotencyKeyRef = useRef<string>('')
   const [lessons, setLessons] = useState<LessonOption[]>([])
   const [loadingLessons, setLoadingLessons] = useState(false)
+  const [gradingPeriods, setGradingPeriods] = useState<GradingPeriod[]>([])
+  const [loadingPeriods, setLoadingPeriods] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
     type: 'quiz' as 'quiz' | 'assignment' | 'project' | 'midterm' | 'final',
     course_id: '',
     lesson_id: '',
-    section_id: ''
+    section_id: '',
+    grading_period_id: ''
   })
 
   // Unique courses (deduplicated by course_id)
@@ -48,6 +57,29 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
   const sectionsForCourse = subjects
     .filter(s => s.id === formData.course_id)
     .map(s => ({ id: s.section_id, name: s.section_name, grade_level: s.grade_level }))
+
+  useEffect(() => {
+    if (!isModalOpen) return
+    async function loadPeriods() {
+      setLoadingPeriods(true)
+      try {
+        const res = await authFetch('/api/teacher/grading-periods')
+        if (!res.ok) return
+        const data = await res.json()
+        setGradingPeriods(data.periods || [])
+        // Auto-select the active period if there is one
+        const active = (data.periods || []).find((p: GradingPeriod) => p.is_active)
+        if (active) {
+          setFormData(prev => ({ ...prev, grading_period_id: active.id }))
+        }
+      } catch (error) {
+        console.error('Failed to load grading periods:', error)
+      } finally {
+        setLoadingPeriods(false)
+      }
+    }
+    loadPeriods()
+  }, [isModalOpen])
 
   // Load lessons when course changes
   useEffect(() => {
@@ -115,6 +147,7 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
           status: 'draft',
           total_points: 100,
           max_attempts: 1,
+          grading_period_id: formData.grading_period_id || null,
           idempotency_key: idempotencyKeyRef.current,
         })
       })
@@ -192,6 +225,26 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
                   <option value="project">Project</option>
                   <option value="midterm">Midterm Exam</option>
                   <option value="final">Final Exam</option>
+                </select>
+              </div>
+
+              {/* Grading Period */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                  Grading Period <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <select
+                  value={formData.grading_period_id}
+                  onChange={(e) => setFormData({ ...formData, grading_period_id: e.target.value })}
+                  disabled={loadingPeriods}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                >
+                  <option value="">{loadingPeriods ? 'Loading...' : 'None (not tied to a quarter)'}</option>
+                  {gradingPeriods.map((period) => (
+                    <option key={period.id} value={period.id}>
+                      {period.name}{period.is_active ? ' (Current)' : ''}
+                    </option>
+                  ))}
                 </select>
               </div>
 

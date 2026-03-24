@@ -129,7 +129,8 @@ export default function SchoolSettingsPage() {
       const response = await authFetch("/api/admin/settings/school");
       if (response.ok) {
         const data = await response.json();
-        setSettings(data);
+        // API returns shape matching SchoolSettings interface — safe to merge
+        setSettings(prev => ({ ...prev, ...data }));
       }
     } catch (error) {
       console.error("Failed to fetch settings:", error);

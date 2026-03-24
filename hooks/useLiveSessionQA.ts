@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { authFetch } from '@/lib/utils/authFetch';
 
 export interface SessionQuestion {
   id: string;
@@ -16,12 +17,8 @@ export interface SessionQuestion {
   answer: string | null;
   upvotes: number;
   created_at: string;
-  student?: {
-    id: string;
-    profile?: {
-      full_name: string;
-    };
-  };
+  student_name?: string | null;
+  answered_by_name?: string | null;
 }
 
 interface UseLiveSessionQAReturn {
@@ -43,22 +40,17 @@ export function useLiveSessionQA(
     if (!sessionId) return;
 
     async function fetchQuestions() {
-      const { data, error } = await supabase
-        .from('session_questions')
-        .select(
-          `
-          *,
-          student:students(id, profile:school_profiles(full_name))
-        `
-        )
-        .eq('session_id', sessionId)
-        .order('upvotes', { ascending: false })
-        .order('created_at', { ascending: true });
-
-      if (!error && data) {
-        setQuestions(data as SessionQuestion[]);
+      try {
+        const res = await authFetch(`/api/student/live-sessions/${sessionId}/questions`);
+        if (res.ok) {
+          const data = await res.json();
+          setQuestions(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error('Error fetching questions:', err);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
 
     fetchQuestions();
@@ -74,9 +66,8 @@ export function useLiveSessionQA(
           table: 'session_questions',
           filter: `session_id=eq.${sessionId}`,
         },
-        (payload) => {
-          const newQuestion = payload.new as SessionQuestion;
-          setQuestions((prev) => [...prev, newQuestion]);
+        () => {
+          fetchQuestions(); // re-fetch full list to get names
         }
       )
       .on(
@@ -87,13 +78,8 @@ export function useLiveSessionQA(
           table: 'session_questions',
           filter: `session_id=eq.${sessionId}`,
         },
-        (payload) => {
-          const updatedQuestion = payload.new as SessionQuestion;
-          setQuestions((prev) =>
-            prev.map((q) =>
-              q.id === updatedQuestion.id ? updatedQuestion : q
-            )
-          );
+        () => {
+          fetchQuestions(); // re-fetch on updates too
         }
       )
       .subscribe();
@@ -105,7 +91,7 @@ export function useLiveSessionQA(
 
   const askQuestion = async (question: string) => {
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `/api/student/live-sessions/${sessionId}/questions`,
         {
           method: 'POST',

@@ -1,26 +1,41 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminAPI } from "@/lib/dal/admin";
 import {
-  getSchoolSettings,
-  updateSchoolSettings,
+  getSchool,
+  updateSchool,
   uploadSchoolLogo,
-  SchoolSettings,
 } from "@/lib/dal/settings";
-
-// GET /api/admin/settings/school - Get school settings
+// GET /api/admin/settings/school - Get school info
 export async function GET(request: NextRequest) {
   try {
     const auth = await requireAdminAPI();
     if (!auth.success) return auth.response;
     const admin = auth.admin;
 
-    const settings = await getSchoolSettings(admin.schoolId);
+    const school = await getSchool(admin.schoolId);
 
-    if (!settings) {
-      return NextResponse.json({ error: "Settings not found" }, { status: 404 });
+    if (!school) {
+      return NextResponse.json({ error: "School not found" }, { status: 404 });
     }
 
-    return NextResponse.json(settings);
+    return NextResponse.json({
+      name: school.name || '',
+      code: school.slug || '',
+      logo: school.logo_url || null,
+      region: school.region || '',
+      division: school.division || '',
+      // Fields not stored in DB — return empty so UI shows editable placeholders
+      address: '',
+      city: school.division || '',
+      province: school.region || '',
+      postalCode: '',
+      phone: '',
+      email: '',
+      website: '',
+      principal: '',
+      foundedYear: '',
+      schoolType: '',
+    });
   } catch (error) {
     console.error("Error in GET /api/admin/settings/school:", error);
     return NextResponse.json(
@@ -30,7 +45,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// PUT /api/admin/settings/school - Update school settings
+// PUT /api/admin/settings/school - Update school info
 export async function PUT(request: NextRequest) {
   try {
     const auth = await requireAdminAPI('settings:update');
@@ -39,27 +54,18 @@ export async function PUT(request: NextRequest) {
 
     const body = await request.json();
 
-    // Build updates object, only including valid fields
-    const updates: Partial<SchoolSettings> = {};
-    const validFields = [
-      "name", "code", "address", "city", "province", "postal_code",
-      "phone", "email", "website", "principal", "founded_year", "school_type"
-    ];
-
-    for (const field of validFields) {
-      if (body[field] !== undefined) {
-        updates[field as keyof SchoolSettings] = body[field];
-      }
-    }
+    // Only update fields that exist in the schools table
+    const updates: Record<string, string> = {};
+    if (body.name) updates.name = body.name;
+    if (body.code) updates.slug = body.code;
+    if (body.region) updates.region = body.region;
+    if (body.division) updates.division = body.division;
 
     if (Object.keys(updates).length === 0) {
-      return NextResponse.json(
-        { error: "No valid fields to update" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: true }); // nothing to save
     }
 
-    const result = await updateSchoolSettings(admin.schoolId, updates);
+    const result = await updateSchool(admin.schoolId, updates);
 
     if (!result.success) {
       return NextResponse.json({ error: result.error }, { status: 400 });

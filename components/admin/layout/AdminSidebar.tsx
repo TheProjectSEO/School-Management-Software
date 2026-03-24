@@ -55,6 +55,7 @@ const navGroups: NavGroup[] = [
       { href: "/admin/enrollment-qr", icon: "qr_code", label: "Enrollment QR" },
       { href: "/admin/enrollments", icon: "assignment_ind", label: "Enrollments" },
       { href: "/admin/enrollments/bulk", icon: "group_add", label: "Bulk Enrollment" },
+      { href: "/admin/report-cards", icon: "summarize", label: "Report Cards" },
     ],
   },
   {

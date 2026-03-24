@@ -77,40 +77,10 @@ export async function getGradingItem(
 ): Promise<GradingItem | null> {
   const supabase = createServiceClient()
 
-  // Get the submission with all related data
+  // 1. Fetch submission (flat)
   const { data: submission, error } = await supabase
     .from('submissions')
-    .select(`
-      id,
-      score,
-      status,
-      feedback,
-      submitted_at,
-      graded_at,
-      attempt_number,
-      student:student_id (
-        id,
-        profile_id,
-        lrn,
-        profiles:profile_id (
-          full_name,
-          avatar_url,
-          auth_user_id
-        )
-      ),
-      assessment:assessment_id (
-        id,
-        title,
-        type,
-        total_points,
-        instructions,
-        course_id,
-        courses:course_id (
-          id,
-          name
-        )
-      )
-    `)
+    .select('id, assessment_id, student_id, score, status, feedback, submitted_at, graded_at, attempt_number')
     .eq('id', itemId)
     .single()
 
@@ -119,77 +89,82 @@ export async function getGradingItem(
     return null
   }
 
-  // Verify teacher has access to this course
-  const assessment = submission.assessment as any
-  const courseId = assessment?.course_id
+  // 2. Fetch assessment (flat)
+  const { data: assessment } = await supabase
+    .from('assessments')
+    .select('id, title, type, total_points, course_id')
+    .eq('id', submission.assessment_id)
+    .single()
 
-  if (courseId) {
-    // Check teacher assignment
-    const { data: teacherProfile } = await supabase
-      .from('teacher_profiles')
+  if (!assessment) return null
+
+  // 3. Verify teacher has access to this course
+  const { data: teacherProfile } = await supabase
+    .from('teacher_profiles')
+    .select('id')
+    .eq('profile_id', teacherProfileId)
+    .single()
+
+  if (teacherProfile) {
+    const { data: assignment } = await supabase
+      .from('teacher_assignments')
       .select('id')
-      .eq('profile_id', teacherProfileId)
+      .eq('course_id', assessment.course_id)
+      .eq('teacher_profile_id', teacherProfile.id)
       .single()
 
-    if (teacherProfile) {
-      const { data: assignment } = await supabase
-        .from('teacher_assignments')
-        .select('id')
-        .eq('course_id', courseId)
-        .eq('teacher_profile_id', teacherProfile.id)
-        .single()
+    if (!assignment) return null
+  }
 
-      if (!assignment) {
-        // Also check if teacher is the course teacher
-        const { data: course } = await supabase
-          .from('courses')
-          .select('teacher_id')
-          .eq('id', courseId)
-          .single()
+  // 4. Fetch course (flat)
+  const { data: course } = await supabase
+    .from('courses')
+    .select('id, name')
+    .eq('id', assessment.course_id)
+    .single()
 
-        if (course?.teacher_id !== teacherProfile.id && course?.teacher_id !== teacherProfileId) {
-          // Teacher doesn't have access
-          return null
-        }
-      }
+  // 5. Fetch student (flat)
+  const { data: student } = await supabase
+    .from('students')
+    .select('id, profile_id, lrn')
+    .eq('id', submission.student_id)
+    .single()
+
+  // 6. Fetch student display name + avatar (flat)
+  let full_name = 'Unknown Student'
+  let avatar_url: string | null = null
+  if (student?.profile_id) {
+    const { data: profile } = await supabase
+      .from('school_profiles')
+      .select('full_name, avatar_url')
+      .eq('id', student.profile_id)
+      .single()
+    if (profile) {
+      full_name = profile.full_name || 'Unknown Student'
+      avatar_url = profile.avatar_url || null
     }
   }
 
-  // Get student answers with question details and answer options
-  const { data: answers } = await supabase
+  // 7. Fetch student answers (flat)
+  const { data: answerRows } = await supabase
     .from('student_answers')
-    .select(`
-      id,
-      question_id,
-      text_answer,
-      selected_option_id,
-      is_correct,
-      points_earned,
-      questions:question_id (
-        id,
-        question_text,
-        question_type,
-        points,
-        correct_answer,
-        answer_options (
-          id,
-          option_text,
-          is_correct
-        )
-      )
-    `)
+    .select('id, question_id, text_answer, selected_option_id, is_correct, points_earned')
     .eq('submission_id', submission.id)
     .order('created_at', { ascending: true })
 
-  const student = submission.student as any
-  const studentProfile = student?.profiles as any
-  const course = assessment?.courses as any
+  const answers = answerRows || []
 
-  // Get student email from auth user
-  let studentEmail = ''
-  if (studentProfile?.auth_user_id) {
-    const { data: authUser } = await supabase.auth.admin.getUserById(studentProfile.auth_user_id)
-    studentEmail = authUser?.user?.email || ''
+  // 8. Fetch questions for those answers (flat, batch)
+  const questionIds = [...new Set(answers.map(a => a.question_id).filter(Boolean))]
+  let questionMap = new Map<string, any>()
+  if (questionIds.length > 0) {
+    const { data: questions } = await supabase
+      .from('teacher_assessment_questions')
+      .select('id, question_text, question_type, points, choices_json, answer_key_json')
+      .in('id', questionIds)
+    if (questions) {
+      questions.forEach(q => questionMap.set(q.id, q))
+    }
   }
 
   return {
@@ -204,23 +179,41 @@ export async function getGradingItem(
     },
     student: {
       id: student?.id || '',
-      full_name: studentProfile?.full_name || 'Unknown Student',
-      email: studentEmail,
-      avatar_url: studentProfile?.avatar_url || null
+      full_name,
+      email: '',  // email not needed for grading UI
+      avatar_url
     },
     assessment: {
-      id: assessment?.id || '',
-      title: assessment?.title || '',
-      type: assessment?.type || 'assignment',
-      total_points: assessment?.total_points || 100,
+      id: assessment.id,
+      title: assessment.title || '',
+      type: assessment.type || 'assignment',
+      total_points: assessment.total_points || 100,
       course: {
         id: course?.id || '',
         name: course?.name || ''
       }
     },
-    answers: (answers || []).map(a => {
-      const question = a.questions as any
-      const options = question?.answer_options || []
+    answers: answers.map(a => {
+      const question = questionMap.get(a.question_id)
+      // Build options from choices_json (array of strings or {id, text} objects)
+      const choicesJson = question?.choices_json
+      const answerKeyJson = question?.answer_key_json
+      const options = Array.isArray(choicesJson)
+        ? choicesJson.map((choice: any, idx: number) => {
+            const choiceText = typeof choice === 'string' ? choice : (choice.text || choice.option_text || String(choice))
+            const choiceId = typeof choice === 'object' && choice.id ? choice.id : String(idx)
+            const correctIndex = answerKeyJson?.correctIndex
+            const isCorrect = correctIndex !== undefined ? correctIndex === idx : false
+            return { id: choiceId, option_text: choiceText, is_correct: isCorrect }
+          })
+        : []
+      // Extract correct answer text for display
+      let correct_answer: string | undefined
+      if (answerKeyJson?.correctAnswer) {
+        correct_answer = String(answerKeyJson.correctAnswer)
+      } else if (answerKeyJson?.correctText) {
+        correct_answer = String(answerKeyJson.correctText)
+      }
       return {
         id: a.id,
         question_id: a.question_id,
@@ -231,12 +224,8 @@ export async function getGradingItem(
         text_answer: a.text_answer,
         is_correct: a.is_correct,
         points_earned: a.points_earned,
-        correct_answer: question?.correct_answer || undefined,
-        options: options.map((opt: any) => ({
-          id: opt.id,
-          option_text: opt.option_text,
-          is_correct: opt.is_correct
-        }))
+        correct_answer,
+        options
       }
     })
   }

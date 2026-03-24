@@ -171,50 +171,54 @@ async function fetchStudentInfo(
   studentId: string
 ): Promise<ReportCardStudentInfo | null> {
   try {
-    const supabase = createServiceClient();
+    const supabase = createServiceClient()
+    const { data: student } = await supabase
+      .from('students')
+      .select('id, lrn, student_number, section_id, profile_id')
+      .eq('id', studentId)
+      .single()
 
-    const { data, error } = await supabase
-      .from("students")
-      .select(
-        `
-        id,
-        lrn,
-        student_number,
-        section_id,
-        profile:school_profiles!inner(
-          full_name,
-          email,
-          date_of_birth
-        ),
-        section:sections(
-          name,
-          grade_level
-        )
-      `
-      )
-      .eq("id", studentId)
-      .single();
+    if (!student) return null
 
-    if (error || !data) {
-      console.error("Error fetching student info:", error);
-      return null;
+    let fullName = 'Unknown Student', email: string | undefined, dateOfBirth: string | undefined
+    if (student.profile_id) {
+      const { data: profile } = await supabase
+        .from('school_profiles')
+        .select('full_name, email, date_of_birth')
+        .eq('id', (student as any).profile_id)
+        .single()
+      if (profile) {
+        fullName = (profile as any).full_name || 'Unknown Student'
+        email = (profile as any).email
+        dateOfBirth = (profile as any).date_of_birth
+      }
     }
 
-    const profile = data.profile as { full_name?: string; email?: string; date_of_birth?: string };
-    const section = data.section as { name?: string; grade_level?: string };
+    let gradeName = '', sectionName = ''
+    if (student.section_id) {
+      const { data: section } = await supabase
+        .from('sections')
+        .select('name, grade_level')
+        .eq('id', student.section_id)
+        .single()
+      if (section) {
+        gradeName = (section as any).grade_level || ''
+        sectionName = (section as any).name || ''
+      }
+    }
 
     return {
-      full_name: profile?.full_name || "Unknown Student",
-      lrn: data.lrn || "",
-      grade_level: section?.grade_level || "",
-      section_name: section?.name || "",
-      student_number: data.student_number,
-      email: profile?.email,
-      date_of_birth: profile?.date_of_birth,
-    };
+      full_name: fullName,
+      lrn: student.lrn || '',
+      grade_level: gradeName,
+      section_name: sectionName,
+      student_number: (student as any).student_number,
+      email,
+      date_of_birth: dateOfBirth,
+    }
   } catch (error) {
-    console.error("Unexpected error in fetchStudentInfo:", error);
-    return null;
+    console.error('Unexpected error in fetchStudentInfo:', error)
+    return null
   }
 }
 
@@ -226,67 +230,63 @@ async function fetchStudentGrades(
   gradingPeriodId: string
 ): Promise<ReportCardGrade[]> {
   try {
-    const supabase = createServiceClient();
+    const supabase = createServiceClient()
 
-    const { data, error } = await supabase
-      .from("course_grades")
-      .select(
-        `
-        id,
-        course_id,
-        numeric_grade,
-        letter_grade,
-        gpa_points,
-        credit_hours,
-        course:courses(
-          id,
-          name,
-          subject_code,
-          teacher_id
-        )
-      `
-      )
-      .eq("student_id", studentId)
-      .eq("grading_period_id", gradingPeriodId);
+    const { data: gradeRows, error } = await supabase
+      .from('course_grades')
+      .select('id, course_id, quarterly_grade, numeric_grade, letter_grade, gpa_points, credit_hours')
+      .eq('student_id', studentId)
+      .eq('grading_period_id', gradingPeriodId)
+      .eq('is_released', true)
 
     if (error) {
-      console.error("Error fetching student grades:", error);
-      return [];
+      console.error('Error fetching student grades:', error)
+      return []
     }
 
-    // Fetch teacher names for each course
-    const gradesWithTeachers = await Promise.all(
-      (data || []).map(async (grade) => {
-        const course = grade.course as {
-          id?: string;
-          name?: string;
-          subject_code?: string;
-          teacher_id?: string;
-        };
+    if (!gradeRows || gradeRows.length === 0) return []
 
-        let teacherName = "Unknown Teacher";
-        if (course?.teacher_id) {
-          teacherName = await fetchTeacherName(course.teacher_id);
-        }
+    // Fetch courses separately (BUG-001: no FK joins)
+    const courseIds = [...new Set(gradeRows.map((g: any) => g.course_id).filter(Boolean))]
+    const courseMap = new Map<string, { id: string; name: string; subject_code: string }>()
+    if (courseIds.length > 0) {
+      const { data: courses } = await supabase
+        .from('courses')
+        .select('id, name, subject_code')
+        .in('id', courseIds)
+      courses?.forEach((c: any) => courseMap.set(c.id, c))
+    }
 
-        return {
-          course_id: grade.course_id,
-          course_name: course?.name || "Unknown Course",
-          subject_code: course?.subject_code || "",
-          credit_hours: grade.credit_hours || 3,
-          numeric_grade: grade.numeric_grade || 0,
-          letter_grade: grade.letter_grade || "NG",
-          gpa_points: grade.gpa_points || 0,
-          teacher_name: teacherName,
-        } as ReportCardGrade;
-      })
-    );
-
-    return gradesWithTeachers;
+    return gradeRows.map((grade: any) => {
+      const course = courseMap.get(grade.course_id)
+      const numericGrade = grade.quarterly_grade ?? grade.numeric_grade ?? 0
+      const letterGrade = grade.letter_grade || depedLetterGrade(numericGrade)
+      return {
+        course_id: grade.course_id,
+        course_name: course?.name || 'Unknown Course',
+        subject_code: course?.subject_code || '',
+        credit_hours: grade.credit_hours || 1,
+        numeric_grade: numericGrade,
+        letter_grade: letterGrade,
+        gpa_points: grade.gpa_points || 0,
+        teacher_name: '',
+      } as ReportCardGrade
+    })
   } catch (error) {
-    console.error("Unexpected error in fetchStudentGrades:", error);
-    return [];
+    console.error('Unexpected error in fetchStudentGrades:', error)
+    return []
   }
+}
+
+/**
+ * DepEd letter grade from numeric average
+ */
+function depedLetterGrade(grade: number): string {
+  if (grade >= 90) return 'O'
+  if (grade >= 85) return 'VS'
+  if (grade >= 80) return 'S'
+  if (grade >= 75) return 'FS'
+  return 'DNME'
 }
 
 /**
@@ -294,28 +294,21 @@ async function fetchStudentGrades(
  */
 async function fetchTeacherName(teacherId: string): Promise<string> {
   try {
-    const supabase = createServiceClient();
-
-    const { data, error } = await supabase
-      .from("teacher_profiles")
-      .select(
-        `
-        profile:school_profiles!inner(
-          full_name
-        )
-      `
-      )
-      .eq("id", teacherId)
-      .single();
-
-    if (error || !data) {
-      return "Unknown Teacher";
-    }
-
-    const profile = data.profile as { full_name?: string };
-    return profile?.full_name || "Unknown Teacher";
+    const supabase = createServiceClient()
+    const { data: tp } = await supabase
+      .from('teacher_profiles')
+      .select('profile_id')
+      .eq('id', teacherId)
+      .single()
+    if (!tp?.profile_id) return 'Unknown Teacher'
+    const { data: profile } = await supabase
+      .from('school_profiles')
+      .select('full_name')
+      .eq('id', (tp as any).profile_id)
+      .single()
+    return (profile as any)?.full_name || 'Unknown Teacher'
   } catch {
-    return "Unknown Teacher";
+    return 'Unknown Teacher'
   }
 }
 
@@ -327,113 +320,43 @@ async function fetchStudentGPA(
   gradingPeriodId: string
 ): Promise<ReportCardGPA> {
   try {
-    const supabase = createServiceClient();
+    const supabase = createServiceClient()
+    const { data: grades } = await supabase
+      .from('course_grades')
+      .select('quarterly_grade, numeric_grade')
+      .eq('student_id', studentId)
+      .eq('grading_period_id', gradingPeriodId)
+      .eq('is_released', true)
 
-    // Try to get existing GPA record
-    const { data: gpaRecord, error } = await supabase
-      .from("semester_gpa")
-      .select("*")
-      .eq("student_id", studentId)
-      .eq("grading_period_id", gradingPeriodId)
-      .maybeSingle();
+    const gradeValues = (grades || [])
+      .map((g: any) => g.quarterly_grade ?? g.numeric_grade ?? 0)
+      .filter((v: number) => v > 0)
 
-    if (gpaRecord && !error) {
-      return {
-        term_gpa: gpaRecord.term_gpa || 0,
-        cumulative_gpa: gpaRecord.cumulative_gpa || 0,
-        term_credits: gpaRecord.term_credits_earned || 0,
-        cumulative_credits: gpaRecord.cumulative_credits_earned || 0,
-        academic_standing: (gpaRecord.academic_standing as AcademicStanding) || "good_standing",
-      };
-    }
-
-    // Calculate GPA from grades if no record exists
-    return calculateGPAFromGrades(studentId, gradingPeriodId);
-  } catch (error) {
-    console.error("Unexpected error in fetchStudentGPA:", error);
-    return {
-      term_gpa: 0,
-      cumulative_gpa: 0,
-      term_credits: 0,
-      cumulative_credits: 0,
-      academic_standing: "good_standing",
-    };
-  }
-}
-
-/**
- * Calculate GPA from course grades
- */
-async function calculateGPAFromGrades(
-  studentId: string,
-  gradingPeriodId: string
-): Promise<ReportCardGPA> {
-  try {
-    const supabase = createServiceClient();
-
-    // Get current term grades
-    const { data: termGrades } = await supabase
-      .from("course_grades")
-      .select("gpa_points, credit_hours")
-      .eq("student_id", studentId)
-      .eq("grading_period_id", gradingPeriodId);
-
-    // Get all grades for cumulative GPA
-    const { data: allGrades } = await supabase
-      .from("course_grades")
-      .select("gpa_points, credit_hours")
-      .eq("student_id", studentId);
-
-    const termGPA = calculateWeightedGPA(termGrades || []);
-    const cumulativeGPA = calculateWeightedGPA(allGrades || []);
-
-    const termCredits = (termGrades || []).reduce(
-      (sum, g) => sum + (g.credit_hours || 0),
-      0
-    );
-    const cumulativeCredits = (allGrades || []).reduce(
-      (sum, g) => sum + (g.credit_hours || 0),
-      0
-    );
+    const termGPA = gradeValues.length > 0
+      ? Math.round((gradeValues.reduce((a: number, b: number) => a + b, 0) / gradeValues.length) * 100) / 100
+      : 0
 
     return {
       term_gpa: termGPA,
-      cumulative_gpa: cumulativeGPA,
-      term_credits: termCredits,
-      cumulative_credits: cumulativeCredits,
-      academic_standing: determineAcademicStanding(cumulativeGPA),
-    };
-  } catch {
-    return {
-      term_gpa: 0,
-      cumulative_gpa: 0,
-      term_credits: 0,
-      cumulative_credits: 0,
-      academic_standing: "good_standing",
-    };
+      cumulative_gpa: termGPA,
+      term_credits: gradeValues.length,
+      cumulative_credits: gradeValues.length,
+      academic_standing: depedAcademicStanding(termGPA),
+    }
+  } catch (error) {
+    console.error('Unexpected error in fetchStudentGPA:', error)
+    return { term_gpa: 0, cumulative_gpa: 0, term_credits: 0, cumulative_credits: 0, academic_standing: 'good_standing' }
   }
 }
 
 /**
- * Calculate weighted GPA from grades
+ * Determine DepEd academic standing based on average grade
  */
-function calculateWeightedGPA(
-  grades: { gpa_points?: number; credit_hours?: number }[]
-): number {
-  if (grades.length === 0) return 0;
-
-  let totalQualityPoints = 0;
-  let totalCredits = 0;
-
-  for (const grade of grades) {
-    const gpaPoints = grade.gpa_points || 0;
-    const credits = grade.credit_hours || 0;
-    totalQualityPoints += gpaPoints * credits;
-    totalCredits += credits;
-  }
-
-  if (totalCredits === 0) return 0;
-  return Math.round((totalQualityPoints / totalCredits) * 100) / 100;
+function depedAcademicStanding(avg: number): AcademicStanding {
+  if (avg >= 98) return 'presidents_list'
+  if (avg >= 95) return 'deans_list'
+  if (avg >= 75) return 'good_standing'
+  return 'probation'
 }
 
 /**
@@ -665,4 +588,4 @@ export async function batchGenerateReportCards(
 // UTILITY EXPORTS
 // ============================================================================
 
-export { determineAcademicStanding, calculateWeightedGPA };
+export { determineAcademicStanding };

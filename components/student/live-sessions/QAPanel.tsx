@@ -127,7 +127,7 @@ export function QAPanel({ sessionId, gradeLevel }: QAPanelProps) {
               >
                 {/* Student name */}
                 <div className={`${theme.typography.bodySize} font-medium text-gray-600 mb-1`}>
-                  {isPlayful ? '👤' : ''} {q.student?.profile?.full_name || 'Student'}
+                  {isPlayful ? '👤' : ''} {q.student_name || 'Student'}
                 </div>
 
                 {/* Question */}

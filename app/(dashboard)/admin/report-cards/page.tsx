@@ -18,6 +18,17 @@ interface ReportCardItem {
   has_remarks: boolean
 }
 
+interface Section {
+  id: string
+  name: string
+  grade_level: string
+}
+
+interface GradingPeriod {
+  id: string
+  name: string
+}
+
 const STATUS_LABELS: Record<string, string> = {
   pending_review: 'Pending Review',
   approved: 'Approved',
@@ -38,6 +49,15 @@ export default function AdminReportCardsPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [message, setMessage] = useState('')
 
+  // Generate modal state
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
+  const [sections, setSections] = useState<Section[]>([])
+  const [gradingPeriods, setGradingPeriods] = useState<GradingPeriod[]>([])
+  const [generateSectionId, setGenerateSectionId] = useState('')
+  const [generatePeriodId, setGeneratePeriodId] = useState('')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [generateResult, setGenerateResult] = useState<string | null>(null)
+
   const fetchReportCards = useCallback(async () => {
     setLoading(true)
     setSelected(new Set())
@@ -53,6 +73,26 @@ export default function AdminReportCardsPage() {
   }, [statusFilter])
 
   useEffect(() => { fetchReportCards() }, [fetchReportCards])
+
+  // Load sections and grading periods when modal opens
+  useEffect(() => {
+    if (!showGenerateModal) return
+    async function loadModalData() {
+      try {
+        const [sectRes, periodRes] = await Promise.all([
+          authFetch('/api/admin/sections'),
+          authFetch('/api/admin/grading-periods'),
+        ])
+        const sectData = await sectRes.json()
+        const periodData = await periodRes.json()
+        setSections(sectData.sections || sectData || [])
+        setGradingPeriods(periodData.periods || periodData.gradingPeriods || [])
+      } catch (err) {
+        console.error('Failed to load modal data:', err)
+      }
+    }
+    loadModalData()
+  }, [showGenerateModal])
 
   const toggleSelect = (id: string) => {
     setSelected(prev => {
@@ -113,6 +153,30 @@ export default function AdminReportCardsPage() {
     }
   }
 
+  const handleGenerate = async () => {
+    if (!generateSectionId || !generatePeriodId) return
+    setIsGenerating(true)
+    setGenerateResult(null)
+    try {
+      const res = await authFetch('/api/admin/report-cards/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sectionId: generateSectionId, gradingPeriodId: generatePeriodId }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setGenerateResult(`Generated ${data.generated} report card(s).${data.failed > 0 ? ` ${data.failed} failed.` : ''}`)
+        fetchReportCards()
+      } else {
+        setGenerateResult(`Error: ${data.error || 'Generation failed'}`)
+      }
+    } catch (err) {
+      setGenerateResult('Failed to generate report cards.')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -120,7 +184,81 @@ export default function AdminReportCardsPage() {
           <h1 className="text-2xl font-bold text-gray-900">Report Cards</h1>
           <p className="text-sm text-gray-500 mt-1">Review and release report cards submitted by teachers.</p>
         </div>
+        <button
+          onClick={() => { setShowGenerateModal(true); setGenerateResult(null); setGenerateSectionId(''); setGeneratePeriodId('') }}
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#7B1113] text-white rounded-lg font-medium text-sm hover:bg-[#5a0c0e] transition-colors"
+        >
+          <span className="material-symbols-outlined text-[18px]">add_chart</span>
+          Generate Report Cards
+        </button>
       </div>
+
+      {/* Generate Modal */}
+      {showGenerateModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/50" onClick={() => !isGenerating && setShowGenerateModal(false)} />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 z-10">
+            <h2 className="text-lg font-bold text-gray-900 mb-4">Generate Report Cards</h2>
+            <p className="text-sm text-gray-500 mb-4">
+              This will compile report card snapshots for all students in the selected section and grading period.
+              Existing draft report cards will be refreshed.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Section <span className="text-red-500">*</span></label>
+                <select
+                  value={generateSectionId}
+                  onChange={e => setGenerateSectionId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#7B1113]/20 focus:border-[#7B1113]"
+                >
+                  <option value="">Select a section</option>
+                  {sections.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} — Grade {s.grade_level}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Grading Period <span className="text-red-500">*</span></label>
+                <select
+                  value={generatePeriodId}
+                  onChange={e => setGeneratePeriodId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-[#7B1113]/20 focus:border-[#7B1113]"
+                >
+                  <option value="">Select a grading period</option>
+                  {gradingPeriods.map(p => (
+                    <option key={p.id} value={p.id}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              {generateResult && (
+                <p className={`text-sm font-medium ${generateResult.startsWith('Error') ? 'text-red-600' : 'text-green-600'}`}>
+                  {generateResult}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setShowGenerateModal(false)}
+                disabled={isGenerating}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+              >
+                Close
+              </button>
+              <button
+                onClick={handleGenerate}
+                disabled={isGenerating || !generateSectionId || !generatePeriodId}
+                className="px-4 py-2 bg-[#7B1113] text-white rounded-lg text-sm font-medium hover:bg-[#5a0c0e] disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isGenerating ? (
+                  <><span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>Generating...</>
+                ) : (
+                  <><span className="material-symbols-outlined text-[16px]">add_chart</span>Generate</>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Status filter tabs */}
       <div className="flex gap-2 border-b border-gray-200">

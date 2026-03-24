@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import { getCurrentUser } from "@/lib/auth/session";
 import { getReportCard } from "@/lib/dal/report-cards";
 import ReportCardDetail from "@/components/teacher/report-cards/ReportCardDetail";
+import SubmitReportCardButton from "./SubmitReportCardButton";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import type { Metadata } from "next";
 
@@ -88,14 +89,7 @@ async function ReportCardContent({ id }: { id: string }) {
               Download PDF
             </a>
           )}
-          {canEdit && (
-            <button className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg font-bold text-sm hover:bg-[#5a0c0e] transition-colors">
-              <span className="material-symbols-outlined text-[18px]">
-                send
-              </span>
-              Submit for Review
-            </button>
-          )}
+          {canEdit && <SubmitReportCardButton reportCardId={id} />}
         </div>
       </div>
 
@@ -103,11 +97,6 @@ async function ReportCardContent({ id }: { id: string }) {
       <ReportCardDetail
         reportCard={reportCard}
         canEdit={canEdit}
-        onAddRemarks={async (remarks, subject) => {
-          "use server";
-          // This would call the API to add remarks
-          console.log("Adding remarks:", { remarks, subject });
-        }}
       />
     </>
   );

@@ -1,6 +1,10 @@
 /**
  * Grading Queue Data Access Layer
  * Handles all database operations for the teacher grading queue
+ *
+ * IMPORTANT: No FK joins anywhere in this file (BUG-001).
+ * All related data is fetched with flat selects + separate queries,
+ * then enriched in JavaScript using Maps.
  */
 
 import { createServiceClient } from '@/lib/supabase/service'
@@ -25,15 +29,15 @@ export interface GradingQueueItem {
   graded_by: string | null
   graded_at: string | null
   created_at: string
-  // Joined data
-  student_name?: string
-  student_id?: string
-  student_lrn?: string
-  assessment_id?: string
-  assessment_title?: string
-  course_name?: string
-  section_name?: string
-  submitted_at?: string
+  // Enriched data
+  student_name?: string | null
+  student_id?: string | null
+  student_lrn?: string | null
+  assessment_id?: string | null
+  assessment_title?: string | null
+  course_name?: string | null
+  section_name?: string | null
+  submitted_at?: string | null
 }
 
 export interface GradingQueueFilters {
@@ -69,38 +73,45 @@ export interface FlagItemInput {
 // ============================================
 
 /**
- * Verify teacher has access to grade items for their courses
+ * Verify teacher has access to grade items for their courses.
+ * Flat chain: queue → submission → assessment → teacher_assignments
  */
 async function verifyTeacherQueueAccess(teacherId: string, queueItemId: string): Promise<boolean> {
   const supabase = createServiceClient()
 
-  // Get the queue item with submission and assessment info
+  // Step 1: Get submission_id from queue item
   const { data: queueItem } = await supabase
     .from('teacher_grading_queue')
-    .select(`
-      id,
-      submission:submissions!inner(
-        assessment_id,
-        assessments!inner(
-          course_id
-        )
-      )
-    `)
+    .select('submission_id')
     .eq('id', queueItemId)
     .single()
 
   if (!queueItem) return false
 
-  // Extract course_id from nested relation
-  const submission = queueItem.submission as unknown as { assessments: { course_id: string } }
-  const courseId = submission.assessments.course_id
+  // Step 2: Get assessment_id from submission
+  const { data: submission } = await supabase
+    .from('submissions')
+    .select('assessment_id')
+    .eq('id', queueItem.submission_id)
+    .single()
 
-  // Check if teacher is assigned to this course
+  if (!submission) return false
+
+  // Step 3: Get course_id from assessment
+  const { data: assessment } = await supabase
+    .from('assessments')
+    .select('course_id')
+    .eq('id', submission.assessment_id)
+    .single()
+
+  if (!assessment) return false
+
+  // Step 4: Check teacher assignment
   const { count } = await supabase
     .from('teacher_assignments')
     .select('*', { count: 'exact', head: true })
     .eq('teacher_profile_id', teacherId)
-    .eq('course_id', courseId)
+    .eq('course_id', assessment.course_id)
 
   return (count || 0) > 0
 }
@@ -110,7 +121,8 @@ async function verifyTeacherQueueAccess(teacherId: string, queueItemId: string):
 // ============================================
 
 /**
- * Get grading queue items for a teacher
+ * Get grading queue items for a teacher.
+ * All related data fetched with flat selects + Maps (no FK joins).
  */
 export async function getGradingQueue(
   teacherId: string,
@@ -120,7 +132,7 @@ export async function getGradingQueue(
 ): Promise<GradingQueueItem[]> {
   const supabase = createServiceClient()
 
-  // Get teacher's courses first
+  // Step 1: Get teacher's course IDs
   const { data: assignments } = await supabase
     .from('teacher_assignments')
     .select('course_id')
@@ -128,167 +140,299 @@ export async function getGradingQueue(
 
   if (!assignments || assignments.length === 0) return []
 
-  const courseIds = assignments.map(a => a.course_id)
+  const courseIds = assignments.map(a => a.course_id as string)
 
-  // Build the query
-  let query = supabase
-    .from('teacher_grading_queue')
-    .select(`
-      *,
-      submission:submissions!inner(
-        id,
-        submitted_at,
-        student:students!inner(
-          id,
-          lrn,
-          profile:school_profiles!inner(full_name)
-        ),
-        assessment:assessments!inner(
-          id,
-          title,
-          course_id,
-          course:courses!inner(
-            name,
-            section:sections!inner(name)
-          )
-        )
-      )
-    `)
-    .in('submission.assessment.course_id', courseIds)
-    .order('priority', { ascending: false })
-    .order('created_at', { ascending: true })
-
-  // Apply filters
-  if (filters?.status && filters.status !== 'all') {
-    query = query.eq('status', filters.status)
-  }
+  // Step 2: Get assessments for those courses
+  let assessmentQuery = supabase
+    .from('assessments')
+    .select('id, title, course_id')
+    .in('course_id', courseIds)
 
   if (filters?.assessmentId) {
-    query = query.eq('submission.assessment_id', filters.assessmentId)
+    assessmentQuery = assessmentQuery.eq('id', filters.assessmentId)
   }
 
-  if (filters?.courseId) {
-    query = query.eq('submission.assessment.course_id', filters.courseId)
-  }
+  const { data: assessments } = await assessmentQuery
 
-  if (filters?.questionType) {
-    query = query.eq('question_type', filters.questionType)
+  if (!assessments || assessments.length === 0) return []
+
+  const assessmentIds = assessments.map(a => a.id as string)
+  const assessmentMap = new Map(
+    assessments.map(a => [a.id as string, { id: a.id as string, title: a.title as string, course_id: a.course_id as string }])
+  )
+
+  // Step 3: Get submissions for those assessments
+  let submissionQuery = supabase
+    .from('submissions')
+    .select('id, student_id, submitted_at, assessment_id')
+    .in('assessment_id', assessmentIds)
+
+  if (filters?.submissionId) {
+    submissionQuery = submissionQuery.eq('id', filters.submissionId)
   }
 
   if (filters?.studentId) {
-    query = query.eq('submission.student_id', filters.studentId)
+    submissionQuery = submissionQuery.eq('student_id', filters.studentId)
   }
 
-  if (filters?.submissionId) {
-    query = query.eq('submission_id', filters.submissionId)
+  const { data: submissions } = await submissionQuery
+
+  if (!submissions || submissions.length === 0) return []
+
+  const submissionIds = submissions.map(s => s.id as string)
+  const submissionMap = new Map(
+    submissions.map(s => [
+      s.id as string,
+      {
+        student_id: s.student_id as string,
+        submitted_at: s.submitted_at as string,
+        assessment_id: s.assessment_id as string,
+      },
+    ])
+  )
+
+  // Step 4: Query teacher_grading_queue with filters
+  let queueQuery = supabase
+    .from('teacher_grading_queue')
+    .select('*')
+    .in('submission_id', submissionIds)
+    .order('priority', { ascending: false })
+    .order('created_at', { ascending: true })
+    .range(offset, offset + limit - 1)
+
+  if (filters?.status && filters.status !== 'all') {
+    queueQuery = queueQuery.eq('status', filters.status)
+  }
+
+  if (filters?.questionType) {
+    queueQuery = queueQuery.eq('question_type', filters.questionType)
   }
 
   if (filters?.priority === 'high') {
-    query = query.gte('priority', 1)
+    queueQuery = queueQuery.gte('priority', 1)
   }
 
-  // Pagination
-  query = query.range(offset, offset + limit - 1)
+  const { data: items, error } = await queueQuery
 
-  const { data, error } = await query
-
-  if (error) {
-    console.error('Error fetching grading queue:', error)
+  if (error || !items || items.length === 0) {
+    if (error) console.error('Error fetching grading queue:', error)
     return []
   }
 
-  // Transform the data
-  return data.map(item => ({
-    id: item.id,
-    submission_id: item.submission_id,
-    question_id: item.question_id,
-    question_type: item.question_type,
-    question_text: item.question_text,
-    student_response: item.student_response,
-    max_points: item.max_points,
-    points_awarded: item.points_awarded,
-    feedback: item.feedback,
-    rubric_json: item.rubric_json,
-    status: item.status,
-    priority: item.priority,
-    graded_by: item.graded_by,
-    graded_at: item.graded_at,
-    created_at: item.created_at,
-    // Joined data
-    student_name: item.submission?.student?.profile?.full_name,
-    student_id: item.submission?.student?.id,
-    student_lrn: item.submission?.student?.lrn,
-    assessment_id: item.submission?.assessment?.id,
-    assessment_title: item.submission?.assessment?.title,
-    course_name: item.submission?.assessment?.course?.name,
-    section_name: item.submission?.assessment?.course?.section?.name,
-    submitted_at: item.submission?.submitted_at
-  })) as GradingQueueItem[]
+  // Step 5: Enrich with student and course data
+
+  // Collect unique student IDs from submissions referenced by queue items
+  const referencedSubmissionIds = new Set(items.map(i => i.submission_id as string))
+  const uniqueStudentIds = Array.from(
+    new Set(
+      Array.from(referencedSubmissionIds)
+        .map(sid => submissionMap.get(sid)?.student_id)
+        .filter((id): id is string => Boolean(id))
+    )
+  )
+
+  // Fetch students
+  let studentMap = new Map<string, { profile_id: string; lrn: string | null }>()
+  if (uniqueStudentIds.length > 0) {
+    const { data: students } = await supabase
+      .from('students')
+      .select('id, profile_id, lrn')
+      .in('id', uniqueStudentIds)
+
+    if (students) {
+      for (const s of students) {
+        studentMap.set(s.id as string, { profile_id: s.profile_id as string, lrn: s.lrn as string | null })
+      }
+    }
+  }
+
+  // Fetch school_profiles for full names
+  const uniqueProfileIds = Array.from(
+    new Set(Array.from(studentMap.values()).map(s => s.profile_id).filter(Boolean))
+  )
+  let profileMap = new Map<string, string>()
+  if (uniqueProfileIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('school_profiles')
+      .select('id, full_name')
+      .in('id', uniqueProfileIds)
+
+    if (profiles) {
+      for (const p of profiles) {
+        profileMap.set(p.id as string, p.full_name as string)
+      }
+    }
+  }
+
+  // Fetch courses for names
+  const uniqueCourseIds = Array.from(
+    new Set(
+      Array.from(assessmentMap.values()).map(a => a.course_id).filter(Boolean)
+    )
+  )
+  let courseMap = new Map<string, string>()
+  if (uniqueCourseIds.length > 0) {
+    const { data: courses } = await supabase
+      .from('courses')
+      .select('id, name')
+      .in('id', uniqueCourseIds)
+
+    if (courses) {
+      for (const c of courses) {
+        courseMap.set(c.id as string, c.name as string)
+      }
+    }
+  }
+
+  // Step 6: Build final result
+  return items.map(item => {
+    const sub = submissionMap.get(item.submission_id as string)
+    const student = sub ? studentMap.get(sub.student_id) : undefined
+    const profile_id = student?.profile_id
+    const assessment = sub ? assessmentMap.get(sub.assessment_id) : undefined
+
+    return {
+      id: item.id as string,
+      submission_id: item.submission_id as string,
+      question_id: item.question_id as string,
+      question_type: item.question_type as string,
+      question_text: item.question_text as string | null,
+      student_response: item.student_response as string | null,
+      max_points: item.max_points as number,
+      points_awarded: item.points_awarded as number | null,
+      feedback: item.feedback as string | null,
+      rubric_json: item.rubric_json ?? null,
+      status: item.status as 'pending' | 'graded' | 'flagged',
+      priority: item.priority as number,
+      graded_by: item.graded_by as string | null,
+      graded_at: item.graded_at as string | null,
+      created_at: item.created_at as string,
+      student_name: profile_id ? profileMap.get(profile_id) || null : null,
+      student_id: sub?.student_id || null,
+      student_lrn: student?.lrn || null,
+      assessment_id: assessment?.id || null,
+      assessment_title: assessment?.title || null,
+      course_name: assessment ? courseMap.get(assessment.course_id) || null : null,
+      section_name: null, // omitted — not critical for queue display
+      submitted_at: sub?.submitted_at || null,
+    }
+  })
 }
 
 /**
- * Get a single queue item with full details
+ * Get a single queue item with full details.
+ * Flat sequential fetches — no FK joins.
  */
 export async function getQueueItem(itemId: string): Promise<GradingQueueItem | null> {
   const supabase = createServiceClient()
 
-  const { data, error } = await supabase
+  // Step 1: Fetch queue item
+  const { data: item, error } = await supabase
     .from('teacher_grading_queue')
-    .select(`
-      *,
-      submission:submissions!inner(
-        id,
-        submitted_at,
-        student:students!inner(
-          id,
-          lrn,
-          profile:school_profiles!inner(full_name, avatar_url)
-        ),
-        assessment:assessments!inner(
-          id,
-          title,
-          type,
-          total_points,
-          course_id,
-          course:courses!inner(
-            name,
-            section:sections!inner(name)
-          )
-        )
-      )
-    `)
+    .select('*')
     .eq('id', itemId)
     .single()
 
-  if (error || !data) {
+  if (error || !item) {
     console.error('Error fetching queue item:', error)
     return null
   }
 
+  // Step 2: Fetch submission
+  const { data: submission } = await supabase
+    .from('submissions')
+    .select('student_id, submitted_at, assessment_id')
+    .eq('id', item.submission_id as string)
+    .single()
+
+  if (!submission) {
+    return {
+      id: item.id as string,
+      submission_id: item.submission_id as string,
+      question_id: item.question_id as string,
+      question_type: item.question_type as string,
+      question_text: item.question_text as string | null,
+      student_response: item.student_response as string | null,
+      max_points: item.max_points as number,
+      points_awarded: item.points_awarded as number | null,
+      feedback: item.feedback as string | null,
+      rubric_json: item.rubric_json ?? null,
+      status: item.status as 'pending' | 'graded' | 'flagged',
+      priority: item.priority as number,
+      graded_by: item.graded_by as string | null,
+      graded_at: item.graded_at as string | null,
+      created_at: item.created_at as string,
+      student_name: null,
+      student_id: null,
+      student_lrn: null,
+      assessment_id: null,
+      assessment_title: null,
+      course_name: null,
+      section_name: null,
+      submitted_at: null,
+    }
+  }
+
+  // Step 3: Fetch student
+  const { data: student } = await supabase
+    .from('students')
+    .select('profile_id, lrn')
+    .eq('id', submission.student_id as string)
+    .single()
+
+  // Step 4: Fetch school_profile for full name
+  let fullName: string | null = null
+  if (student?.profile_id) {
+    const { data: profile } = await supabase
+      .from('school_profiles')
+      .select('full_name')
+      .eq('id', student.profile_id as string)
+      .single()
+    fullName = (profile?.full_name as string) || null
+  }
+
+  // Step 5: Fetch assessment
+  const { data: assessment } = await supabase
+    .from('assessments')
+    .select('id, title, course_id')
+    .eq('id', submission.assessment_id as string)
+    .single()
+
+  // Step 6: Fetch course
+  let courseName: string | null = null
+  if (assessment?.course_id) {
+    const { data: course } = await supabase
+      .from('courses')
+      .select('name')
+      .eq('id', assessment.course_id as string)
+      .single()
+    courseName = (course?.name as string) || null
+  }
+
   return {
-    id: data.id,
-    submission_id: data.submission_id,
-    question_id: data.question_id,
-    question_type: data.question_type,
-    question_text: data.question_text,
-    student_response: data.student_response,
-    max_points: data.max_points,
-    points_awarded: data.points_awarded,
-    feedback: data.feedback,
-    rubric_json: data.rubric_json,
-    status: data.status,
-    priority: data.priority,
-    graded_by: data.graded_by,
-    graded_at: data.graded_at,
-    created_at: data.created_at,
-    student_name: data.submission?.student?.profile?.full_name,
-    student_id: data.submission?.student?.id,
-    student_lrn: data.submission?.student?.lrn,
-    assessment_id: data.submission?.assessment?.id,
-    assessment_title: data.submission?.assessment?.title,
-    course_name: data.submission?.assessment?.course?.name,
-    section_name: data.submission?.assessment?.course?.section?.name,
-    submitted_at: data.submission?.submitted_at
+    id: item.id as string,
+    submission_id: item.submission_id as string,
+    question_id: item.question_id as string,
+    question_type: item.question_type as string,
+    question_text: item.question_text as string | null,
+    student_response: item.student_response as string | null,
+    max_points: item.max_points as number,
+    points_awarded: item.points_awarded as number | null,
+    feedback: item.feedback as string | null,
+    rubric_json: item.rubric_json ?? null,
+    status: item.status as 'pending' | 'graded' | 'flagged',
+    priority: item.priority as number,
+    graded_by: item.graded_by as string | null,
+    graded_at: item.graded_at as string | null,
+    created_at: item.created_at as string,
+    student_name: fullName,
+    student_id: (submission.student_id as string) || null,
+    student_lrn: (student?.lrn as string | null) || null,
+    assessment_id: (assessment?.id as string) || null,
+    assessment_title: (assessment?.title as string) || null,
+    course_name: courseName,
+    section_name: null,
+    submitted_at: (submission.submitted_at as string) || null,
   }
 }
 
@@ -427,7 +571,8 @@ export async function unflagQueueItem(
 }
 
 /**
- * Get the next item in the queue to grade
+ * Get the next item in the queue to grade.
+ * Reuses getGradingQueue with status='pending', limit=1.
  */
 export async function getNextQueueItem(
   teacherId: string,
@@ -435,7 +580,7 @@ export async function getNextQueueItem(
 ): Promise<GradingQueueItem | null> {
   const supabase = createServiceClient()
 
-  // Get teacher's courses
+  // Step 1: Get teacher's course IDs
   const { data: assignments } = await supabase
     .from('teacher_assignments')
     .select('course_id')
@@ -443,163 +588,233 @@ export async function getNextQueueItem(
 
   if (!assignments || assignments.length === 0) return null
 
-  const courseIds = assignments.map(a => a.course_id)
+  const courseIds = assignments.map(a => a.course_id as string)
 
-  let query = supabase
+  // Step 2: Get assessment IDs for those courses
+  const { data: assessments } = await supabase
+    .from('assessments')
+    .select('id, title, course_id')
+    .in('course_id', courseIds)
+
+  if (!assessments || assessments.length === 0) return null
+
+  const assessmentIds = assessments.map(a => a.id as string)
+  const assessmentMap = new Map(
+    assessments.map(a => [a.id as string, { id: a.id as string, title: a.title as string, course_id: a.course_id as string }])
+  )
+
+  // Step 3: Get submission IDs for those assessments
+  const { data: submissions } = await supabase
+    .from('submissions')
+    .select('id, student_id, submitted_at, assessment_id')
+    .in('assessment_id', assessmentIds)
+
+  if (!submissions || submissions.length === 0) return null
+
+  const submissionIds = submissions.map(s => s.id as string)
+  const submissionMap = new Map(
+    submissions.map(s => [
+      s.id as string,
+      {
+        student_id: s.student_id as string,
+        submitted_at: s.submitted_at as string,
+        assessment_id: s.assessment_id as string,
+      },
+    ])
+  )
+
+  // Step 4: Get next pending queue item
+  let queueQuery = supabase
     .from('teacher_grading_queue')
-    .select(`
-      *,
-      submission:submissions!inner(
-        id,
-        submitted_at,
-        student:students!inner(
-          id,
-          lrn,
-          profile:school_profiles!inner(full_name)
-        ),
-        assessment:assessments!inner(
-          id,
-          title,
-          course_id,
-          course:courses!inner(
-            name,
-            section:sections!inner(name)
-          )
-        )
-      )
-    `)
-    .in('submission.assessment.course_id', courseIds)
+    .select('*')
+    .in('submission_id', submissionIds)
     .eq('status', 'pending')
     .order('priority', { ascending: false })
     .order('created_at', { ascending: true })
     .limit(1)
 
-  // Exclude current item if provided
   if (currentItemId) {
-    query = query.neq('id', currentItemId)
+    queueQuery = queueQuery.neq('id', currentItemId)
   }
 
-  const { data, error } = await query.single()
+  const { data: items, error } = await queueQuery
 
-  if (error || !data) {
-    return null
+  if (error || !items || items.length === 0) return null
+
+  const item = items[0]
+
+  // Step 5: Enrich the single item
+  const sub = submissionMap.get(item.submission_id as string)
+
+  let studentMap = new Map<string, { profile_id: string; lrn: string | null }>()
+  let profileMap = new Map<string, string>()
+  let courseMap = new Map<string, string>()
+
+  if (sub?.student_id) {
+    const { data: students } = await supabase
+      .from('students')
+      .select('id, profile_id, lrn')
+      .in('id', [sub.student_id])
+
+    if (students) {
+      for (const s of students) {
+        studentMap.set(s.id as string, { profile_id: s.profile_id as string, lrn: s.lrn as string | null })
+      }
+    }
+
+    const profileIds = Array.from(studentMap.values()).map(s => s.profile_id).filter(Boolean)
+    if (profileIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('school_profiles')
+        .select('id, full_name')
+        .in('id', profileIds)
+
+      if (profiles) {
+        for (const p of profiles) {
+          profileMap.set(p.id as string, p.full_name as string)
+        }
+      }
+    }
   }
+
+  const assessment = sub ? assessmentMap.get(sub.assessment_id) : undefined
+  if (assessment?.course_id) {
+    const { data: courses } = await supabase
+      .from('courses')
+      .select('id, name')
+      .in('id', [assessment.course_id])
+
+    if (courses) {
+      for (const c of courses) {
+        courseMap.set(c.id as string, c.name as string)
+      }
+    }
+  }
+
+  const student = sub ? studentMap.get(sub.student_id) : undefined
+  const profile_id = student?.profile_id
 
   return {
-    id: data.id,
-    submission_id: data.submission_id,
-    question_id: data.question_id,
-    question_type: data.question_type,
-    question_text: data.question_text,
-    student_response: data.student_response,
-    max_points: data.max_points,
-    points_awarded: data.points_awarded,
-    feedback: data.feedback,
-    rubric_json: data.rubric_json,
-    status: data.status,
-    priority: data.priority,
-    graded_by: data.graded_by,
-    graded_at: data.graded_at,
-    created_at: data.created_at,
-    student_name: data.submission?.student?.profile?.full_name,
-    student_id: data.submission?.student?.id,
-    student_lrn: data.submission?.student?.lrn,
-    assessment_id: data.submission?.assessment?.id,
-    assessment_title: data.submission?.assessment?.title,
-    course_name: data.submission?.assessment?.course?.name,
-    section_name: data.submission?.assessment?.course?.section?.name,
-    submitted_at: data.submission?.submitted_at
+    id: item.id as string,
+    submission_id: item.submission_id as string,
+    question_id: item.question_id as string,
+    question_type: item.question_type as string,
+    question_text: item.question_text as string | null,
+    student_response: item.student_response as string | null,
+    max_points: item.max_points as number,
+    points_awarded: item.points_awarded as number | null,
+    feedback: item.feedback as string | null,
+    rubric_json: item.rubric_json ?? null,
+    status: item.status as 'pending' | 'graded' | 'flagged',
+    priority: item.priority as number,
+    graded_by: item.graded_by as string | null,
+    graded_at: item.graded_at as string | null,
+    created_at: item.created_at as string,
+    student_name: profile_id ? profileMap.get(profile_id) || null : null,
+    student_id: sub?.student_id || null,
+    student_lrn: student?.lrn || null,
+    assessment_id: assessment?.id || null,
+    assessment_title: assessment?.title || null,
+    course_name: assessment ? courseMap.get(assessment.course_id) || null : null,
+    section_name: null,
+    submitted_at: sub?.submitted_at || null,
   }
 }
 
 /**
- * Get queue statistics for a teacher
+ * Get queue statistics for a teacher.
+ * All aggregation done in JavaScript — no FK joins.
  */
 export async function getQueueStats(teacherId: string): Promise<GradingQueueStats> {
   const supabase = createServiceClient()
 
-  // Get teacher's courses
+  const emptyStats: GradingQueueStats = {
+    pending: 0,
+    graded: 0,
+    flagged: 0,
+    total: 0,
+    byQuestionType: [],
+    byAssessment: [],
+  }
+
+  // Step 1: Get teacher's course IDs
   const { data: assignments } = await supabase
     .from('teacher_assignments')
     .select('course_id')
     .eq('teacher_profile_id', teacherId)
 
-  if (!assignments || assignments.length === 0) {
-    return {
-      pending: 0,
-      graded: 0,
-      flagged: 0,
-      total: 0,
-      byQuestionType: [],
-      byAssessment: []
-    }
-  }
+  if (!assignments || assignments.length === 0) return emptyStats
 
-  const courseIds = assignments.map(a => a.course_id)
+  const courseIds = assignments.map(a => a.course_id as string)
 
-  // Get all queue items for these courses
+  // Step 2: Get assessment IDs for those courses
+  const { data: assessments } = await supabase
+    .from('assessments')
+    .select('id')
+    .in('course_id', courseIds)
+
+  if (!assessments || assessments.length === 0) return emptyStats
+
+  const assessmentIds = assessments.map(a => a.id as string)
+
+  // Step 3: Get submissions for those assessments
+  const { data: submissions } = await supabase
+    .from('submissions')
+    .select('id, assessment_id')
+    .in('assessment_id', assessmentIds)
+
+  if (!submissions || submissions.length === 0) return emptyStats
+
+  const submissionIds = submissions.map(s => s.id as string)
+  // Build submissionId → assessmentId map
+  const submissionToAssessment = new Map(
+    submissions.map(s => [s.id as string, s.assessment_id as string])
+  )
+
+  // Step 4: Get all queue items for those submissions
   const { data: queueItems } = await supabase
     .from('teacher_grading_queue')
-    .select(`
-      status,
-      question_type,
-      submission:submissions!inner(
-        assessment:assessments!inner(
-          id,
-          title,
-          course_id
-        )
-      )
-    `)
-    .in('submission.assessment.course_id', courseIds)
+    .select('id, status, question_type, submission_id')
+    .in('submission_id', submissionIds)
 
-  if (!queueItems) {
-    return {
-      pending: 0,
-      graded: 0,
-      flagged: 0,
-      total: 0,
-      byQuestionType: [],
-      byAssessment: []
-    }
-  }
+  if (!queueItems) return emptyStats
 
-  // Calculate stats
+  // Step 5: Aggregate in JavaScript
   let pending = 0
   let graded = 0
   let flagged = 0
   const questionTypeCount = new Map<string, number>()
-  const assessmentCount = new Map<string, { id: string; title: string; count: number }>()
+  const assessmentPendingCount = new Map<string, number>()
 
   for (const item of queueItems) {
-    // Status counts
-    if (item.status === 'pending') pending++
-    else if (item.status === 'graded') graded++
-    else if (item.status === 'flagged') flagged++
+    const status = item.status as string
+    if (status === 'pending') pending++
+    else if (status === 'graded') graded++
+    else if (status === 'flagged') flagged++
 
-    // Question type counts (for pending only)
-    if (item.status === 'pending') {
-      const typeCount = questionTypeCount.get(item.question_type) || 0
-      questionTypeCount.set(item.question_type, typeCount + 1)
+    if (status === 'pending') {
+      const qtype = item.question_type as string
+      questionTypeCount.set(qtype, (questionTypeCount.get(qtype) || 0) + 1)
 
-      // Assessment counts - extract from nested relation
-      const submission = item.submission as unknown as {
-        assessment: { id: string; title: string; course_id: string }
-      }
-      const assessmentId = submission?.assessment?.id
-      const assessmentTitle = submission?.assessment?.title
-
+      const assessmentId = submissionToAssessment.get(item.submission_id as string)
       if (assessmentId) {
-        const existing = assessmentCount.get(assessmentId)
-        if (existing) {
-          existing.count++
-        } else {
-          assessmentCount.set(assessmentId, {
-            id: assessmentId,
-            title: assessmentTitle || 'Unknown',
-            count: 1
-          })
-        }
+        assessmentPendingCount.set(assessmentId, (assessmentPendingCount.get(assessmentId) || 0) + 1)
+      }
+    }
+  }
+
+  // Step 6: Fetch titles for assessments with pending items
+  const pendingAssessmentIds = Array.from(assessmentPendingCount.keys())
+  let assessmentTitleMap = new Map<string, string>()
+  if (pendingAssessmentIds.length > 0) {
+    const { data: pendingAssessments } = await supabase
+      .from('assessments')
+      .select('id, title')
+      .in('id', pendingAssessmentIds)
+
+    if (pendingAssessments) {
+      for (const a of pendingAssessments) {
+        assessmentTitleMap.set(a.id as string, a.title as string)
       }
     }
   }
@@ -609,11 +824,12 @@ export async function getQueueStats(teacherId: string): Promise<GradingQueueStat
     graded,
     flagged,
     total: queueItems.length,
-    byQuestionType: Array.from(questionTypeCount.entries()).map(([type, count]) => ({
-      type,
-      count
+    byQuestionType: Array.from(questionTypeCount.entries()).map(([type, count]) => ({ type, count })),
+    byAssessment: Array.from(assessmentPendingCount.entries()).map(([id, count]) => ({
+      id,
+      title: assessmentTitleMap.get(id) || 'Unknown',
+      count,
     })),
-    byAssessment: Array.from(assessmentCount.values())
   }
 }
 
@@ -731,7 +947,8 @@ export async function getGradingHistory(
 }
 
 /**
- * Get assessments with pending grading for dropdown filter
+ * Get assessments with pending grading for dropdown filter.
+ * Flat selects + JS aggregation — no FK joins.
  */
 export async function getAssessmentsWithPendingGrading(teacherId: string): Promise<{
   id: string
@@ -740,7 +957,7 @@ export async function getAssessmentsWithPendingGrading(teacherId: string): Promi
 }[]> {
   const supabase = createServiceClient()
 
-  // Get teacher's courses
+  // Step 1: Get teacher's course IDs
   const { data: assignments } = await supabase
     .from('teacher_assignments')
     .select('course_id')
@@ -748,49 +965,58 @@ export async function getAssessmentsWithPendingGrading(teacherId: string): Promi
 
   if (!assignments || assignments.length === 0) return []
 
-  const courseIds = assignments.map(a => a.course_id)
+  const courseIds = assignments.map(a => a.course_id as string)
 
-  // Get assessments with pending queue items
-  const { data: queueItems } = await supabase
+  // Step 2: Get assessments for those courses
+  const { data: assessments } = await supabase
+    .from('assessments')
+    .select('id, title')
+    .in('course_id', courseIds)
+
+  if (!assessments || assessments.length === 0) return []
+
+  const assessmentIds = assessments.map(a => a.id as string)
+  const assessmentTitleMap = new Map(
+    assessments.map(a => [a.id as string, a.title as string])
+  )
+
+  // Step 3: Get submission IDs for those assessments
+  const { data: submissions } = await supabase
+    .from('submissions')
+    .select('id, assessment_id')
+    .in('assessment_id', assessmentIds)
+
+  if (!submissions || submissions.length === 0) return []
+
+  const submissionIds = submissions.map(s => s.id as string)
+  // Build submissionId → assessmentId map
+  const submissionToAssessment = new Map(
+    submissions.map(s => [s.id as string, s.assessment_id as string])
+  )
+
+  // Step 4: Get pending queue items for those submissions
+  const { data: pendingItems } = await supabase
     .from('teacher_grading_queue')
-    .select(`
-      submission:submissions!inner(
-        assessment:assessments!inner(
-          id,
-          title,
-          course_id
-        )
-      )
-    `)
-    .in('submission.assessment.course_id', courseIds)
+    .select('submission_id')
+    .in('submission_id', submissionIds)
     .eq('status', 'pending')
 
-  if (!queueItems) return []
+  if (!pendingItems) return []
 
-  // Aggregate by assessment
-  const assessmentMap = new Map<string, { id: string; title: string; pending_count: number }>()
-
-  for (const item of queueItems) {
-    // Extract assessment from nested relation
-    const submission = item.submission as unknown as {
-      assessment: { id: string; title: string; course_id: string }
-    }
-    const assessmentId = submission?.assessment?.id
-    const assessmentTitle = submission?.assessment?.title
-
+  // Step 5: Aggregate pending count per assessment in JavaScript
+  const assessmentPendingCount = new Map<string, number>()
+  for (const item of pendingItems) {
+    const assessmentId = submissionToAssessment.get(item.submission_id as string)
     if (assessmentId) {
-      const existing = assessmentMap.get(assessmentId)
-      if (existing) {
-        existing.pending_count++
-      } else {
-        assessmentMap.set(assessmentId, {
-          id: assessmentId,
-          title: assessmentTitle || 'Unknown',
-          pending_count: 1
-        })
-      }
+      assessmentPendingCount.set(assessmentId, (assessmentPendingCount.get(assessmentId) || 0) + 1)
     }
   }
 
-  return Array.from(assessmentMap.values())
+  return Array.from(assessmentPendingCount.entries())
+    .filter(([, count]) => count > 0)
+    .map(([id, pending_count]) => ({
+      id,
+      title: assessmentTitleMap.get(id) || 'Unknown',
+      pending_count,
+    }))
 }

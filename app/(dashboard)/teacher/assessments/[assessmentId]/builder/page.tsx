@@ -10,7 +10,7 @@ interface Assessment {
   id: string
   title: string
   description: string
-  type: 'quiz' | 'assignment' | 'exam'
+  type: 'quiz' | 'assignment' | 'exam' | 'project' | 'midterm' | 'final'
   course_id: string
   available_from: string | null
   due_date: string | null
@@ -19,10 +19,15 @@ interface Assessment {
   total_points: number
   instructions: string | null
   status: 'draft' | 'published'
-  course?: {
-    id: string
-    name: string
-  }
+  course?: { id: string; name: string }
+  grading_period_id?: string
+}
+
+interface QuestionOption {
+  id: string
+  option_text: string
+  is_correct: boolean
+  order_index: number
 }
 
 interface Question {
@@ -31,14 +36,22 @@ interface Question {
   question_type: 'multiple_choice' | 'true_false' | 'short_answer' | 'essay'
   points: number
   order_index: number
-  correct_answer?: string
   explanation?: string
-  options?: {
-    id: string
-    option_text: string
-    is_correct: boolean
-    order_index: number
-  }[]
+  options?: QuestionOption[]
+  correct_answer?: string  // for true_false: 'True' | 'False'
+}
+
+function makeBlankOptions(): QuestionOption[] {
+  return [
+    { id: `opt-${Date.now()}-1`, option_text: '', is_correct: true,  order_index: 0 },
+    { id: `opt-${Date.now()}-2`, option_text: '', is_correct: false, order_index: 1 },
+    { id: `opt-${Date.now()}-3`, option_text: '', is_correct: false, order_index: 2 },
+    { id: `opt-${Date.now()}-4`, option_text: '', is_correct: false, order_index: 3 },
+  ]
+}
+
+function isMC(type: string) {
+  return type === 'multiple_choice'
 }
 
 export default function AssessmentBuilderPage() {
@@ -52,9 +65,30 @@ export default function AssessmentBuilderPage() {
   const [isSaving, setIsSaving] = useState(false)
   const [activeTab, setActiveTab] = useState<'settings' | 'questions' | 'preview'>('questions')
   const [error, setError] = useState<string | null>(null)
+  const [saveSuccess, setSaveSuccess] = useState(false)
+  const [gradingPeriods, setGradingPeriods] = useState<{ id: string; name: string; is_active: boolean }[]>([])
+  const [loadingPeriods, setLoadingPeriods] = useState(false)
+
+  useEffect(() => {
+    async function loadPeriods() {
+      setLoadingPeriods(true)
+      try {
+        const res = await authFetch('/api/teacher/grading-periods')
+        if (!res.ok) return
+        const data = await res.json()
+        setGradingPeriods(data.periods || [])
+      } catch (e) {
+        console.error('Failed to load grading periods:', e)
+      } finally {
+        setLoadingPeriods(false)
+      }
+    }
+    loadPeriods()
+  }, [])
 
   useEffect(() => {
     loadAssessment()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assessmentId])
 
   const loadAssessment = async () => {
@@ -66,27 +100,36 @@ export default function AssessmentBuilderPage() {
       setAssessment(data.assessment)
 
       // Transform questions from API format to component format
-      const apiQuestions = data.assessment?.questions || []
+      const apiQuestions: any[] = data.assessment?.questions || []
       const transformedQuestions: Question[] = apiQuestions.map((q: any) => {
-        // Convert choices_json to options format
-        let options: Question['options'] = []
-        if (q.choices_json && Array.isArray(q.choices_json)) {
-          const correctIndex = q.answer_key_json?.correctIndex ?? q.answer_key_json?.correct ?? 0
+        let options: QuestionOption[] | undefined
+
+        // Reconstruct options from choices_json (only for multiple_choice)
+        if (isMC(q.question_type) && q.choices_json && Array.isArray(q.choices_json)) {
+          const correctIndex = q.answer_key_json?.correctIndex ?? 0
           options = q.choices_json.map((choice: string, idx: number) => ({
             id: `${q.id}-opt-${idx}`,
             option_text: choice,
             is_correct: idx === correctIndex,
-            order_index: idx
+            order_index: idx,
           }))
+        } else if (isMC(q.question_type)) {
+          // MC question with no saved choices yet — give blank options
+          options = makeBlankOptions()
         }
 
         return {
           id: q.id,
           question_text: q.question_text,
-          question_type: q.question_type,
+          question_type: q.question_type as Question['question_type'],
           points: q.points || 1,
           order_index: q.order_index || 0,
-          options
+          explanation: q.explanation || '',
+          options,
+          // Restore correct_answer for true_false from saved answer_key_json
+          correct_answer: q.question_type === 'true_false'
+            ? (q.answer_key_json?.correctAnswer ?? undefined)
+            : undefined,
         }
       })
 
@@ -100,36 +143,70 @@ export default function AssessmentBuilderPage() {
 
   const saveAssessment = async () => {
     if (!assessment) return
+
+    // Validate before save
+    for (const q of questions) {
+      if (!q.question_text.trim()) {
+        setError('All questions must have question text before saving.')
+        return
+      }
+      if (isMC(q.question_type)) {
+        const filled = q.options?.filter(o => o.option_text.trim()) || []
+        if (filled.length < 2) {
+          setError('Multiple choice questions need at least 2 filled-in options.')
+          return
+        }
+      }
+    }
+
     try {
       setIsSaving(true)
       setError(null)
+      setSaveSuccess(false)
 
-      // Transform questions to the format expected by the API
-      const questionsPayload = questions.map((q, index) => ({
-        question_text: q.question_text,
-        question_type: q.question_type,
-        points: q.points,
-        order_index: index,
-        choices_json: q.options?.map(opt => opt.option_text) || null,
-        answer_key_json: q.options ? {
-          correctIndex: q.options.findIndex(opt => opt.is_correct)
-        } : null,
-      }))
+      // Build the questions payload
+      const questionsPayload = questions.map((q, index) => {
+        const isMultipleChoice = isMC(q.question_type)
+        const filledOptions = isMultipleChoice
+          ? (q.options || []).filter(o => o.option_text.trim())
+          : []
+
+        const isTF = q.question_type === 'true_false'
+        return {
+          question_text: q.question_text.trim(),
+          question_type: q.question_type,
+          points: q.points,
+          order_index: index,
+          explanation: q.explanation || null,
+          // choices_json only for multiple_choice
+          choices_json: isMultipleChoice && filledOptions.length > 0
+            ? filledOptions.map(o => o.option_text)
+            : null,
+          // answer_key_json: correctIndex for MC, correctAnswer for TF, null otherwise
+          answer_key_json: isMultipleChoice && filledOptions.length > 0
+            ? { correctIndex: filledOptions.findIndex(o => o.is_correct) }
+            : isTF && q.correct_answer
+              ? { correctAnswer: q.correct_answer }
+              : null,
+        }
+      })
 
       const response = await authFetch(`/api/teacher/assessments/${assessmentId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: assessment.title,
+          description: assessment.description,
           type: assessment.type,
           instructions: assessment.instructions,
           available_from: assessment.available_from,
           due_date: assessment.due_date,
           time_limit_minutes: assessment.time_limit_minutes,
           max_attempts: assessment.max_attempts,
-          total_points: questions.reduce((sum, q) => sum + q.points, 0),
-          questions: questionsPayload
-        })
+          total_points: questions.reduce((sum, q) => sum + q.points, 0) || assessment.total_points,
+          grading_period_id: assessment.grading_period_id,
+          questions: questionsPayload,
+        }),
       })
 
       if (!response.ok) {
@@ -137,7 +214,9 @@ export default function AssessmentBuilderPage() {
         throw new Error(errorData.error || 'Failed to save assessment')
       }
 
-      // Reload to get the saved questions with proper IDs
+      setSaveSuccess(true)
+      setTimeout(() => setSaveSuccess(false), 3000)
+      // Reload to sync IDs from DB
       await loadAssessment()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save')
@@ -147,10 +226,16 @@ export default function AssessmentBuilderPage() {
   }
 
   const publishAssessment = async () => {
+    if (questions.length === 0) {
+      setError('Add at least one question before publishing.')
+      return
+    }
+    // Save first to make sure latest changes are committed
+    await saveAssessment()
     try {
       setIsSaving(true)
       const response = await authFetch(`/api/teacher/assessments/${assessmentId}/publish`, {
-        method: 'POST'
+        method: 'POST',
       })
       if (!response.ok) throw new Error('Failed to publish assessment')
       setAssessment(prev => prev ? { ...prev, status: 'published' } : null)
@@ -165,7 +250,7 @@ export default function AssessmentBuilderPage() {
     try {
       setIsSaving(true)
       const response = await authFetch(`/api/teacher/assessments/${assessmentId}/unpublish`, {
-        method: 'POST'
+        method: 'POST',
       })
       if (!response.ok) throw new Error('Failed to unpublish assessment')
       setAssessment(prev => prev ? { ...prev, status: 'draft' } : null)
@@ -180,27 +265,63 @@ export default function AssessmentBuilderPage() {
     const newQuestion: Question = {
       id: `temp-${Date.now()}`,
       question_text: '',
-      question_type: 'true_false', // Using true_false as it's accepted by DB constraint
+      question_type: 'multiple_choice',
       points: 1,
-      order_index: questions.length + 1,
-      options: [
-        { id: `opt-${Date.now()}-1`, option_text: '', is_correct: true, order_index: 1 },
-        { id: `opt-${Date.now()}-2`, option_text: '', is_correct: false, order_index: 2 },
-        { id: `opt-${Date.now()}-3`, option_text: '', is_correct: false, order_index: 3 },
-        { id: `opt-${Date.now()}-4`, option_text: '', is_correct: false, order_index: 4 },
-      ]
+      order_index: questions.length,
+      explanation: '',
+      options: makeBlankOptions(),
     }
     setQuestions([...questions, newQuestion])
   }
 
   const updateQuestion = (index: number, updates: Partial<Question>) => {
     const updated = [...questions]
-    updated[index] = { ...updated[index], ...updates }
+    const current = updated[index]
+
+    // When type changes, adjust options appropriately
+    if (updates.question_type && updates.question_type !== current.question_type) {
+      if (isMC(updates.question_type)) {
+        // Switching TO multiple_choice: add default options if none
+        updates.options = current.options && current.options.length >= 2
+          ? current.options
+          : makeBlankOptions()
+      } else {
+        // Switching FROM multiple_choice: remove options
+        updates.options = undefined
+      }
+    }
+
+    updated[index] = { ...current, ...updates }
     setQuestions(updated)
   }
 
   const removeQuestion = (index: number) => {
     setQuestions(questions.filter((_, i) => i !== index))
+  }
+
+  const addOption = (questionIndex: number) => {
+    const updated = [...questions]
+    const q = updated[questionIndex]
+    const newOption: QuestionOption = {
+      id: `opt-${Date.now()}-new`,
+      option_text: '',
+      is_correct: false,
+      order_index: (q.options?.length || 0),
+    }
+    updated[questionIndex] = { ...q, options: [...(q.options || []), newOption] }
+    setQuestions(updated)
+  }
+
+  const removeOption = (questionIndex: number, optionIndex: number) => {
+    const updated = [...questions]
+    const q = updated[questionIndex]
+    const newOptions = (q.options || []).filter((_, i) => i !== optionIndex)
+    // Ensure at least one option is correct
+    if (!newOptions.some(o => o.is_correct) && newOptions.length > 0) {
+      newOptions[0].is_correct = true
+    }
+    updated[questionIndex] = { ...q, options: newOptions }
+    setQuestions(updated)
   }
 
   if (isLoading) {
@@ -211,7 +332,7 @@ export default function AssessmentBuilderPage() {
     )
   }
 
-  if (error || !assessment) {
+  if (!assessment) {
     return (
       <div>
         <div className="bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 p-4 rounded-lg">
@@ -241,10 +362,11 @@ export default function AssessmentBuilderPage() {
                 {assessment.title || 'Untitled Assessment'}
               </h1>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 truncate">
-                {assessment.course?.name} • {assessment.type}
+                {assessment.course?.name} • {assessment.type} • {questions.length} question{questions.length !== 1 ? 's' : ''}
               </p>
             </div>
           </div>
+
           <div className="flex items-center gap-2 flex-wrap shrink-0">
             {assessment.status === 'published' ? (
               <>
@@ -254,14 +376,14 @@ export default function AssessmentBuilderPage() {
                 <button
                   onClick={saveAssessment}
                   disabled={isSaving}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
                 >
-                  {isSaving ? 'Saving...' : 'Save Changes'}
+                  {isSaving ? 'Saving…' : saveSuccess ? '✓ Saved' : 'Save Changes'}
                 </button>
                 <button
                   onClick={unpublishAssessment}
                   disabled={isSaving}
-                  className="px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-lg font-medium hover:bg-amber-200 dark:hover:bg-amber-800/30 transition-colors"
+                  className="px-4 py-2 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded-lg font-medium hover:bg-amber-200 dark:hover:bg-amber-800/30 transition-colors disabled:opacity-50"
                 >
                   Unpublish
                 </button>
@@ -271,14 +393,14 @@ export default function AssessmentBuilderPage() {
                 <button
                   onClick={saveAssessment}
                   disabled={isSaving}
-                  className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg font-medium hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
                 >
-                  {isSaving ? 'Saving...' : 'Save Draft'}
+                  {isSaving ? 'Saving…' : saveSuccess ? '✓ Saved' : 'Save Draft'}
                 </button>
                 <button
                   onClick={publishAssessment}
                   disabled={isSaving || questions.length === 0}
-                  className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-[#961517] transition-colors disabled:opacity-50"
+                  className="px-4 py-2 bg-primary text-white rounded-lg font-medium hover:bg-[#961517] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Publish
                 </button>
@@ -286,6 +408,17 @@ export default function AssessmentBuilderPage() {
             )}
           </div>
         </div>
+
+        {/* Error / success banner */}
+        {error && (
+          <div className="mt-3 px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 rounded-lg text-sm flex items-center gap-2">
+            <span className="material-symbols-outlined text-base">error</span>
+            {error}
+            <button onClick={() => setError(null)} className="ml-auto text-red-400 hover:text-red-600">
+              <span className="material-symbols-outlined text-base">close</span>
+            </button>
+          </div>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-1 mt-4">
@@ -306,13 +439,12 @@ export default function AssessmentBuilderPage() {
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto p-4 sm:p-6">
+        {/* ── SETTINGS TAB ─────────────────────────────────── */}
         {activeTab === 'settings' && (
           <div className="bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 p-6 space-y-6">
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Title
-              </label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Title *</label>
               <input
                 type="text"
                 value={assessment.title}
@@ -321,9 +453,7 @@ export default function AssessmentBuilderPage() {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Description
-              </label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Description</label>
               <textarea
                 value={assessment.description || ''}
                 onChange={e => setAssessment({ ...assessment, description: e.target.value })}
@@ -331,7 +461,8 @@ export default function AssessmentBuilderPage() {
                 className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
               />
             </div>
-            {/* Schedule Section */}
+
+            {/* Schedule */}
             <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
               <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
                 <span className="material-symbols-outlined text-primary">schedule</span>
@@ -339,64 +470,40 @@ export default function AssessmentBuilderPage() {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Available From
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Available From</label>
                   <input
                     type="datetime-local"
                     value={assessment.available_from ? new Date(assessment.available_from).toISOString().slice(0, 16) : ''}
                     onChange={e => setAssessment({ ...assessment, available_from: e.target.value ? new Date(e.target.value).toISOString() : null })}
                     className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                   />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    When students can start taking this assessment
-                  </p>
+                  <p className="text-xs text-slate-500 mt-1">When students can start</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Due Date
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Due Date</label>
                   <input
                     type="datetime-local"
                     value={assessment.due_date ? new Date(assessment.due_date).toISOString().slice(0, 16) : ''}
                     onChange={e => setAssessment({ ...assessment, due_date: e.target.value ? new Date(e.target.value).toISOString() : null })}
                     className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                   />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Deadline for submissions
-                  </p>
+                  <p className="text-xs text-slate-500 mt-1">Deadline for submissions</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Time Limit (minutes)
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Time Limit (minutes)</label>
                   <input
                     type="number"
                     value={assessment.time_limit_minutes || ''}
                     onChange={e => setAssessment({ ...assessment, time_limit_minutes: parseInt(e.target.value) || null })}
                     placeholder="No limit"
+                    min={1}
                     className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                   />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Leave empty for no time limit
-                  </p>
                 </div>
-              </div>
-            </div>
-
-            {/* Settings Section */}
-            <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
-              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
-                <span className="material-symbols-outlined text-primary">settings</span>
-                Settings
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Max Attempts
-                  </label>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Max Attempts</label>
                   <input
                     type="number"
                     value={assessment.max_attempts}
@@ -404,30 +511,54 @@ export default function AssessmentBuilderPage() {
                     min={1}
                     className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
                   />
-                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                    Number of times students can retake
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                    Assessment Type
-                  </label>
-                  <select
-                    value={assessment.type}
-                    onChange={e => setAssessment({ ...assessment, type: e.target.value as Assessment['type'] })}
-                    className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
-                  >
-                    <option value="quiz">Quiz</option>
-                    <option value="assignment">Assignment</option>
-                    <option value="exam">Exam</option>
-                  </select>
                 </div>
               </div>
             </div>
+
+            {/* Assessment type */}
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">settings</span>
+                Assessment Type
+              </h3>
+              <select
+                value={assessment.type}
+                onChange={e => setAssessment({ ...assessment, type: e.target.value as Assessment['type'] })}
+                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              >
+                <option value="quiz">Quiz</option>
+                <option value="assignment">Assignment</option>
+                <option value="exam">Exam</option>
+                <option value="project">Project</option>
+                <option value="midterm">Midterm Exam</option>
+                <option value="final">Final Exam</option>
+              </select>
+            </div>
+
+            {/* Grading Period */}
+            <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+              <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                <span className="material-symbols-outlined text-primary">calendar_month</span>
+                Grading Period
+              </h3>
+              <select
+                value={assessment.grading_period_id || ''}
+                onChange={e => setAssessment({ ...assessment, grading_period_id: e.target.value || undefined })}
+                className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+              >
+                <option value="">Not tied to a grading period</option>
+                {gradingPeriods.map(p => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}{p.is_active ? ' (Current)' : ''}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-slate-500 mt-1">Link this assessment to a quarter for DepEd grade computation</p>
+            </div>
+
+            {/* Instructions */}
             <div>
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                Instructions
-              </label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Instructions</label>
               <textarea
                 value={assessment.instructions || ''}
                 onChange={e => setAssessment({ ...assessment, instructions: e.target.value })}
@@ -438,87 +569,178 @@ export default function AssessmentBuilderPage() {
           </div>
         )}
 
+        {/* ── QUESTIONS TAB ─────────────────────────────────── */}
         {activeTab === 'questions' && (
           <div className="space-y-4">
+            {questions.length === 0 && (
+              <div className="bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 p-8 text-center">
+                <span className="material-symbols-outlined text-4xl text-slate-300 dark:text-slate-600 mb-2 block">quiz</span>
+                <p className="text-slate-500 dark:text-slate-400 font-medium">No questions yet</p>
+                <p className="text-slate-400 dark:text-slate-500 text-sm mt-1">Click "Add Question" below to get started</p>
+              </div>
+            )}
+
             {questions.map((question, index) => (
               <div
                 key={question.id}
                 className="bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 p-6"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                {/* Question header */}
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
                     Question {index + 1}
                   </span>
                   <button
                     onClick={() => removeQuestion(index)}
-                    className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                    className="p-1.5 text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                    title="Remove question"
                   >
                     <span className="material-symbols-outlined text-lg">delete</span>
                   </button>
                 </div>
+
+                {/* Question text */}
                 <textarea
                   value={question.question_text}
                   onChange={e => updateQuestion(index, { question_text: e.target.value })}
-                  placeholder="Enter your question..."
+                  placeholder="Enter your question…"
                   rows={2}
-                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white mb-4"
+                  className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white mb-4 resize-none"
                 />
-                <div className="flex gap-4 mb-4">
-                  <select
-                    value={question.question_type}
-                    onChange={e => updateQuestion(index, { question_type: e.target.value as Question['question_type'] })}
-                    className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
-                  >
-                    <option value="true_false">Multiple Choice</option>
-                    <option value="short_answer">Short Answer</option>
-                    <option value="essay">Essay</option>
-                  </select>
-                  <input
-                    type="number"
-                    value={question.points}
-                    onChange={e => updateQuestion(index, { points: parseInt(e.target.value) || 1 })}
-                    className="w-20 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
-                    min={1}
-                  />
-                  <span className="text-sm text-slate-500 dark:text-slate-400 self-center">points</span>
+
+                {/* Type + points row */}
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Question Type</label>
+                    <select
+                      value={question.question_type}
+                      onChange={e => updateQuestion(index, { question_type: e.target.value as Question['question_type'] })}
+                      className="px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
+                    >
+                      <option value="multiple_choice">Multiple Choice</option>
+                      <option value="true_false">True / False</option>
+                      <option value="short_answer">Short Answer</option>
+                      <option value="essay">Essay</option>
+                    </select>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Points</label>
+                    <input
+                      type="number"
+                      value={question.points}
+                      onChange={e => updateQuestion(index, { points: Math.max(1, parseInt(e.target.value) || 1) })}
+                      className="w-20 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
+                      min={1}
+                    />
+                  </div>
                 </div>
-                {question.question_type === 'true_false' && question.options && (
-                  <div className="space-y-2">
-                    {question.options.map((option, optIndex) => (
+
+                {/* Multiple choice options */}
+                {question.question_type === 'multiple_choice' && (
+                  <div className="space-y-2 mb-4">
+                    <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                      Answer Choices <span className="text-slate-400">(select the correct one)</span>
+                    </label>
+                    {(question.options || []).map((option, optIndex) => (
                       <div key={option.id} className="flex items-center gap-2">
                         <input
                           type="radio"
                           name={`correct-${question.id}`}
                           checked={option.is_correct}
                           onChange={() => {
-                            const newOptions = question.options!.map((o, i) => ({
+                            const newOptions = (question.options || []).map((o, i) => ({
                               ...o,
-                              is_correct: i === optIndex
+                              is_correct: i === optIndex,
                             }))
                             updateQuestion(index, { options: newOptions })
                           }}
-                          className="text-primary"
+                          className="text-primary accent-primary shrink-0"
+                          title="Mark as correct answer"
                         />
                         <input
                           type="text"
                           value={option.option_text}
                           onChange={e => {
-                            const newOptions = [...question.options!]
+                            const newOptions = [...(question.options || [])]
                             newOptions[optIndex] = { ...newOptions[optIndex], option_text: e.target.value }
                             updateQuestion(index, { options: newOptions })
                           }}
                           placeholder={`Option ${optIndex + 1}`}
                           className="flex-1 px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-sm"
                         />
+                        {(question.options || []).length > 2 && (
+                          <button
+                            onClick={() => removeOption(index, optIndex)}
+                            className="p-1 text-slate-400 hover:text-red-500 transition-colors shrink-0"
+                            title="Remove option"
+                          >
+                            <span className="material-symbols-outlined text-base">remove_circle</span>
+                          </button>
+                        )}
                       </div>
                     ))}
+                    {(question.options || []).length < 6 && (
+                      <button
+                        onClick={() => addOption(index)}
+                        className="text-sm text-primary hover:underline flex items-center gap-1 mt-1"
+                      >
+                        <span className="material-symbols-outlined text-base">add</span>
+                        Add option
+                      </button>
+                    )}
                   </div>
                 )}
+
+                {/* True/False options */}
+                {question.question_type === 'true_false' && (
+                  <div className="space-y-2 mb-4">
+                    <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">Correct Answer</label>
+                    <div className="flex gap-4">
+                      {['True', 'False'].map(val => (
+                        <label key={val} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name={`tf-${question.id}`}
+                            checked={question.correct_answer === val}
+                            onChange={() => updateQuestion(index, { correct_answer: val })}
+                            className="accent-primary"
+                          />
+                          <span className="text-sm text-slate-700 dark:text-slate-300">{val}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Short answer / Essay hint */}
+                {(question.question_type === 'short_answer' || question.question_type === 'essay') && (
+                  <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg px-4 py-3 mb-4 text-sm text-slate-500 dark:text-slate-400">
+                    <span className="material-symbols-outlined text-base align-middle mr-1">edit_note</span>
+                    {question.question_type === 'short_answer'
+                      ? 'Students will type a short text answer. You will grade it manually.'
+                      : 'Students will write an essay. You will grade it manually.'}
+                  </div>
+                )}
+
+                {/* Explanation (optional) */}
+                <div>
+                  <label className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                    Explanation <span className="font-normal">(shown to students after grading)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={question.explanation || ''}
+                    onChange={e => updateQuestion(index, { explanation: e.target.value })}
+                    placeholder="Optional: explain the correct answer…"
+                    className="mt-1 w-full px-3 py-2 border border-slate-200 dark:border-slate-700 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-sm"
+                  />
+                </div>
               </div>
             ))}
+
             <button
               onClick={addQuestion}
-              className="w-full py-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl text-slate-500 dark:text-slate-400 hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2"
+              className="w-full py-4 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl text-slate-500 dark:text-slate-400 hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2 font-medium"
             >
               <span className="material-symbols-outlined">add</span>
               Add Question
@@ -526,39 +748,68 @@ export default function AssessmentBuilderPage() {
           </div>
         )}
 
+        {/* ── PREVIEW TAB ─────────────────────────────────── */}
         {activeTab === 'preview' && (
           <div className="bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700 p-6">
             <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">
               {assessment.title}
             </h2>
-            <p className="text-slate-600 dark:text-slate-400 mb-6">
-              {assessment.description}
-            </p>
+            {assessment.description && (
+              <p className="text-slate-600 dark:text-slate-400 mb-4">{assessment.description}</p>
+            )}
             {assessment.instructions && (
               <div className="bg-slate-50 dark:bg-slate-800 rounded-lg p-4 mb-6">
                 <h3 className="font-medium text-slate-900 dark:text-white mb-2">Instructions</h3>
                 <p className="text-slate-600 dark:text-slate-400 text-sm">{assessment.instructions}</p>
               </div>
             )}
+            <div className="text-sm text-slate-500 dark:text-slate-400 mb-6">
+              {questions.length} question{questions.length !== 1 ? 's' : ''} •{' '}
+              {questions.reduce((s, q) => s + q.points, 0)} total points
+            </div>
             <div className="space-y-6">
               {questions.map((question, index) => (
                 <div key={question.id} className="border-b border-slate-200 dark:border-slate-700 pb-6 last:border-0">
                   <p className="font-medium text-slate-900 dark:text-white mb-3">
                     {index + 1}. {question.question_text || '(No question text)'}
-                    <span className="ml-2 text-sm text-slate-500">({question.points} pts)</span>
+                    <span className="ml-2 text-sm font-normal text-slate-500 dark:text-slate-400">
+                      ({question.points} pt{question.points !== 1 ? 's' : ''})
+                    </span>
                   </p>
-                  {question.question_type === 'true_false' && question.options && (
+                  {question.question_type === 'multiple_choice' && question.options && (
                     <div className="space-y-2 ml-4">
                       {question.options.map((option, optIndex) => (
                         <label key={option.id} className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
                           <input type="radio" name={`preview-${question.id}`} disabled />
                           {option.option_text || `Option ${optIndex + 1}`}
+                          {option.is_correct && (
+                            <span className="text-xs text-green-600 font-semibold">(correct)</span>
+                          )}
                         </label>
                       ))}
                     </div>
                   )}
+                  {question.question_type === 'true_false' && (
+                    <div className="flex gap-4 ml-4">
+                      <label className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                        <input type="radio" disabled /> True
+                      </label>
+                      <label className="flex items-center gap-2 text-slate-600 dark:text-slate-400">
+                        <input type="radio" disabled /> False
+                      </label>
+                    </div>
+                  )}
+                  {question.question_type === 'short_answer' && (
+                    <div className="ml-4 h-10 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700" />
+                  )}
+                  {question.question_type === 'essay' && (
+                    <div className="ml-4 h-24 bg-slate-100 dark:bg-slate-800 rounded border border-slate-200 dark:border-slate-700" />
+                  )}
                 </div>
               ))}
+              {questions.length === 0 && (
+                <p className="text-slate-400 dark:text-slate-500 text-center py-8">No questions added yet</p>
+              )}
             </div>
           </div>
         )}

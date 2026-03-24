@@ -90,10 +90,61 @@ export default function AcademicSettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const response = await authFetch("/api/admin/settings/academic");
-      if (response.ok) {
-        const data = await response.json();
-        setSettings(data);
+      const [settingsRes, yearsRes, periodsRes] = await Promise.all([
+        authFetch("/api/admin/settings/academic"),
+        authFetch("/api/admin/settings/academic-years"),
+        authFetch("/api/admin/grading-periods"),
+      ]);
+
+      // Merge scalar settings only — never replace arrays
+      if (settingsRes.ok) {
+        const data = await settingsRes.json();
+        setSettings(prev => ({
+          ...prev,
+          passingGrade: data.passing_grade ?? prev.passingGrade,
+          attendanceRequired: data.attendance_required ?? prev.attendanceRequired,
+          maxAbsences: data.max_absences ?? prev.maxAbsences,
+          lateThreshold: data.late_threshold ?? prev.lateThreshold,
+          classStartTime: data.class_start_time ?? prev.classStartTime,
+          classEndTime: data.class_end_time ?? prev.classEndTime,
+        }));
+      }
+
+      // Load academic years from DB
+      if (yearsRes.ok) {
+        const years = await yearsRes.json();
+        if (Array.isArray(years) && years.length > 0) {
+          setSettings(prev => ({
+            ...prev,
+            currentAcademicYear: years.find((y: any) => y.is_current)?.name ?? prev.currentAcademicYear,
+            academicYears: years.map((y: any) => ({
+              id: y.id,
+              name: y.name,
+              startDate: y.start_date,
+              endDate: y.end_date,
+              isCurrent: y.is_current,
+            })),
+          }));
+        }
+      }
+
+      // Load grading periods from DB
+      if (periodsRes.ok) {
+        const periodsData = await periodsRes.json();
+        const periods: any[] = periodsData.periods ?? periodsData;
+        if (Array.isArray(periods) && periods.length > 0) {
+          setSettings(prev => ({
+            ...prev,
+            gradingPeriods: periods.map((p: any) => ({
+              id: p.id,
+              name: p.name,
+              shortName: (() => { const m = p.name.match(/\d+/); return m ? 'Q' + m[0] : p.name.slice(0, 2); })(),
+              startDate: p.start_date,
+              endDate: p.end_date,
+              weight: p.weight ?? 25,
+            })),
+          }));
+        }
       }
     } catch (error) {
       console.error("Failed to fetch settings:", error);

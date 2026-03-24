@@ -99,7 +99,7 @@ export async function POST(
       }
     }
 
-    // Create question
+    // Create question (flat select, no FK joins — BUG-001)
     const { data: newQuestion, error: questionError } = await supabase
       .from('session_questions')
       .insert({
@@ -107,12 +107,7 @@ export async function POST(
         student_id: student.id,
         question: question.trim(),
       })
-      .select(
-        `
-        *,
-        student:students(id, profile:school_profiles(full_name))
-      `
-      )
+      .select('*')
       .single();
 
     if (questionError) {
@@ -121,6 +116,23 @@ export async function POST(
         { error: 'Failed to create question' },
         { status: 500 }
       );
+    }
+
+    // Fetch student display name separately (avoid FK join — BUG-001)
+    let student_name: string | null = null;
+    const { data: studentRow } = await supabase
+      .from('students')
+      .select('profile_id')
+      .eq('id', student.id)
+      .single();
+
+    if (studentRow?.profile_id) {
+      const { data: profileRow } = await supabase
+        .from('school_profiles')
+        .select('full_name')
+        .eq('id', studentRow.profile_id)
+        .single();
+      student_name = profileRow?.full_name ?? null;
     }
 
     // Update participant stats - increment questions_asked using RPC
@@ -134,7 +146,7 @@ export async function POST(
       console.log('Note: increment_questions_asked RPC not available');
     }
 
-    return NextResponse.json(newQuestion, { status: 201 });
+    return NextResponse.json({ ...newQuestion, student_name, answered_by_name: null }, { status: 201 });
   } catch (error) {
     console.error('Error in POST /api/live-sessions/[id]/questions:', error);
     return NextResponse.json(
@@ -159,19 +171,10 @@ export async function GET(
     const { id } = await params;
     const sessionId = id;
 
-    // Get questions with student info
+    // Get questions (flat select, no FK joins — BUG-001)
     const { data: questions, error: questionsError } = await supabase
       .from('session_questions')
-      .select(
-        `
-        *,
-        student:students(id, profile:school_profiles(full_name)),
-        answered_by_teacher:teacher_profiles(
-          id,
-          profile:school_profiles(full_name)
-        )
-      `
-      )
+      .select('*')
       .eq('session_id', sessionId)
       .order('upvotes', { ascending: false })
       .order('created_at', { ascending: true });
@@ -184,7 +187,67 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(questions);
+    // Resolve student names (avoid FK join — BUG-001)
+    const studentIds = [...new Set((questions ?? []).map((q) => q.student_id).filter(Boolean))];
+    const studentNameMap = new Map<string, string>();
+
+    if (studentIds.length > 0) {
+      const { data: studentRows } = await supabase
+        .from('students')
+        .select('id, profile_id')
+        .in('id', studentIds);
+
+      const studentProfileIds = (studentRows ?? []).map((s) => s.profile_id).filter(Boolean);
+
+      if (studentProfileIds.length > 0) {
+        const { data: studentProfiles } = await supabase
+          .from('school_profiles')
+          .select('id, full_name')
+          .in('id', studentProfileIds);
+
+        const profileMap = new Map((studentProfiles ?? []).map((p) => [p.id, p.full_name]));
+        for (const s of studentRows ?? []) {
+          if (s.profile_id) {
+            studentNameMap.set(s.id, profileMap.get(s.profile_id) ?? null);
+          }
+        }
+      }
+    }
+
+    // Resolve answered_by teacher names (avoid FK join — BUG-001)
+    const teacherIds = [...new Set((questions ?? []).map((q) => q.answered_by).filter(Boolean))];
+    const teacherNameMap = new Map<string, string>();
+
+    if (teacherIds.length > 0) {
+      const { data: teacherRows } = await supabase
+        .from('teacher_profiles')
+        .select('id, profile_id')
+        .in('id', teacherIds);
+
+      const teacherProfileIds = (teacherRows ?? []).map((t) => t.profile_id).filter(Boolean);
+
+      if (teacherProfileIds.length > 0) {
+        const { data: teacherProfiles } = await supabase
+          .from('school_profiles')
+          .select('id, full_name')
+          .in('id', teacherProfileIds);
+
+        const profileMap = new Map((teacherProfiles ?? []).map((p) => [p.id, p.full_name]));
+        for (const t of teacherRows ?? []) {
+          if (t.profile_id) {
+            teacherNameMap.set(t.id, profileMap.get(t.profile_id) ?? null);
+          }
+        }
+      }
+    }
+
+    const enriched = (questions ?? []).map((q) => ({
+      ...q,
+      student_name: studentNameMap.get(q.student_id) ?? null,
+      answered_by_name: q.answered_by ? (teacherNameMap.get(q.answered_by) ?? null) : null,
+    }));
+
+    return NextResponse.json(enriched);
   } catch (error) {
     console.error('Error in GET /api/live-sessions/[id]/questions:', error);
     return NextResponse.json(

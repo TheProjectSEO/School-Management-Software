@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { authFetch } from "@/lib/utils/authFetch";
 import type { ReportCardListItem, ReportCardStatus } from "@/lib/types/report-card";
 
 interface ReportCardsListProps {
@@ -18,7 +20,8 @@ interface ReportCardsListProps {
  * - Actions (view, add remarks, submit for review)
  */
 export function ReportCardsList({ reportCards }: ReportCardsListProps) {
-  const isSubmitting = false;
+  const router = useRouter();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<ReportCardStatus | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -67,9 +70,29 @@ export function ReportCardsList({ reportCards }: ReportCardsListProps) {
     setSelectedIds(newSelected);
   };
 
-  const handleSubmitForReview = () => {
-    // TODO: wire up to POST /api/teacher/report-cards/submit-for-review
-    setSelectedIds(new Set());
+  const handleSubmitForReview = async () => {
+    if (isSubmitting || selectedIds.size === 0) return;
+    setIsSubmitting(true);
+    try {
+      const res = await authFetch('/api/teacher/report-cards', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'submit_for_review',
+          report_card_ids: [...selectedIds],
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to submit for review');
+      }
+      setSelectedIds(new Set());
+      router.refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to submit for review');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Status badge component
@@ -330,7 +353,7 @@ export function ReportCardsList({ reportCards }: ReportCardsListProps) {
                       </Link>
                       {card.status === "draft" && (
                         <Link
-                          href={`/teacher/report-cards/${card.id}/remarks`}
+                          href={`/teacher/report-cards/${card.id}#remarks`}
                           className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                           title="Add remarks"
                         >

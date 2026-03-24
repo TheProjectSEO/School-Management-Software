@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTeacherProfile } from "@/lib/dal/teacher";
 import { getReportCard } from "@/lib/dal/report-cards";
+import { createServiceClient } from "@/lib/supabase/service";
 
 /**
  * GET /api/teacher/report-cards/[id]
@@ -28,7 +29,33 @@ export async function GET(
       );
     }
 
-    // TODO: Add authorization check to ensure teacher has access to this student's section
+    // Verify teacher has access: they must teach the student's section
+    const supabase = createServiceClient();
+    const { data: rawRC } = await supabase
+      .from("report_cards")
+      .select("student_id")
+      .eq("id", id)
+      .single();
+
+    if (rawRC?.student_id) {
+      const { data: student } = await supabase
+        .from("students")
+        .select("section_id")
+        .eq("id", rawRC.student_id)
+        .single();
+
+      if (student?.section_id) {
+        const { count } = await supabase
+          .from("teacher_assignments")
+          .select("*", { count: "exact", head: true })
+          .eq("teacher_profile_id", teacherProfile.id)
+          .eq("section_id", student.section_id);
+
+        if (!count) {
+          return NextResponse.json({ error: "Access denied" }, { status: 403 });
+        }
+      }
+    }
 
     return NextResponse.json({ reportCard });
   } catch (error) {

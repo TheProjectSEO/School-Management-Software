@@ -47,12 +47,22 @@ export async function POST(request: NextRequest) {
     // Check if submission already exists
     const { data: existingSubmission } = await supabase
       .from('submissions')
-      .select('id')
+      .select('id, status, score')
       .eq('student_id', studentId)
       .eq('assessment_id', assessmentId)
       .single()
 
     if (existingSubmission) {
+      // Score lock: once a student-submitted answer has been graded, the score is immutable.
+      // Only the student's own submission (submitted/graded) is locked.
+      // Teacher-created placeholder submissions (no submitted_at) can still be updated.
+      if (existingSubmission.status === 'graded') {
+        return NextResponse.json(
+          { error: 'Score is locked. This submission has already been graded and the score cannot be changed.' },
+          { status: 409 }
+        )
+      }
+
       // Update existing submission
       const { error: updateError } = await supabase
         .from('submissions')

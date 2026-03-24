@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminAPI } from "@/lib/dal/admin";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export async function GET(
   _req: NextRequest,
@@ -11,7 +11,7 @@ export async function GET(
     if (!auth.success) return auth.response;
 
     const { id: applicationId } = await params;
-    const supabase = createAdminClient();
+    const supabase = createServiceClient();
 
     const { data, error } = await supabase
       .from("student_applications")

@@ -53,6 +53,7 @@ const initialState: FormState = {
 export function ApplicationForm({ qrCodeId }: { qrCodeId?: string }) {
   const [form, setForm] = useState<FormState>(initialState);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, 'pending' | 'uploading' | 'done' | 'error'>>({});
   const [result, setResult] = useState<{ applicationId?: string; error?: string } | null>(null);
 
   const onChange = (key: keyof FormState, value: string) => {
@@ -84,11 +85,26 @@ export function ApplicationForm({ qrCodeId }: { qrCodeId?: string }) {
         setResult({ error: json.error || "Failed to submit application" });
       } else {
         const applicationId = json.applicationId as string | undefined;
-        // Upload documents if provided
-        if (applicationId) {
-          await uploadIfPresent(applicationId, "birth_certificate", form.birthCertificateFile);
-          await uploadIfPresent(applicationId, "report_card", form.reportCardFile);
-          await uploadIfPresent(applicationId, "photo", form.photoIdFile);
+        const uploadToken = json.uploadToken as string | undefined;
+        // Upload documents if provided — show progress per file
+        if (applicationId && uploadToken) {
+          const uploads: Array<{ key: string; docType: string; file: File | null | undefined }> = [
+            { key: "birth_certificate", docType: "birth_certificate", file: form.birthCertificateFile },
+            { key: "report_card", docType: "report_card", file: form.reportCardFile },
+            { key: "photo", docType: "photo", file: form.photoIdFile },
+          ];
+          const progress: Record<string, 'pending' | 'uploading' | 'done' | 'error'> = {};
+          for (const { key, file } of uploads) {
+            if (file) progress[key] = 'pending';
+          }
+          setUploadProgress(progress);
+
+          for (const { key, docType, file } of uploads) {
+            if (!file) continue;
+            setUploadProgress((prev) => ({ ...prev, [key]: 'uploading' }));
+            const ok = await uploadIfPresent(applicationId, docType, file, uploadToken);
+            setUploadProgress((prev) => ({ ...prev, [key]: ok ? 'done' : 'error' }));
+          }
         }
         setResult({ applicationId: json.applicationId });
         setForm(initialState);
@@ -210,7 +226,22 @@ export function ApplicationForm({ qrCodeId }: { qrCodeId?: string }) {
           {submitting ? "Submitting..." : "Submit Application"}
         </button>
         {result?.applicationId && (
-          <span className="text-green-700">Submitted! Reference: {result.applicationId}</span>
+          <div className="text-green-700 space-y-1">
+            <p className="font-medium">Application submitted! Reference: {result.applicationId}</p>
+            {Object.keys(uploadProgress).length > 0 && (
+              <ul className="text-sm space-y-0.5">
+                {uploadProgress.birth_certificate && (
+                  <li>Birth Certificate: {uploadProgress.birth_certificate === 'done' ? '✓ Uploaded' : uploadProgress.birth_certificate === 'error' ? '✗ Upload failed' : '⏳ Uploading...'}</li>
+                )}
+                {uploadProgress.report_card && (
+                  <li>Report Card: {uploadProgress.report_card === 'done' ? '✓ Uploaded' : uploadProgress.report_card === 'error' ? '✗ Upload failed' : '⏳ Uploading...'}</li>
+                )}
+                {uploadProgress.photo && (
+                  <li>Photo ID: {uploadProgress.photo === 'done' ? '✓ Uploaded' : uploadProgress.photo === 'error' ? '✗ Upload failed' : '⏳ Uploading...'}</li>
+                )}
+              </ul>
+            )}
+          </div>
         )}
         {result?.error && <span className="text-red-600">{result.error}</span>}
       </div>
@@ -218,28 +249,40 @@ export function ApplicationForm({ qrCodeId }: { qrCodeId?: string }) {
   );
 }
 
-async function uploadIfPresent(applicationId: string, documentType: string, file?: File | null) {
-  if (!file) return;
-  const res = await authFetch("/api/applications/documents/create-upload-url", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      applicationId,
-      documentType,
-      fileName: file.name,
-      fileType: file.type,
-    }),
-  });
-  const json = await res.json();
-  if (!res.ok || !json.uploadUrl) {
-    console.error("Failed to get upload URL", json.error);
-    return;
+async function uploadIfPresent(
+  applicationId: string,
+  documentType: string,
+  file: File | null | undefined,
+  uploadToken: string
+): Promise<boolean> {
+  if (!file) return true;
+  try {
+    const res = await fetch("/api/applications/documents/create-upload-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        applicationId,
+        documentType,
+        fileName: file.name,
+        fileType: file.type,
+        uploadToken,
+      }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.uploadUrl) {
+      console.error("Failed to get upload URL", json.error);
+      return false;
+    }
+    const uploadRes = await fetch(json.uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    return uploadRes.ok;
+  } catch (err) {
+    console.error("Upload failed:", err);
+    return false;
   }
-  await fetch(json.uploadUrl, {
-    method: "PUT",
-    headers: { "Content-Type": file.type },
-    body: file,
-  });
 }
 
 function Input({

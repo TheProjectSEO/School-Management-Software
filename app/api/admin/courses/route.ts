@@ -64,19 +64,19 @@ export async function POST(request: NextRequest) {
 
     const supabase = createAdminClient();
 
-    // Check for duplicate subject_code within the same school
+    // Check for duplicate subject_code OR name within the same school
     const { data: existingCourse } = await supabase
       .from("courses")
-      .select("id")
-      .eq("subject_code", subject_code)
+      .select("id, name, subject_code")
       .eq("school_id", auth.admin.schoolId)
+      .or(`subject_code.eq.${subject_code},name.eq.${name}`)
       .maybeSingle();
 
     if (existingCourse) {
-      return NextResponse.json(
-        { error: "A course with this subject code already exists" },
-        { status: 409 }
-      );
+      const conflict = existingCourse.subject_code === subject_code
+        ? "A subject with this subject code already exists"
+        : "A subject with this name already exists";
+      return NextResponse.json({ error: conflict }, { status: 409 });
     }
 
     // Create the course

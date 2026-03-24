@@ -26,6 +26,8 @@ export async function POST(request: NextRequest) {
     const {
       courseId,
       lessonId,
+      moduleId,
+      idempotency_key,
       title,
       type,
       instructions,
@@ -35,6 +37,19 @@ export async function POST(request: NextRequest) {
       publishNow,
       questions,
     } = body;
+
+    // Server-side idempotency: prevent duplicate saves from double-clicks
+    if (idempotency_key) {
+      const { data: existingByKey } = await supabase
+        .from("assessments")
+        .select("id, title, status")
+        .eq("created_by", teacherId)
+        .eq("idempotency_key", idempotency_key)
+        .maybeSingle();
+      if (existingByKey) {
+        return NextResponse.json({ assessment: existingByKey }, { status: 200 });
+      }
+    }
 
     if (!courseId || !title?.trim() || !Array.isArray(questions)) {
       return NextResponse.json(
@@ -86,6 +101,8 @@ export async function POST(request: NextRequest) {
       created_by: teacherId,
     };
     if (lessonId) insertData.lesson_id = lessonId;
+    if (moduleId) insertData.module_id = moduleId;
+    if (idempotency_key) insertData.idempotency_key = idempotency_key;
 
     const { data: assessment, error: assessmentError } = await supabase
       .from("assessments")

@@ -69,6 +69,11 @@ export default function AIPlannerPage() {
   const [successMessage, setSuccessMessage] = useState('')
   const [courseLessons, setCourseLessons] = useState<CourseLesson[]>([])
   const [loadingLessons, setLoadingLessons] = useState(false)
+  const [courseModules, setCourseModules] = useState<{ id: string; title: string }[]>([])
+  const [loadingModules, setLoadingModules] = useState(false)
+  const [selectedModuleId, setSelectedModuleId] = useState('')
+  const [assessmentIdempotencyKey, setAssessmentIdempotencyKey] = useState('')
+  const [isSavingAssessment, setIsSavingAssessment] = useState(false)
 
   useEffect(() => {
     async function loadSubjects() {
@@ -94,32 +99,39 @@ export default function AIPlannerPage() {
     }
   }, [searchParams])
 
-  // Load lessons when course changes (for assessment lesson dropdown)
+  // Load lessons + modules when course changes (for assessment pickers)
   useEffect(() => {
     if (!courseId) {
       setCourseLessons([])
+      setCourseModules([])
+      setSelectedModuleId('')
       return
     }
-    async function loadLessons() {
+    async function loadLessonsAndModules() {
       setLoadingLessons(true)
+      setLoadingModules(true)
       try {
         const res = await authFetch(`/api/teacher/content/modules?course_id=${courseId}&include_lessons=true`)
         if (!res.ok) return
         const data = await res.json()
         const lessons: CourseLesson[] = []
+        const modules: { id: string; title: string }[] = []
         for (const mod of data.modules || []) {
+          modules.push({ id: mod.id, title: mod.title })
           for (const lesson of mod.lessons || []) {
             lessons.push({ id: lesson.id, title: lesson.title, module_title: mod.title })
           }
         }
         setCourseLessons(lessons)
+        setCourseModules(modules)
       } catch (error) {
-        console.error('Failed to load lessons:', error)
+        console.error('Failed to load lessons/modules:', error)
       } finally {
         setLoadingLessons(false)
+        setLoadingModules(false)
       }
     }
-    loadLessons()
+    loadLessonsAndModules()
   }, [courseId])
 
   const selectedCourse = useMemo(
@@ -232,8 +244,14 @@ export default function AIPlannerPage() {
   }
 
   const handleSaveAssessment = async () => {
-    if (!assessmentDraft) return
+    if (!assessmentDraft || isSavingAssessment) return
+    setIsSavingAssessment(true)
     setSaveStatus(null)
+
+    // Generate stable idempotency key on first save attempt
+    const key = assessmentIdempotencyKey || crypto.randomUUID()
+    if (!assessmentIdempotencyKey) setAssessmentIdempotencyKey(key)
+
     try {
       const response = await authFetch('/api/teacher/ai/save-assessment', {
         method: 'POST',
@@ -241,6 +259,8 @@ export default function AIPlannerPage() {
         body: JSON.stringify({
           courseId,
           lessonId: assessmentDraft.lesson_id || null,
+          moduleId: selectedModuleId || null,
+          idempotency_key: key,
           title: assessmentDraft.title,
           type: assessmentDraft.type,
           instructions: assessmentDraft.instructions,
@@ -253,15 +273,20 @@ export default function AIPlannerPage() {
       })
       const data = await response.json()
       if (!response.ok) {
+        setAssessmentIdempotencyKey('') // reset so retry gets a fresh key
         alert(data.error || 'Failed to save assessment')
       } else {
         setSaveStatus('Assessment saved successfully.')
         setSuccessMessage(`Assessment "${assessmentDraft.title}" has been saved successfully with ${assessmentDraft.questions.length} question${assessmentDraft.questions.length !== 1 ? 's' : ''}.`)
         setShowSuccessModal(true)
+        setAssessmentIdempotencyKey('') // reset for next draft
       }
     } catch (error) {
       console.error('Save assessment error:', error)
+      setAssessmentIdempotencyKey('') // reset so retry works
       alert('Failed to save assessment')
+    } finally {
+      setIsSavingAssessment(false)
     }
   }
 
@@ -543,6 +568,20 @@ export default function AIPlannerPage() {
                 </select>
               </div>
               <div>
+                <label className="text-sm font-semibold text-slate-700">Link to Module</label>
+                <select
+                  value={selectedModuleId}
+                  onChange={(e) => setSelectedModuleId(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                  disabled={loadingModules}
+                >
+                  <option value="">{loadingModules ? 'Loading...' : 'None (course-level)'}</option>
+                  {courseModules.map((mod) => (
+                    <option key={mod.id} value={mod.id}>{mod.title}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="text-sm font-semibold text-slate-700">Linked Lesson</label>
                 <select
                   value={assessmentDraft.lesson_id || ''}
@@ -726,7 +765,9 @@ export default function AIPlannerPage() {
               ))}
             </div>
 
-            <Button onClick={handleSaveAssessment}>Save Assessment</Button>
+            <Button onClick={handleSaveAssessment} disabled={isSavingAssessment}>
+              {isSavingAssessment ? 'Saving...' : 'Save Assessment'}
+            </Button>
           </div>
         </Card>
       )}

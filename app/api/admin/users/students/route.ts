@@ -99,6 +99,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check for duplicate LRN within the same school (if provided)
+    if (lrn) {
+      const { createServiceClient } = await import("@/lib/supabase/service");
+      const supabase = createServiceClient();
+      const { data: existingLrn } = await supabase
+        .from("students")
+        .select("id")
+        .eq("lrn", lrn)
+        .eq("school_id", admin.schoolId)
+        .maybeSingle();
+      if (existingLrn) {
+        return NextResponse.json(
+          { error: "A student with this LRN already exists" },
+          { status: 409 }
+        );
+      }
+    }
+
     const result = await createStudent({
       fullName,
       email,

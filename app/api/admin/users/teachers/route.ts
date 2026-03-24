@@ -96,6 +96,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Check for duplicate employee_id within the same school
+    const { createServiceClient } = await import("@/lib/supabase/service");
+    const supabase = createServiceClient();
+    const { data: existingTeacher } = await supabase
+      .from("teacher_profiles")
+      .select("id")
+      .eq("employee_id", employeeId)
+      .eq("school_id", admin.schoolId)
+      .maybeSingle();
+    if (existingTeacher) {
+      return NextResponse.json(
+        { error: "A teacher with this employee ID already exists" },
+        { status: 409 }
+      );
+    }
+
     const result = await createTeacher({
       fullName,
       email,

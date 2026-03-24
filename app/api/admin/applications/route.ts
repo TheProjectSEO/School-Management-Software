@@ -1,20 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentAdmin, hasPermission } from "@/lib/dal/admin";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdminAPI } from "@/lib/dal/admin";
+import { createServiceClient } from "@/lib/supabase/service";
 
 export async function GET(req: NextRequest) {
   try {
-    const admin = await getCurrentAdmin();
-    if (!admin) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireAdminAPI("enrollments:read");
+    if (!auth.success) return auth.response;
 
-    const canRead = await hasPermission("enrollments:read");
-    if (!canRead) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
-
-    const supabase = createAdminClient();
+    const supabase = createServiceClient();
     const { searchParams } = new URL(req.url);
     const status = searchParams.get("status");
     const limit = Number(searchParams.get("limit") || 50);

@@ -74,20 +74,20 @@ export async function PUT(
       return NextResponse.json({ error: "Course not found" }, { status: 404 });
     }
 
-    // Check for duplicate subject_code (excluding current course, same school)
+    // Check for duplicate subject_code OR name (excluding current course, same school)
     const { data: duplicateCourse } = await supabase
       .from("courses")
-      .select("id")
-      .eq("subject_code", subject_code)
+      .select("id, name, subject_code")
       .eq("school_id", auth.admin.schoolId)
       .neq("id", courseId)
+      .or(`subject_code.eq.${subject_code},name.eq.${name}`)
       .maybeSingle();
 
     if (duplicateCourse) {
-      return NextResponse.json(
-        { error: "A course with this subject code already exists" },
-        { status: 409 }
-      );
+      const conflict = duplicateCourse.subject_code === subject_code
+        ? "A subject with this subject code already exists"
+        : "A subject with this name already exists";
+      return NextResponse.json({ error: conflict }, { status: 409 });
     }
 
     // Update the course

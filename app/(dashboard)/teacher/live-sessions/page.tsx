@@ -1053,6 +1053,13 @@ function CreateSessionModal({
             </div>
           </div>
 
+          {/* Validation: module required for Module Session */}
+          {isModuleSession && formData.assignmentId && modules.length > 0 && !formData.moduleId && (
+            <p className="text-sm text-red-500 -mt-1">
+              Please select a module to continue.
+            </p>
+          )}
+
           <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-2">
             <button
               type="button"
@@ -1063,7 +1070,7 @@ function CreateSessionModal({
             </button>
             <button
               type="submit"
-              disabled={creating}
+              disabled={creating || (isModuleSession && modules.length > 0 && !formData.moduleId)}
               className="w-full sm:w-auto px-6 py-2.5 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary-hover active:scale-95 disabled:opacity-50 transition-all"
             >
               {creating ? 'Scheduling...' : 'Schedule Session'}

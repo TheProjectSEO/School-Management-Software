@@ -72,6 +72,7 @@ export async function POST(request: NextRequest) {
       deped_component,
       course_id,
       lesson_id,
+      module_id,
       section_id,
       grading_period_id,
       instructions,
@@ -122,6 +123,7 @@ export async function POST(request: NextRequest) {
       created_by: teacherId,
     }
     if (lesson_id) insertData.lesson_id = lesson_id
+    if (module_id) insertData.module_id = module_id
     if (grading_period_id) insertData.grading_period_id = grading_period_id
     if (idempotency_key) insertData.idempotency_key = idempotency_key
 

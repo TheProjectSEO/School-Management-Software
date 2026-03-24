@@ -118,13 +118,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   let authUserId = authCreated?.user?.id;
   
   if (!authUserId) {
-    // User already exists, try to find them
-    const { data: existingUsers } = await supabase.auth.admin.listUsers({
-      page: 1,
-      perPage: 100,
-    });
-    const existingUser = existingUsers?.users?.find(u => u.email === application.email);
-    authUserId = existingUser?.id;
+    // User already exists — look up their auth_user_id via school_profiles (reliable, no pagination)
+    const { data: existingProfile } = await supabase
+      .from("school_profiles")
+      .select("auth_user_id")
+      .eq("email", application.email)
+      .maybeSingle();
+    authUserId = existingProfile?.auth_user_id ?? undefined;
+
+    // Fallback: scan auth users if not yet in school_profiles (e.g. partial prior run)
+    if (!authUserId) {
+      const { data: page1 } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      authUserId = page1?.users?.find((u) => u.email === application.email)?.id;
+    }
   }
 
   if (!authUserId) {

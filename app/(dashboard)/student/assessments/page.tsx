@@ -121,8 +121,17 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
     return dueDate > new Date(now.getTime() + 48 * 60 * 60 * 1000) && dueDate <= oneWeekFromNow;
   });
 
-  // Filter submitted assessments for feedback section
-  const feedbackAssessments = assessments
+  // Assessments with no due date — always visible
+  const noDueDateAssessments = filteredAssessments.filter((assessment) => !assessment.due_date);
+
+  // Past-due assessments (overdue or submitted/graded after deadline)
+  const pastAssessments = filteredAssessments.filter((assessment) => {
+    if (!assessment.due_date) return false;
+    return new Date(assessment.due_date) < now;
+  });
+
+  // Filter submitted assessments for feedback section (from ALL assessments, not just upcoming)
+  const feedbackAssessments = filteredAssessments
     .filter((a) => a.submission?.status === "graded")
     .slice(0, 5);
 
@@ -486,6 +495,63 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
               <p className={`font-medium ${isPlayful ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}`}>
                 {isPlayful ? 'Nothing coming up! Enjoy your free time! \u{1F60A}' : 'No upcoming assessments'}
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* Previous / Past-Due Assessments */}
+        {pastAssessments.length > 0 && (
+          <div className="flex flex-col gap-4">
+            <h3 className={`text-xl font-bold flex items-center gap-2 mt-4 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+              {isPlayful ? '📋 Previous!' : 'Previous Assessments'}
+            </h3>
+            <div className={`shadow-sm overflow-hidden ${isPlayful ? 'bg-gradient-to-br from-pink-50 to-purple-50 rounded-2xl border-2 border-pink-200' : 'bg-white dark:bg-[#1a2634] rounded-xl border border-slate-200 dark:border-slate-700'}`}>
+              <div className="grid grid-cols-1 divide-y divide-slate-100 dark:divide-slate-800">
+                {pastAssessments.map((assessment) => {
+                  const submission = assessment.submission;
+                  const isGraded = submission?.status === 'graded';
+                  const isSubmitted = submission?.status === 'submitted';
+                  const score = submission?.score ?? null;
+                  const percentage = isGraded && score !== null ? Math.round((score / assessment.total_points) * 100) : null;
+                  const dueDate = new Date(assessment.due_date!).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+                  return (
+                    <div key={assessment.id} className="p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center gap-4 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                      <div className={`flex items-center justify-center size-10 rounded-full shrink-0 ${
+                        isGraded ? 'bg-green-100 dark:bg-green-900/20 text-green-600 dark:text-green-400'
+                        : isSubmitted ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-600 dark:text-yellow-500'
+                        : 'bg-red-100 dark:bg-red-900/20 text-red-500 dark:text-red-400'
+                      }`}>
+                        <span className="material-symbols-outlined text-xl">
+                          {isGraded ? 'check_circle' : isSubmitted ? 'hourglass_bottom' : 'assignment_late'}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-base font-bold text-slate-900 dark:text-white truncate">{assessment.title}</h4>
+                        <p className="text-sm text-slate-500 dark:text-slate-400">
+                          {assessment.course?.name} • Due {dueDate}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end shrink-0">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                          isGraded ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400'
+                          : isSubmitted ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-500'
+                          : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400'
+                        }`}>
+                          {isGraded ? (percentage !== null ? `${percentage}%` : 'Graded') : isSubmitted ? 'Under Review' : 'Not Submitted'}
+                        </span>
+                        <Link
+                          href={`/student/assessments/${assessment.id}${isGraded ? '/feedback' : ''}`}
+                          className="text-primary hover:text-[#5a0c0e] font-medium text-sm flex items-center gap-1"
+                        >
+                          {isGraded ? 'Review' : isSubmitted ? 'View' : 'Open'}
+                          <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                        </Link>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}

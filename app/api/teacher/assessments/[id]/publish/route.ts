@@ -69,6 +69,31 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
 
+    // Notify all enrolled students in this course
+    try {
+      const courseId = updatedAssessment.course_id;
+      const { data: enrollments } = await supabase
+        .from('enrollments')
+        .select('student_id')
+        .eq('course_id', courseId);
+
+      if (enrollments && enrollments.length > 0) {
+        const notifications = enrollments.map((e: { student_id: string }) => ({
+          student_id: e.student_id,
+          type: 'assignment',
+          title: 'New Assessment Available',
+          message: `"${updatedAssessment.title}" has been published. Check your assessments page.`,
+          action_url: '/student/assessments',
+          is_read: false,
+          created_at: new Date().toISOString(),
+        }));
+        await supabase.from('student_notifications').insert(notifications);
+      }
+    } catch (notifyErr) {
+      // Non-fatal — don't fail the publish if notifications fail
+      console.error('Error sending assessment notifications:', notifyErr);
+    }
+
     return NextResponse.json({
       success: true,
       assessment: updatedAssessment,

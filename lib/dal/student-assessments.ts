@@ -20,7 +20,6 @@ export async function getUpcomingAssessments(
   const courseIds = await getStudentCourseIds(studentId);
   if (courseIds.length === 0) return [];
 
-  const now = new Date().toISOString();
   const { data: assessments, error } = await supabase
     .from("assessments")
     .select(
@@ -31,8 +30,9 @@ export async function getUpcomingAssessments(
     )
     .in("course_id", courseIds)
     .eq("status", "published")  // Only show published assessments to students
-    .or(`due_date.gte.${now},due_date.is.null`)  // Include upcoming or no due date
-    .order("due_date", { ascending: true, nullsFirst: false })
+    // No due-date filter — past-due assessments must remain visible so students can
+    // see overdue items and teachers' feedback on submitted work.
+    .order("due_date", { ascending: false, nullsFirst: true })
     .limit(limit);
 
   if (error) {

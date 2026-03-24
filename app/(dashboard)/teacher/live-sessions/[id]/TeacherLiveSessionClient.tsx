@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { authFetch } from '@/lib/utils/authFetch';
 import { LiveSessionRoom } from '@/components/live-sessions/LiveSessionRoom';
@@ -31,6 +31,22 @@ export function TeacherLiveSessionClient({
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
   const [activeTab, setActiveTab] = useState<'chat' | 'notes'>('chat');
+
+  const hasJoinedRef = useRef(false);
+  const hasEndedRef = useRef(false);
+
+  useEffect(() => {
+    if (roomUrl && token) hasJoinedRef.current = true;
+  }, [roomUrl, token]);
+
+  // Auto-float when teacher navigates away from session page
+  useEffect(() => {
+    return () => {
+      if (hasJoinedRef.current && !hasEndedRef.current) {
+        setFloating(true);
+      }
+    };
+  }, [setFloating]);
 
   // Fetch owner token on mount — skip if context already has this session active
   // (happens when returning to the page while floating, or after client-side navigation)
@@ -86,6 +102,7 @@ export function TeacherLiveSessionClient({
     setIsEnding(true);
     try {
       await authFetch(`/api/teacher/live-sessions/${sessionId}/end`, { method: 'POST' });
+      hasEndedRef.current = true;
       clearSession();
       router.push('/teacher/live-sessions');
     } catch {

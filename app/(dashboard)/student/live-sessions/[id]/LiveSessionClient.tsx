@@ -7,7 +7,7 @@ import { authFetch } from "@/lib/utils/authFetch";
  * Manages all real-time features and interactions
  */
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLiveSession } from '@/contexts/LiveSessionContext';
 import { LiveSessionRoom } from '@/components/live-sessions/LiveSessionRoom';
@@ -53,6 +53,24 @@ export function LiveSessionClient({
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
   const [activeTab, setActiveTab] = useState<'chat' | 'qa' | 'notes'>('chat');
+
+  // Track whether we successfully joined and whether leave was intentional
+  const hasJoinedRef = useRef(false);
+  const hasLeftRef = useRef(false);
+
+  useEffect(() => {
+    if (roomUrl && token) hasJoinedRef.current = true;
+  }, [roomUrl, token]);
+
+  // Auto-enable floating when navigating away — keeps Daily.co connection alive
+  // Only floats if session was joined and user didn't explicitly leave
+  useEffect(() => {
+    return () => {
+      if (hasJoinedRef.current && !hasLeftRef.current) {
+        setFloating(true);
+      }
+    };
+  }, [setFloating]);
 
   // Join session on mount — skip API call if context already has this session active
   // (happens when returning to the page while floating, or after client-side navigation)
@@ -102,6 +120,7 @@ export function LiveSessionClient({
   }, [startTime]);
 
   const handleLeave = () => {
+    hasLeftRef.current = true;
     clearSession();
     router.push('/student/live-sessions');
   };

@@ -101,6 +101,7 @@ export async function POST(
         max_participants: session.max_participants || 50,
         start_video_off: true,
         start_audio_off: true,
+        enable_prejoin_ui: false, // Skip lobby — join instantly without device check
         exp: Math.floor(Date.now() / 1000) + 60 * 60 * 12, // 12h
       },
     });

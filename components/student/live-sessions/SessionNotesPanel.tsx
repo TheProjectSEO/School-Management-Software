@@ -15,6 +15,7 @@ export function SessionNotesPanel({ sessionId, gradeLevel, role }: SessionNotesP
   const isPlayful = theme.type === 'playful';
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -46,12 +47,19 @@ export function SessionNotesPanel({ sessionId, gradeLevel, role }: SessionNotesP
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       setIsSaving(true);
+      setSaveError(false);
       try {
-        await authFetch(apiBase, {
+        const res = await authFetch(apiBase, {
           method: 'POST',
           body: JSON.stringify({ content: value }),
         });
-        setLastSaved(new Date());
+        if (res.ok) {
+          setLastSaved(new Date());
+        } else {
+          setSaveError(true);
+        }
+      } catch {
+        setSaveError(true);
       } finally {
         setIsSaving(false);
       }
@@ -76,6 +84,11 @@ export function SessionNotesPanel({ sessionId, gradeLevel, role }: SessionNotesP
             <span className="flex items-center gap-1 text-slate-400">
               <span className="material-symbols-outlined text-[13px] animate-spin">autorenew</span>
               Saving…
+            </span>
+          ) : saveError ? (
+            <span className="flex items-center gap-1 text-red-500" title="Run the migration SQL in Supabase to enable notes">
+              <span className="material-symbols-outlined text-[13px]">error</span>
+              Not saved
             </span>
           ) : lastSaved ? (
             <span className="flex items-center gap-1 text-green-600 dark:text-green-400">

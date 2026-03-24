@@ -14,6 +14,7 @@ interface DailyRoomConfig {
     max_participants?: number;
     start_video_off?: boolean;
     start_audio_off?: boolean;
+    enable_prejoin_ui?: boolean; // false = skip lobby/device-check screen
     exp?: number; // unix seconds
     webhook_url?: string;
   };

@@ -9,6 +9,7 @@ import { authFetch } from "@/lib/utils/authFetch";
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useLiveSession } from '@/contexts/LiveSessionContext';
 import { LiveSessionRoom } from '@/components/live-sessions/LiveSessionRoom';
 import { ReactionsBar } from '@/components/live-sessions/ReactionsBar';
 import { QAPanel } from '@/components/live-sessions/QAPanel';
@@ -41,6 +42,7 @@ export function LiveSessionClient({
   const router = useRouter();
   const theme = getClassroomTheme(gradeLevel);
   const isPlayful = theme.type === 'playful';
+  const { setSession, clearSession, isFloating, setFloating } = useLiveSession();
 
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -65,6 +67,7 @@ export function LiveSessionClient({
         const data = await response.json();
         setRoomUrl(data.roomUrl);
         setToken(data.token);
+        setSession({ sessionId, roomUrl: data.roomUrl, token: data.token, title: sessionData.title });
         setIsJoining(false);
       } catch (err) {
         console.error('Error joining session:', err);
@@ -86,6 +89,7 @@ export function LiveSessionClient({
   }, [startTime]);
 
   const handleLeave = () => {
+    clearSession();
     router.push('/student/live-sessions');
   };
 
@@ -188,12 +192,25 @@ export function LiveSessionClient({
         {/* Video Room - Full width on mobile, 2/3 on desktop */}
         <div className="lg:col-span-2">
           <div className={`${theme.spacing.borderRadius} overflow-hidden ${theme.effects.shadows ? 'shadow-xl' : 'border border-gray-200'} h-[360px] sm:h-[480px] lg:h-[calc(100vh-280px)] lg:min-h-[520px]`}>
-            <LiveSessionRoom
-              roomUrl={roomUrl}
-              token={token}
-              onLeave={handleLeave}
-              className="h-full"
-            />
+            {isFloating ? (
+              <div className="flex flex-col items-center justify-center h-full bg-slate-900 rounded-xl gap-3">
+                <span className="material-symbols-outlined text-5xl text-slate-400">picture_in_picture_alt</span>
+                <p className="text-slate-400 text-sm">Video is floating</p>
+                <button
+                  onClick={() => setFloating(false)}
+                  className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-lg transition-colors"
+                >
+                  Bring back
+                </button>
+              </div>
+            ) : (
+              <LiveSessionRoom
+                roomUrl={roomUrl}
+                token={token}
+                onLeave={handleLeave}
+                className="h-full"
+              />
+            )}
           </div>
         </div>
 

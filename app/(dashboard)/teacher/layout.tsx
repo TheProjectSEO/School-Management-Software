@@ -1,4 +1,5 @@
 import TeacherShell from '@/components/teacher/layout/TeacherShell'
+import { LiveSessionProvider } from '@/contexts/LiveSessionContext'
 import { getTeacherProfile } from '@/lib/dal/teacher'
 import { MessageNotificationProvider } from '@/components/teacher/providers/MessageNotificationProvider'
 import { Toaster } from '@/components/teacher/ui/Toaster'
@@ -39,7 +40,9 @@ export default async function TeacherLayout({
         teacherId={teacherId}
         userName={userName}
       >
-        <TeacherShell teacherData={teacherData}>{children}</TeacherShell>
+        <LiveSessionProvider>
+          <TeacherShell teacherData={teacherData}>{children}</TeacherShell>
+        </LiveSessionProvider>
         <Toaster />
       </MessageNotificationProvider>
     </TeacherGuard>

@@ -5,6 +5,8 @@ import { Sidebar } from "./Sidebar";
 import { MobileNav } from "./MobileNav";
 import { useAuth } from "@/hooks/useAuth";
 import { useStudentTheme } from "@/components/student/providers/StudentThemeProvider";
+import { useLiveSession } from "@/contexts/LiveSessionContext";
+import { FloatingVideoPanel } from "@/components/live-sessions/FloatingVideoPanel";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -20,6 +22,7 @@ export function AppShell({ children, user, studentId }: AppShellProps) {
   const { logout } = useAuth();
   const { theme, isPlayful } = useStudentTheme();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const { session, isFloating, setFloating, clearSession } = useLiveSession();
 
   const handleLogout = async () => {
     try {
@@ -87,6 +90,15 @@ export function AppShell({ children, user, studentId }: AppShellProps) {
           </div>
         </main>
       </div>
+      {isFloating && session && (
+        <FloatingVideoPanel
+          roomUrl={session.roomUrl}
+          token={session.token}
+          title={session.title}
+          onExpand={() => setFloating(false)}
+          onClose={clearSession}
+        />
+      )}
     </div>
   );
 }

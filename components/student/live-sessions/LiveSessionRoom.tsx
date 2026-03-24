@@ -2,11 +2,13 @@
 
 /**
  * Live Session Room Component
- * Embeds Daily.co video conferencing via iframe
- * Supports: normal, fullscreen, and floating (PiP) modes
+ * Embeds Daily.co video conferencing via iframe.
+ * Floating mode is handled by the shell-level FloatingVideoPanel (persists across navigation).
+ * Fullscreen mode is handled locally via CSS overlay.
  */
 
 import { useState, useRef, useCallback } from 'react';
+import { useLiveSession } from '@/contexts/LiveSessionContext';
 
 interface LiveSessionRoomProps {
   roomUrl: string;
@@ -16,64 +18,28 @@ interface LiveSessionRoomProps {
   className?: string;
 }
 
-type VideoMode = 'normal' | 'fullscreen' | 'floating';
-
-export function LiveSessionRoom({
-  roomUrl,
-  token,
-  className = '',
-}: LiveSessionRoomProps) {
-  const [mode, setMode] = useState<VideoMode>('normal');
-  const [floatPos, setFloatPos] = useState({ x: 24, y: 24 }); // distance from bottom-right
+export function LiveSessionRoom({ roomUrl, token, className = '' }: LiveSessionRoomProps) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null);
+  const { setFloating } = useLiveSession();
 
   const handleFullscreen = useCallback(async () => {
-    if (mode === 'fullscreen') {
+    if (isFullscreen) {
       await document.exitFullscreen().catch(() => {});
-      setMode('normal');
+      setIsFullscreen(false);
     } else {
       try {
         await containerRef.current?.requestFullscreen();
-        setMode('fullscreen');
+        setIsFullscreen(true);
       } catch {
-        // Fallback: CSS-level fullscreen overlay
-        setMode('fullscreen');
+        setIsFullscreen(true);
       }
     }
-  }, [mode]);
+  }, [isFullscreen]);
 
   const handleFloat = useCallback(() => {
-    setMode(prev => prev === 'floating' ? 'normal' : 'floating');
-  }, []);
-
-  // Drag-to-reposition for floating window
-  const onDragStart = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    dragRef.current = {
-      startX: e.clientX,
-      startY: e.clientY,
-      startPosX: floatPos.x,
-      startPosY: floatPos.y,
-    };
-
-    const onMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return;
-      const dx = dragRef.current.startX - ev.clientX;
-      const dy = dragRef.current.startY - ev.clientY;
-      setFloatPos({
-        x: Math.max(8, dragRef.current.startPosX + dx),
-        y: Math.max(8, dragRef.current.startPosY + dy),
-      });
-    };
-    const onUp = () => {
-      dragRef.current = null;
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-  }, [floatPos]);
+    setFloating(true);
+  }, [setFloating]);
 
   if (!roomUrl || !token) {
     return (
@@ -92,100 +58,36 @@ export function LiveSessionRoom({
     <div className="absolute top-3 right-3 z-10 flex gap-2">
       <button
         onClick={handleFloat}
-        title={mode === 'floating' ? 'Expand video' : 'Float video (PiP)'}
+        title="Float video (continue while browsing)"
         className="flex items-center justify-center w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm transition-colors"
       >
-        <span className="material-symbols-outlined text-[18px]">
-          {mode === 'floating' ? 'open_in_full' : 'picture_in_picture_alt'}
-        </span>
+        <span className="material-symbols-outlined text-[18px]">picture_in_picture_alt</span>
       </button>
       <button
         onClick={handleFullscreen}
-        title={mode === 'fullscreen' ? 'Exit fullscreen' : 'Fullscreen'}
+        title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
         className="flex items-center justify-center w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm transition-colors"
       >
         <span className="material-symbols-outlined text-[18px]">
-          {mode === 'fullscreen' ? 'fullscreen_exit' : 'fullscreen'}
+          {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
         </span>
       </button>
     </div>
   );
 
-  // Floating (PiP) mode — fixed draggable window
-  if (mode === 'floating') {
+  // Fullscreen mode — CSS overlay covering entire viewport
+  if (isFullscreen) {
     return (
       <>
-        {/* Placeholder in original position */}
-        <div className={`relative w-full h-full ${className} flex items-center justify-center bg-slate-900 rounded-xl`}>
-          <div className="text-center text-slate-400">
-            <span className="material-symbols-outlined text-5xl mb-2 block">picture_in_picture_alt</span>
-            <p className="text-sm">Video is floating</p>
-            <button
-              onClick={handleFloat}
-              className="mt-3 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-lg transition-colors"
-            >
-              Bring back
-            </button>
-          </div>
-        </div>
-
-        {/* Floating window */}
-        <div
-          className="fixed z-[9999] rounded-xl overflow-hidden shadow-2xl border border-white/20"
-          style={{
-            width: 400,
-            height: 280,
-            right: floatPos.x,
-            bottom: floatPos.y,
-          }}
-        >
-          {/* Drag handle */}
-          <div
-            onMouseDown={onDragStart}
-            className="absolute top-0 left-0 right-0 h-8 z-10 flex items-center justify-between px-2 bg-black/70 cursor-grab active:cursor-grabbing"
-          >
-            <span className="text-white text-xs font-medium select-none truncate">Live Session</span>
-            <div className="flex gap-1">
-              <button
-                onClick={handleFloat}
-                title="Expand"
-                className="flex items-center justify-center w-6 h-6 rounded hover:bg-white/20 text-white transition-colors"
-              >
-                <span className="material-symbols-outlined text-[14px]">open_in_full</span>
-              </button>
-              <button
-                onClick={handleFullscreen}
-                title="Fullscreen"
-                className="flex items-center justify-center w-6 h-6 rounded hover:bg-white/20 text-white transition-colors"
-              >
-                <span className="material-symbols-outlined text-[14px]">fullscreen</span>
-              </button>
-            </div>
-          </div>
-          <iframe
-            src={iframeSrc}
-            allow="camera; microphone; display-capture; fullscreen; autoplay"
-            className="w-full h-full border-0"
-            title="Live Session (floating)"
-          />
-        </div>
-      </>
-    );
-  }
-
-  // Fullscreen mode — CSS overlay (covers entire viewport)
-  if (mode === 'fullscreen') {
-    return (
-      <>
-        {/* Placeholder */}
+        {/* Placeholder in original slot */}
         <div className={`relative w-full h-full ${className} bg-black rounded-xl`} />
-
         {/* Fullscreen overlay */}
-        <div className="fixed inset-0 z-[9998] bg-black" ref={containerRef}>
+        <div ref={containerRef} className="fixed inset-0 z-[9998] bg-black">
           {controlBar}
           <iframe
             src={iframeSrc}
-            allow="camera; microphone; display-capture; fullscreen; autoplay"
+            allow="camera *; microphone *; display-capture *; fullscreen *; autoplay *"
+            allowFullScreen
             className="w-full h-full border-0"
             title="Live Session (fullscreen)"
           />
@@ -200,7 +102,8 @@ export function LiveSessionRoom({
       {controlBar}
       <iframe
         src={iframeSrc}
-        allow="camera; microphone; display-capture; fullscreen; autoplay"
+        allow="camera *; microphone *; display-capture *; fullscreen *; autoplay *"
+        allowFullScreen
         className="w-full h-full border-0 rounded-xl"
         title="Live Session"
       />

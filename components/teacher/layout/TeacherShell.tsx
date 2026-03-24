@@ -4,6 +4,8 @@ import { useState } from 'react'
 import Image from 'next/image'
 import TeacherSidebar from './TeacherSidebar'
 import { useAuth } from '@/hooks/useAuth'
+import { useLiveSession } from '@/contexts/LiveSessionContext'
+import { FloatingVideoPanel } from '@/components/live-sessions/FloatingVideoPanel'
 
 interface TeacherData {
   full_name: string
@@ -21,6 +23,7 @@ export default function TeacherShell({ children, teacherData }: TeacherShellProp
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const { logout } = useAuth()
+  const { session, isFloating, setFloating, clearSession } = useLiveSession()
 
   const handleLogout = async () => {
     try {
@@ -98,6 +101,16 @@ export default function TeacherShell({ children, teacherData }: TeacherShellProp
           </div>
         </main>
       </div>
+
+      {isFloating && session && (
+        <FloatingVideoPanel
+          roomUrl={session.roomUrl}
+          token={session.token}
+          title={session.title}
+          onExpand={() => setFloating(false)}
+          onClose={clearSession}
+        />
+      )}
     </div>
   )
 }

@@ -9,6 +9,7 @@ import { AppShell } from '@/components/student/layout/AppShell';
 import { RealtimeProvider } from '@/components/student/providers/RealtimeProvider';
 import { MessageNotificationProvider } from '@/components/student/providers/MessageNotificationProvider';
 import { StudentThemeProvider } from '@/components/student/providers/StudentThemeProvider';
+import { LiveSessionProvider } from '@/contexts/LiveSessionContext';
 
 interface StudentLayoutProps {
   children: React.ReactNode;
@@ -54,9 +55,11 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
             studentId={studentId}
             userName={appShellUser?.name}
           >
-            <AppShell user={appShellUser} studentId={studentId}>
-              {children}
-            </AppShell>
+            <LiveSessionProvider>
+              <AppShell user={appShellUser} studentId={studentId}>
+                {children}
+              </AppShell>
+            </LiveSessionProvider>
           </MessageNotificationProvider>
         </RealtimeProvider>
       </StudentThemeProvider>

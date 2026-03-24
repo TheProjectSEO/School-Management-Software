@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { authFetch } from '@/lib/utils/authFetch';
 import { LiveSessionRoom } from '@/components/live-sessions/LiveSessionRoom';
+import { useLiveSession } from '@/contexts/LiveSessionContext';
 
 interface TeacherLiveSessionClientProps {
   sessionId: string;
@@ -19,6 +20,7 @@ export function TeacherLiveSessionClient({
   sessionData,
 }: TeacherLiveSessionClientProps) {
   const router = useRouter();
+  const { setSession, clearSession, isFloating, setFloating } = useLiveSession();
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -40,6 +42,7 @@ export function TeacherLiveSessionClient({
         const data = await res.json();
         setRoomUrl(data.roomUrl);
         setToken(data.token);
+        setSession({ sessionId, roomUrl: data.roomUrl, token: data.token, title: sessionData.title });
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to connect to session');
       } finally {
@@ -71,6 +74,7 @@ export function TeacherLiveSessionClient({
     setIsEnding(true);
     try {
       await authFetch(`/api/teacher/live-sessions/${sessionId}/end`, { method: 'POST' });
+      clearSession();
       router.push('/teacher/live-sessions');
     } catch {
       setIsEnding(false);
@@ -141,7 +145,20 @@ export function TeacherLiveSessionClient({
 
       {/* Video iframe */}
       <div className="rounded-xl overflow-hidden border border-slate-200 bg-black" style={{ height: 'calc(100vh - 180px)', minHeight: '520px' }}>
-        <LiveSessionRoom roomUrl={roomUrl} token={token} className="h-full" />
+        {isFloating ? (
+          <div className="flex flex-col items-center justify-center h-full bg-slate-900 gap-3">
+            <span className="material-symbols-outlined text-5xl text-slate-400">picture_in_picture_alt</span>
+            <p className="text-slate-400 text-sm">Video is floating</p>
+            <button
+              onClick={() => setFloating(false)}
+              className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-lg transition-colors"
+            >
+              Bring back
+            </button>
+          </div>
+        ) : (
+          <LiveSessionRoom roomUrl={roomUrl} token={token} className="h-full" />
+        )}
       </div>
     </div>
   );

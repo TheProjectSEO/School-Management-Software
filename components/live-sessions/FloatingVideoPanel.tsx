@@ -84,7 +84,7 @@ export function FloatingVideoPanel({ roomUrl, token, title, onExpand, onClose }:
       {/* Video iframe */}
       <iframe
         src={iframeSrc}
-        allow="camera *; microphone *; display-capture *; fullscreen *; autoplay *"
+        allow="camera *; microphone *; display-capture *; fullscreen *; autoplay *; speaker *"
         allowFullScreen
         className="flex-1 border-0 bg-black"
         title="Live Session (floating)"

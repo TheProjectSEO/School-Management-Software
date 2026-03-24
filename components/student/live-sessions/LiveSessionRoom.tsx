@@ -2,12 +2,15 @@
 
 /**
  * Live Session Room Component
- * Embeds Daily.co video conferencing via iframe.
- * Floating mode is handled by the shell-level FloatingVideoPanel (persists across navigation).
- * Fullscreen mode is handled locally via CSS overlay.
+ * Embeds Daily.co video via a single persistent iframe.
+ *
+ * IMPORTANT: We render exactly ONE <iframe> — never conditionally swap it.
+ * Mounting a new iframe element (even with the same src) creates a new
+ * Daily.co connection, causing a black screen / rejoin prompt.
+ * Fullscreen is achieved by changing the container's CSS class only.
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef } from 'react';
 import { useLiveSession } from '@/contexts/LiveSessionContext';
 
 interface LiveSessionRoomProps {
@@ -23,24 +26,6 @@ export function LiveSessionRoom({ roomUrl, token, className = '' }: LiveSessionR
   const containerRef = useRef<HTMLDivElement>(null);
   const { setFloating } = useLiveSession();
 
-  const handleFullscreen = useCallback(async () => {
-    if (isFullscreen) {
-      await document.exitFullscreen().catch(() => {});
-      setIsFullscreen(false);
-    } else {
-      try {
-        await containerRef.current?.requestFullscreen();
-        setIsFullscreen(true);
-      } catch {
-        setIsFullscreen(true);
-      }
-    }
-  }, [isFullscreen]);
-
-  const handleFloat = useCallback(() => {
-    setFloating(true);
-  }, [setFloating]);
-
   if (!roomUrl || !token) {
     return (
       <div className="flex items-center justify-center h-full bg-red-50 rounded-lg p-8">
@@ -54,55 +39,37 @@ export function LiveSessionRoom({ roomUrl, token, className = '' }: LiveSessionR
 
   const iframeSrc = `${roomUrl}?t=${token}`;
 
-  const controlBar = (
-    <div className="absolute top-3 right-3 z-10 flex gap-2">
-      <button
-        onClick={handleFloat}
-        title="Float video (continue while browsing)"
-        className="flex items-center justify-center w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm transition-colors"
-      >
-        <span className="material-symbols-outlined text-[18px]">picture_in_picture_alt</span>
-      </button>
-      <button
-        onClick={handleFullscreen}
-        title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-        className="flex items-center justify-center w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm transition-colors"
-      >
-        <span className="material-symbols-outlined text-[18px]">
-          {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
-        </span>
-      </button>
-    </div>
-  );
+  // Fullscreen: expand container to cover viewport via CSS (no new iframe element)
+  const containerClass = isFullscreen
+    ? 'fixed inset-0 z-[9998] bg-black'
+    : `relative w-full h-full ${className}`;
 
-  // Fullscreen mode — CSS overlay covering entire viewport
-  if (isFullscreen) {
-    return (
-      <>
-        {/* Placeholder in original slot */}
-        <div className={`relative w-full h-full ${className} bg-black rounded-xl`} />
-        {/* Fullscreen overlay */}
-        <div ref={containerRef} className="fixed inset-0 z-[9998] bg-black">
-          {controlBar}
-          <iframe
-            src={iframeSrc}
-            allow="camera *; microphone *; display-capture *; fullscreen *; autoplay *"
-            allowFullScreen
-            className="w-full h-full border-0"
-            title="Live Session (fullscreen)"
-          />
-        </div>
-      </>
-    );
-  }
-
-  // Normal mode
   return (
-    <div ref={containerRef} className={`relative w-full h-full ${className}`}>
-      {controlBar}
+    <div ref={containerRef} className={containerClass}>
+      {/* Control overlay — always on top */}
+      <div className="absolute top-3 right-3 z-10 flex gap-2">
+        <button
+          onClick={() => setFloating(true)}
+          title="Float video — keep watching while you browse"
+          className="flex items-center justify-center w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm transition-colors"
+        >
+          <span className="material-symbols-outlined text-[18px]">picture_in_picture_alt</span>
+        </button>
+        <button
+          onClick={() => setIsFullscreen(f => !f)}
+          title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+          className="flex items-center justify-center w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 text-white backdrop-blur-sm transition-colors"
+        >
+          <span className="material-symbols-outlined text-[18px]">
+            {isFullscreen ? 'fullscreen_exit' : 'fullscreen'}
+          </span>
+        </button>
+      </div>
+
+      {/* Single persistent iframe — never unmounted or swapped */}
       <iframe
         src={iframeSrc}
-        allow="camera *; microphone *; display-capture *; fullscreen *; autoplay *"
+        allow="camera *; microphone *; display-capture *; fullscreen *; autoplay *; speaker *"
         allowFullScreen
         className="w-full h-full border-0 rounded-xl"
         title="Live Session"

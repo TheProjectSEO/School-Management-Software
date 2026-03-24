@@ -42,7 +42,7 @@ export function LiveSessionClient({
   const router = useRouter();
   const theme = getClassroomTheme(gradeLevel);
   const isPlayful = theme.type === 'playful';
-  const { setSession, clearSession, isFloating, setFloating } = useLiveSession();
+  const { session: ctxSession, setSession, clearSession, isFloating, setFloating } = useLiveSession();
 
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -51,8 +51,17 @@ export function LiveSessionClient({
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
 
-  // Join session on mount
+  // Join session on mount — skip API call if context already has this session active
+  // (happens when returning to the page while floating, or after client-side navigation)
   useEffect(() => {
+    if (ctxSession?.sessionId === sessionId) {
+      // Restore from context — no new API call, no new token, no iframe reload
+      setRoomUrl(ctxSession.roomUrl);
+      setToken(ctxSession.token);
+      setIsJoining(false);
+      return;
+    }
+
     async function joinSession() {
       try {
         const response = await authFetch(`/api/student/live-sessions/${sessionId}/join`, {
@@ -77,6 +86,7 @@ export function LiveSessionClient({
     }
 
     joinSession();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   // Update elapsed time

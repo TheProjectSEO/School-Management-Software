@@ -20,7 +20,7 @@ export function TeacherLiveSessionClient({
   sessionData,
 }: TeacherLiveSessionClientProps) {
   const router = useRouter();
-  const { setSession, clearSession, isFloating, setFloating } = useLiveSession();
+  const { session: ctxSession, setSession, clearSession, isFloating, setFloating } = useLiveSession();
   const [roomUrl, setRoomUrl] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -29,8 +29,16 @@ export function TeacherLiveSessionClient({
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
 
-  // Fetch owner token on mount
+  // Fetch owner token on mount — skip if context already has this session active
+  // (happens when returning to the page while floating, or after client-side navigation)
   useEffect(() => {
+    if (ctxSession?.sessionId === sessionId) {
+      setRoomUrl(ctxSession.roomUrl);
+      setToken(ctxSession.token);
+      setIsLoading(false);
+      return;
+    }
+
     async function fetchToken() {
       try {
         const res = await authFetch(`/api/teacher/live-sessions/${sessionId}/join-token`);
@@ -50,6 +58,7 @@ export function TeacherLiveSessionClient({
       }
     }
     fetchToken();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId]);
 
   // Elapsed time counter

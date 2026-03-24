@@ -5,19 +5,13 @@ import { authFetch } from "@/lib/utils/authFetch";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 
-interface Course {
-  id: string;
-  name: string;
-  subject_code?: string;
-  code?: string;
-}
-
 interface Section {
   id: string;
   name: string;
   grade_level: string;
   capacity: number;
   enrolled_count: number;
+  course_count: number;
 }
 
 interface Student {
@@ -28,7 +22,7 @@ interface Student {
   lrn?: string;
 }
 
-type Step = "select-course" | "select-students" | "review" | "processing" | "complete";
+type Step = "select-grade" | "select-students" | "review" | "processing" | "complete";
 
 interface EnrollmentResult {
   success: number;
@@ -37,13 +31,12 @@ interface EnrollmentResult {
 }
 
 export default function BulkEnrollPage() {
-  const [step, setStep] = useState<Step>("select-course");
+  const [step, setStep] = useState<Step>("select-grade");
   const [loading, setLoading] = useState(false);
 
-  // Course/Section Selection
-  const [courses, setCourses] = useState<Course[]>([]);
+  // Grade/Section Selection
+  const [gradeLevel, setGradeLevel] = useState("");
   const [sections, setSections] = useState<Section[]>([]);
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedSection, setSelectedSection] = useState<Section | null>(null);
 
   // Student Selection
@@ -55,17 +48,16 @@ export default function BulkEnrollPage() {
   // Results
   const [result, setResult] = useState<EnrollmentResult | null>(null);
 
-  // Fetch courses on mount
+  // Fetch sections when grade is selected
   useEffect(() => {
-    fetchCourses();
-  }, []);
-
-  // Fetch sections when course is selected
-  useEffect(() => {
-    if (selectedCourse) {
-      fetchSections(selectedCourse.id);
+    if (gradeLevel) {
+      fetchSections(gradeLevel);
+      setSelectedSection(null);
+    } else {
+      setSections([]);
+      setSelectedSection(null);
     }
-  }, [selectedCourse]);
+  }, [gradeLevel]);
 
   // Fetch students when moving to student selection
   useEffect(() => {
@@ -74,40 +66,13 @@ export default function BulkEnrollPage() {
     }
   }, [step, studentSearch, gradeFilter]);
 
-  const fetchCourses = async () => {
+  const fetchSections = async (grade: string) => {
     try {
-      const response = await authFetch("/api/admin/courses");
+      const response = await authFetch(`/api/admin/sections?gradeLevel=${encodeURIComponent(grade)}`);
       const data = await response.json();
-      
-      // Ensure data is an array
-      if (Array.isArray(data)) {
-        setCourses(data);
-      } else if (data.error) {
-        console.error("Failed to fetch courses:", data.error);
-        setCourses([]);
-      } else {
-        console.error("Unexpected response format:", data);
-        setCourses([]);
-      }
-    } catch (error) {
-      console.error("Failed to fetch courses:", error);
-      setCourses([]);
-    }
-  };
-
-  const fetchSections = async (courseId: string) => {
-    try {
-      const response = await authFetch(`/api/admin/courses/${courseId}/sections`);
-      const data = await response.json();
-      
-      // Ensure data is an array
       if (Array.isArray(data)) {
         setSections(data);
-      } else if (data.error) {
-        console.error("Failed to fetch sections:", data.error);
-        setSections([]);
       } else {
-        console.error("Unexpected response format:", data);
         setSections([]);
       }
     } catch (error) {
@@ -127,15 +92,10 @@ export default function BulkEnrollPage() {
 
       const response = await authFetch(`/api/admin/users/students?${params}`);
       const data = await response.json();
-      
-      // Ensure data.data is an array
+
       if (Array.isArray(data.data)) {
         setStudents(data.data);
-      } else if (data.error) {
-        console.error("Failed to fetch students:", data.error);
-        setStudents([]);
       } else {
-        console.error("Unexpected response format:", data);
         setStudents([]);
       }
     } catch (error) {
@@ -149,9 +109,7 @@ export default function BulkEnrollPage() {
   const toggleStudentSelection = (student: Student) => {
     setSelectedStudents((prev) => {
       const isSelected = prev.some((s) => s.id === student.id);
-      if (isSelected) {
-        return prev.filter((s) => s.id !== student.id);
-      }
+      if (isSelected) return prev.filter((s) => s.id !== student.id);
       return [...prev, student];
     });
   };
@@ -175,7 +133,6 @@ export default function BulkEnrollPage() {
         body: JSON.stringify({
           action: "bulk_enroll",
           sectionId: selectedSection.id,
-          courseId: selectedCourse?.id,
           studentIds: selectedStudents.map((s) => s.id),
         }),
       });
@@ -195,8 +152,8 @@ export default function BulkEnrollPage() {
   };
 
   const handleReset = () => {
-    setStep("select-course");
-    setSelectedCourse(null);
+    setStep("select-grade");
+    setGradeLevel("");
     setSelectedSection(null);
     setSelectedStudents([]);
     setResult(null);
@@ -204,7 +161,7 @@ export default function BulkEnrollPage() {
   };
 
   const stepProgress = {
-    "select-course": 25,
+    "select-grade": 25,
     "select-students": 50,
     "review": 75,
     "processing": 90,
@@ -223,7 +180,7 @@ export default function BulkEnrollPage() {
         </Link>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bulk Enrollment</h1>
-          <p className="text-gray-500 mt-1">Enroll multiple students in a course section</p>
+          <p className="text-gray-500 mt-1">Enroll multiple students in a grade section</p>
         </div>
       </div>
 
@@ -241,7 +198,7 @@ export default function BulkEnrollPage() {
         </div>
         <div className="flex justify-between mt-4">
           {[
-            { key: "select-course", label: "Select Course" },
+            { key: "select-grade", label: "Select Grade & Section" },
             { key: "select-students", label: "Select Students" },
             { key: "review", label: "Review" },
             { key: "complete", label: "Complete" },
@@ -273,28 +230,22 @@ export default function BulkEnrollPage() {
 
       {/* Step Content */}
       <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 min-h-[400px]">
-        {/* Step 1: Select Course & Section */}
-        {step === "select-course" && (
+        {/* Step 1: Select Grade & Section */}
+        {step === "select-grade" && (
           <div className="space-y-6">
-            <h2 className="text-lg font-semibold text-gray-900">Select Course & Section</h2>
+            <h2 className="text-lg font-semibold text-gray-900">Select Grade & Section</h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Course</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Grade Level</label>
                 <select
-                  value={selectedCourse?.id || ""}
-                  onChange={(e) => {
-                    const course = courses.find((c) => c.id === e.target.value);
-                    setSelectedCourse(course || null);
-                    setSelectedSection(null);
-                  }}
+                  value={gradeLevel}
+                  onChange={(e) => setGradeLevel(e.target.value)}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                 >
-                  <option value="">Select a course...</option>
-                  {Array.isArray(courses) && courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.name} {course.code || course.subject_code ? `(${course.code || course.subject_code})` : ''}
-                    </option>
+                  <option value="">Select a grade level...</option>
+                  {["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map((g) => (
+                    <option key={g} value={g}>Grade {g}</option>
                   ))}
                 </select>
               </div>
@@ -307,30 +258,40 @@ export default function BulkEnrollPage() {
                     const section = sections.find((s) => s.id === e.target.value);
                     setSelectedSection(section || null);
                   }}
-                  disabled={!selectedCourse}
+                  disabled={!gradeLevel}
                   className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-gray-50 disabled:cursor-not-allowed"
                 >
-                  <option value="">Select a section...</option>
-                  {Array.isArray(sections) && sections.map((section) => (
+                  <option value="">
+                    {!gradeLevel ? "Select grade first..." : "Select a section..."}
+                  </option>
+                  {sections.map((section) => (
                     <option key={section.id} value={section.id}>
-                      {section.name} - Grade {section.grade_level} ({section.enrolled_count}/
-                      {section.capacity})
+                      {section.name} ({section.enrolled_count}/{section.capacity || "∞"} enrolled)
                     </option>
                   ))}
                 </select>
+                {gradeLevel && sections.length === 0 && (
+                  <p className="text-xs text-orange-500 mt-1">No sections found for Grade {gradeLevel}.</p>
+                )}
               </div>
             </div>
 
             {selectedSection && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-1">
                 <div className="flex items-start gap-3">
                   <span className="material-symbols-outlined text-blue-600">info</span>
                   <div>
-                    <p className="text-sm font-medium text-blue-800">Section Capacity</p>
+                    <p className="text-sm font-medium text-blue-800">Section Info</p>
                     <p className="text-sm text-blue-600">
-                      This section has {selectedSection.capacity - selectedSection.enrolled_count}{" "}
-                      available slots out of {selectedSection.capacity}.
+                      {selectedSection.capacity
+                        ? `${selectedSection.capacity - selectedSection.enrolled_count} available slot${selectedSection.capacity - selectedSection.enrolled_count !== 1 ? "s" : ""} out of ${selectedSection.capacity}.`
+                        : `${selectedSection.enrolled_count} students currently enrolled.`}
                     </p>
+                    {selectedSection.course_count > 0 && (
+                      <p className="text-sm text-blue-600 mt-0.5">
+                        Students will be enrolled in {selectedSection.course_count} subject{selectedSection.course_count !== 1 ? "s" : ""} assigned to this section.
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -353,9 +314,7 @@ export default function BulkEnrollPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold text-gray-900">Select Students</h2>
-              <span className="text-sm text-gray-500">
-                {selectedStudents.length} selected
-              </span>
+              <span className="text-sm text-gray-500">{selectedStudents.length} selected</span>
             </div>
 
             <div className="flex items-center gap-4">
@@ -378,9 +337,7 @@ export default function BulkEnrollPage() {
               >
                 <option value="">All Grades</option>
                 {["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"].map((grade) => (
-                  <option key={grade} value={grade}>
-                    Grade {grade}
-                  </option>
+                  <option key={grade} value={grade}>Grade {grade}</option>
                 ))}
               </select>
               <button
@@ -399,9 +356,7 @@ export default function BulkEnrollPage() {
                 </div>
               ) : students.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
-                  <span className="material-symbols-outlined text-4xl text-gray-300 block mb-2">
-                    search_off
-                  </span>
+                  <span className="material-symbols-outlined text-4xl text-gray-300 block mb-2">search_off</span>
                   <p>No students found</p>
                 </div>
               ) : (
@@ -415,7 +370,7 @@ export default function BulkEnrollPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {Array.isArray(students) && students.map((student) => (
+                    {students.map((student) => (
                       <tr
                         key={student.id}
                         onClick={() => toggleStudentSelection(student)}
@@ -435,9 +390,7 @@ export default function BulkEnrollPage() {
                             <p className="text-xs text-gray-500">{student.email}</p>
                           </div>
                         </td>
-                        <td className="px-4 py-2 font-mono text-gray-600">
-                          {student.lrn || "-"}
-                        </td>
+                        <td className="px-4 py-2 font-mono text-gray-600">{student.lrn || "-"}</td>
                         <td className="px-4 py-2 text-gray-600">Grade {student.grade_level}</td>
                       </tr>
                     ))}
@@ -448,7 +401,7 @@ export default function BulkEnrollPage() {
 
             <div className="flex justify-between">
               <button
-                onClick={() => setStep("select-course")}
+                onClick={() => setStep("select-grade")}
                 className="px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
               >
                 Back
@@ -471,14 +424,15 @@ export default function BulkEnrollPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-gray-50 rounded-lg p-4">
-                <h3 className="text-sm font-medium text-gray-500 mb-2">Course</h3>
-                <p className="text-lg font-semibold text-gray-900">{selectedCourse?.name}</p>
-                <p className="text-sm text-gray-600">{selectedCourse?.code}</p>
+                <h3 className="text-sm font-medium text-gray-500 mb-2">Grade Level</h3>
+                <p className="text-lg font-semibold text-gray-900">Grade {selectedSection?.grade_level}</p>
               </div>
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="text-sm font-medium text-gray-500 mb-2">Section</h3>
                 <p className="text-lg font-semibold text-gray-900">{selectedSection?.name}</p>
-                <p className="text-sm text-gray-600">Grade {selectedSection?.grade_level}</p>
+                {selectedSection?.course_count != null && selectedSection.course_count > 0 && (
+                  <p className="text-sm text-gray-600">{selectedSection.course_count} subject{selectedSection.course_count !== 1 ? "s" : ""}</p>
+                )}
               </div>
             </div>
 
@@ -496,7 +450,7 @@ export default function BulkEnrollPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
-                    {Array.isArray(selectedStudents) && selectedStudents.map((student) => (
+                    {selectedStudents.map((student) => (
                       <tr key={student.id}>
                         <td className="px-4 py-2 font-medium text-gray-900">{student.full_name}</td>
                         <td className="px-4 py-2 text-gray-600">{student.email}</td>
@@ -514,9 +468,11 @@ export default function BulkEnrollPage() {
                 <div>
                   <p className="text-sm font-medium text-yellow-800">Confirm Enrollment</p>
                   <p className="text-sm text-yellow-600">
-                    You are about to enroll {selectedStudents.length} students in{" "}
-                    {selectedCourse?.name} ({selectedSection?.name}). This action will notify all
-                    enrolled students.
+                    You are about to enroll {selectedStudents.length} student{selectedStudents.length !== 1 ? "s" : ""} in{" "}
+                    Grade {selectedSection?.grade_level} — {selectedSection?.name}.
+                    {selectedSection?.course_count != null && selectedSection.course_count > 0
+                      ? ` They will be enrolled in all ${selectedSection.course_count} subjects assigned to this section.`
+                      : ""}
                   </p>
                 </div>
               </div>

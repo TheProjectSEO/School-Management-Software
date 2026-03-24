@@ -7,6 +7,7 @@ import {
   bulkEnroll,
   getEnrollmentStats,
 } from "@/lib/dal/enrollments";
+import { createServiceClient } from "@/lib/supabase/service";
 
 // GET /api/admin/enrollments - List enrollments with pagination and filters
 export async function GET(request: NextRequest) {
@@ -105,7 +106,7 @@ export async function POST(request: NextRequest) {
     if (action === "bulk_enroll") {
       const { courseId, sectionId, studentIds, academicYearId } = data;
 
-      if (!courseId || !sectionId || !studentIds || !Array.isArray(studentIds)) {
+      if (!sectionId || !studentIds || !Array.isArray(studentIds)) {
         return NextResponse.json(
           { error: "Missing required fields for bulk enrollment" },
           { status: 400 }
@@ -123,15 +124,49 @@ export async function POST(request: NextRequest) {
       const adminAuth = await requireAdminAPI("enrollments:create");
       const schoolId = adminAuth.success ? adminAuth.admin.schoolId : undefined;
 
-      const result = await bulkEnroll({
-        courseId,
-        sectionId,
-        studentIds,
-        schoolId,
-        academicYearId,
+      // If courseId provided, enroll in that specific course
+      if (courseId) {
+        const result = await bulkEnroll({ courseId, sectionId, studentIds, schoolId, academicYearId });
+        return NextResponse.json(result);
+      }
+
+      // No courseId: look up all courses assigned to this section via teacher_assignments
+      const supabase = createServiceClient();
+      const { data: assignments } = await supabase
+        .from("teacher_assignments")
+        .select("course_id")
+        .eq("section_id", sectionId);
+
+      const courseIds = [...new Set((assignments || []).map((a: { course_id: string }) => a.course_id))];
+
+      if (courseIds.length === 0) {
+        return NextResponse.json(
+          { error: "No subjects are assigned to this section yet. Please assign subjects first." },
+          { status: 400 }
+        );
+      }
+
+      // Enroll in each course, merge results
+      let totalSuccess = 0;
+      let totalFailed = 0;
+      const allErrors: { studentId: string; studentName: string; message: string }[] = [];
+
+      for (const cId of courseIds) {
+        const result = await bulkEnroll({ courseId: cId, sectionId, studentIds, schoolId, academicYearId });
+        totalSuccess += result.success;
+        totalFailed += result.failed;
+        allErrors.push(...result.errors);
+      }
+
+      // Deduplicate errors by studentId (only show each student once)
+      const seen = new Set<string>();
+      const dedupedErrors = allErrors.filter((e) => {
+        if (!e.studentId || seen.has(e.studentId)) return false;
+        seen.add(e.studentId);
+        return true;
       });
 
-      return NextResponse.json(result);
+      return NextResponse.json({ success: totalSuccess, failed: totalFailed, errors: dedupedErrors });
     }
 
     // Single enrollment

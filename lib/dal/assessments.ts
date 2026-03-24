@@ -556,10 +556,15 @@ async function verifyTeacherAssessmentAccess(teacherId: string, courseId: string
 }
 
 function determineAssessmentStatus(assessment: any): 'draft' | 'published' | 'closed' {
-  if (!assessment.due_date) return 'published'
-  const dueDate = new Date(assessment.due_date)
-  const now = new Date()
-  if (now > dueDate) return 'closed'
+  // Use actual DB status as the source of truth
+  const dbStatus = assessment.status as string | undefined
+  if (!dbStatus || dbStatus === 'draft') return 'draft'
+  if (dbStatus === 'closed' || dbStatus === 'archived') return 'closed'
+  // For published assessments, auto-close when past due date
+  if (dbStatus === 'published' && assessment.due_date) {
+    const dueDate = new Date(assessment.due_date)
+    if (new Date() > dueDate) return 'closed'
+  }
   return 'published'
 }
 

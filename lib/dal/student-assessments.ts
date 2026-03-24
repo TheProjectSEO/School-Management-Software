@@ -269,6 +269,19 @@ export async function submitAssessment(
 ): Promise<AssessmentSubmission | null> {
   const supabase = createAdminClient();
 
+  // Check for existing submission to prevent duplicates
+  const { data: existing } = await supabase
+    .from("submissions")
+    .select("id, status")
+    .eq("assessment_id", assessmentId)
+    .eq("student_id", studentId)
+    .maybeSingle();
+
+  if (existing) {
+    // Return existing submission instead of creating a duplicate
+    return existing as AssessmentSubmission;
+  }
+
   const { data, error } = await supabase
     .from("submissions")
     .insert({

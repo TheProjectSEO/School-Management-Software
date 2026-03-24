@@ -15,6 +15,7 @@ import { useSearchParams } from 'next/navigation';
 interface LiveSession {
   id: string;
   course_id: string;
+  section_id?: string | null;
   title: string;
   description: string;
   scheduled_start: string;
@@ -145,9 +146,10 @@ export default function LiveSessionsPage() {
       return;
     }
 
-    const sectionId = session.section?.id;
+    // Use section from joined data, fall back to direct section_id column
+    const sectionId = session.section?.id ?? session.section_id;
     if (!sectionId) {
-      showToast('Unable to determine the class section for this session.', 'error');
+      showToast('Unable to determine the class section for this session. Please assign a section when creating the session.', 'error');
       return;
     }
 

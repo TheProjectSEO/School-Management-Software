@@ -40,24 +40,24 @@ async function performTokenRefresh(request: NextRequest, refreshToken: string) {
   }
 
   const userId = storedToken.userId;
+  const oldTokenId = storedToken.id;
 
-  // Revoke the old refresh token (token rotation)
-  await revokeRefreshToken(storedToken.id);
-
-  // Get fresh user data
-  const roleData = await getUserRole(userId);
+  // Get fresh user data (parallel — do this BEFORE revoking old token)
+  const [roleData, email] = await Promise.all([
+    getUserRole(userId),
+    getUserEmail(userId),
+  ]);
 
   if (!roleData) {
     return { error: 'User account no longer exists', status: 401 };
   }
-
-  const email = await getUserEmail(userId);
 
   if (!email) {
     return { error: 'User account no longer exists', status: 401 };
   }
 
   // Get permissions
+
   const basePermissions = ROLE_PERMISSIONS[roleData.role as Role];
   let permissions: string[];
 
@@ -82,7 +82,8 @@ async function performTokenRefresh(request: NextRequest, refreshToken: string) {
   const newRefreshTokenId = randomUUID();
   const newRefreshToken = await generateRefreshToken(userId, newRefreshTokenId);
 
-  // Hash and store new refresh token
+  // Hash and store new refresh token FIRST (before revoking old)
+  // This prevents logout if DB times out between revoke and store
   const newTokenHash = createHash('sha256').update(newRefreshToken).digest('hex');
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
@@ -95,14 +96,17 @@ async function performTokenRefresh(request: NextRequest, refreshToken: string) {
     request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined
   );
 
-  // Log token refresh
-  await logAuthEvent(
+  // Revoke old token AFTER new one is safely stored (token rotation)
+  await revokeRefreshToken(oldTokenId);
+
+  // Log token refresh (fire-and-forget — do not await in critical path)
+  logAuthEvent(
     userId,
     'token_refresh',
     undefined,
     request.headers.get('user-agent') || undefined,
     request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined
-  );
+  ).catch((err) => console.error('logAuthEvent failed (non-critical):', err));
 
   return {
     success: true,
@@ -147,8 +151,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(new URL(redirectTo, request.url));
   } catch (error) {
     console.error('Token refresh error:', error);
-    await clearAuthCookies();
-    return NextResponse.redirect(new URL('/login', request.url));
+    // Do NOT redirect to login on unexpected errors — only on explicit auth failures
+    const fallbackRedirect = request.nextUrl.searchParams.get('redirect') || '/';
+    const loginUrl = new URL('/login', request.url);
+    loginUrl.searchParams.set('redirect', fallbackRedirect);
+    return NextResponse.redirect(loginUrl);
   }
 }
 
@@ -190,7 +197,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Token refresh error:', error);
-    await clearAuthCookies();
+    // Do NOT clear auth cookies on unexpected errors (network timeout, DB error, etc.)
+    // Only clear on explicit auth failures (handled above in the 'error' in result branch)
     return NextResponse.json(
       { error: 'Failed to refresh token' },
       { status: 500 }

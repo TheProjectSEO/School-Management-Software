@@ -304,15 +304,17 @@ export async function createEnrollment(
 
     const { data, error } = await supabase
       .from('enrollments')
-      .insert({
-        student_id: studentId,
-        course_id: courseId,
-        section_id: sectionId,
-        school_id: schoolId,
-        status: input.status || 'pending',
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
+      .upsert(
+        {
+          student_id: studentId,
+          course_id: courseId,
+          section_id: sectionId,
+          school_id: schoolId,
+          status: input.status || 'active',
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'student_id,course_id', ignoreDuplicates: false }
+      )
       .select()
       .single();
 

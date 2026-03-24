@@ -80,8 +80,22 @@ export async function POST(request: NextRequest) {
       max_attempts,
       total_points,
       status,
-      questions
+      questions,
+      idempotency_key,
     } = body
+
+    // Server-side idempotency: if client sent an idempotency_key, check for a recent duplicate
+    if (idempotency_key) {
+      const { data: existingByKey } = await supabase
+        .from('assessments')
+        .select('id, title, status')
+        .eq('created_by', teacherId)
+        .eq('idempotency_key', idempotency_key)
+        .maybeSingle()
+      if (existingByKey) {
+        return NextResponse.json({ assessment: existingByKey }, { status: 200 })
+      }
+    }
 
     // Derive deped_component from type if not explicitly provided
     const resolvedDepedComponent = deped_component ?? (
@@ -105,10 +119,11 @@ export async function POST(request: NextRequest) {
       max_attempts,
       total_points,
       status: status || 'draft',
-      created_by: teacherId
+      created_by: teacherId,
     }
     if (lesson_id) insertData.lesson_id = lesson_id
     if (grading_period_id) insertData.grading_period_id = grading_period_id
+    if (idempotency_key) insertData.idempotency_key = idempotency_key
 
     const { data: assessment, error: assessmentError } = await supabase
       .from('assessments')

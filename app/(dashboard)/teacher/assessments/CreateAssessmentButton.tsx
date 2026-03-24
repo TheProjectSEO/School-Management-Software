@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { authFetch } from "@/lib/utils/authFetch";
 
@@ -27,6 +27,8 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
   const router = useRouter()
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const isCreatingRef = useRef(false) // synchronous guard against double-submit
+  const idempotencyKeyRef = useRef<string>('')
   const [lessons, setLessons] = useState<LessonOption[]>([])
   const [loadingLessons, setLoadingLessons] = useState(false)
   const [formData, setFormData] = useState({
@@ -77,6 +79,13 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
 
   const handleCreate = async () => {
     if (!formData.title.trim() || !formData.course_id) return
+    if (isCreatingRef.current) return // synchronous guard
+    isCreatingRef.current = true
+
+    // Generate a stable idempotency key for this create attempt
+    if (!idempotencyKeyRef.current) {
+      idempotencyKeyRef.current = `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    }
 
     setIsCreating(true)
     try {
@@ -91,7 +100,8 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
           section_id: formData.section_id,
           status: 'draft',
           total_points: 100,
-          max_attempts: 1
+          max_attempts: 1,
+          idempotency_key: idempotencyKeyRef.current,
         })
       })
 
@@ -106,7 +116,9 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
     } catch (error) {
       console.error('Error creating assessment:', error)
       alert(error instanceof Error ? error.message : 'Failed to create assessment')
+      idempotencyKeyRef.current = '' // reset so user can retry
     } finally {
+      isCreatingRef.current = false
       setIsCreating(false)
     }
   }

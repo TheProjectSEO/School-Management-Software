@@ -57,6 +57,7 @@ export async function GET(request: NextRequest) {
         `
         id,
         course_id,
+        section_id,
         title,
         description,
         scheduled_start,
@@ -145,20 +146,25 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get section info from teacher_assignments (live_sessions may not have section_id column)
-    // Build a course_id -> section_id map from teacher_assignments
+    // Build course_id -> section_id map from teacher_assignments (fallback)
     const courseSectionMap: Record<string, string> = {};
     teacherAssignments.forEach((a: any) => {
       if (a.section_id) courseSectionMap[a.course_id] = a.section_id;
     });
 
-    const sectionIds = [...new Set(Object.values(courseSectionMap).filter(Boolean))];
+    // Collect all section IDs: from sessions directly + from teacher_assignments fallback
+    const allSectionIds = new Set<string>();
+    (sessions || []).forEach((s: any) => {
+      const sid = s.section_id || courseSectionMap[s.course_id];
+      if (sid) allSectionIds.add(sid);
+    });
+
     let sectionMap: Record<string, { id: string; name: string }> = {};
-    if (sectionIds.length > 0) {
+    if (allSectionIds.size > 0) {
       const { data: sections } = await supabase
         .from("sections")
         .select("id, name")
-        .in("id", sectionIds);
+        .in("id", [...allSectionIds]);
 
       if (sections) {
         sections.forEach((sec: any) => {
@@ -169,7 +175,8 @@ export async function GET(request: NextRequest) {
 
     // Transform to match expected UI format (map daily_room_url to join_url)
     const transformedSessions = (sessions || []).map((session: any) => {
-      const sectionId = courseSectionMap[session.course_id];
+      // Prefer section_id from the session row; fall back to teacher_assignment mapping
+      const sectionId = session.section_id || courseSectionMap[session.course_id];
       return {
         ...session,
         join_url: session.daily_room_url, // UI expects join_url

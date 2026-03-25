@@ -177,6 +177,10 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
+    // Delete associated grading periods first
+    const supabase = createServiceClient();
+    await supabase.from('grading_periods').delete().eq('academic_year_id', yearId);
+
     const result = await deleteAcademicYear(yearId);
 
     if (!result.success) {

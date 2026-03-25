@@ -31,7 +31,18 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- 4. Add DEFAULT to period_number so inserts without it don't fail
+-- 4. Make academic_year nullable (or give it a default) so inserts don't fail
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'grading_periods' AND column_name = 'academic_year'
+      AND is_nullable = 'NO'
+  ) THEN
+    ALTER TABLE grading_periods ALTER COLUMN academic_year DROP NOT NULL;
+  END IF;
+END $$;
+
+-- 4b. Add DEFAULT to period_number so inserts without it don't fail
 DO $$ BEGIN
   IF EXISTS (
     SELECT 1 FROM information_schema.columns

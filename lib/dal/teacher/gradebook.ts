@@ -257,19 +257,41 @@ export async function getGradebookData(
     return null
   }
 
-  // Get enrolled students — flat select to avoid BUG-001 (FK join silently returns 0 rows)
+  // Get enrolled students via enrollments table
   const { data: enrollments, error: enrollmentsError } = await supabase
     .from('enrollments')
     .select('student_id')
     .eq('course_id', courseId)
-    .eq('status', 'active')
 
   if (enrollmentsError) {
     console.error('Error fetching enrollments:', enrollmentsError)
     return null
   }
 
-  const studentIds = (enrollments || []).map((e: any) => e.student_id)
+  const enrolledIds = new Set((enrollments || []).map((e: any) => e.student_id))
+
+  // BUG-002 fallback: also get students via section assignment (Grade 1-6 students
+  // are assigned via teacher_assignments, not explicit enrollment records)
+  const { data: sectionAssignment } = await supabase
+    .from('teacher_assignments')
+    .select('section_id')
+    .eq('course_id', courseId)
+    .not('section_id', 'is', null)
+    .limit(1)
+    .maybeSingle()
+
+  if (sectionAssignment?.section_id) {
+    const { data: sectionStudents } = await supabase
+      .from('students')
+      .select('id')
+      .eq('section_id', sectionAssignment.section_id)
+
+    for (const s of sectionStudents || []) {
+      enrolledIds.add(s.id)
+    }
+  }
+
+  const studentIds = Array.from(enrolledIds)
 
   // Fetch student rows separately
   const { data: studentRows } = studentIds.length > 0

@@ -1,12 +1,11 @@
 /**
  * Live Session Reactions API
- * POST: Send reaction
- * GET: Get current reactions
+ * POST: Send a reaction
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/service';
-import { getCurrentProfile } from '@/lib/dal/auth';
+import { requireStudentAPI } from '@/lib/auth/requireStudentAPI';
 
 const VALID_REACTIONS = [
   'raise_hand',
@@ -21,179 +20,75 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const supabase = createServiceClient();
-    const profile = await getCurrentProfile();
+  const { id: sessionId } = await params;
 
-    if (!profile || profile.role !== 'student') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const auth = await requireStudentAPI();
+  if (!auth.success) return auth.response;
 
-    const { id } = await params;
-    const sessionId = id;
-    const body = await request.json();
-    const { reaction_type } = body;
+  const body = await request.json().catch(() => ({}));
+  const { reaction_type } = body;
 
-    if (!reaction_type || !VALID_REACTIONS.includes(reaction_type)) {
-      return NextResponse.json(
-        {
-          error: `Invalid reaction type. Must be one of: ${VALID_REACTIONS.join(', ')}`,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Get student profile
-    const { data: student, error: studentError } = await supabase
-      .from('students')
-      .select('id')
-      .eq('profile_id', profile.id)
-      .single();
-
-    if (studentError || !student) {
-      return NextResponse.json(
-        { error: 'Student profile not found' },
-        { status: 404 }
-      );
-    }
-
-    // Verify session access - use service client to bypass RLS
-    const serviceClient = createServiceClient();
-    const { data: session, error: sessionError } = await serviceClient
-      .from('live_sessions')
-      .select('id, course_id, status')
-      .eq('id', sessionId)
-      .single();
-
-    if (sessionError || !session) {
-      return NextResponse.json(
-        { error: 'Session not found' },
-        { status: 404 }
-      );
-    }
-
-    if (session.status !== 'live') {
-      return NextResponse.json(
-        { error: 'Session is not live' },
-        { status: 400 }
-      );
-    }
-
-    // Verify student has access (enrolled OR section-based assignment)
-    const { count: enrollCount } = await supabase
-      .from('enrollments')
-      .select('*', { count: 'exact', head: true })
-      .eq('student_id', student.id)
-      .eq('course_id', session.course_id);
-
-    if (!enrollCount) {
-      const { data: studentData } = await supabase
-        .from('students')
-        .select('section_id')
-        .eq('id', student.id)
-        .single();
-
-      const { count: assignCount } = studentData?.section_id
-        ? await supabase
-            .from('teacher_assignments')
-            .select('*', { count: 'exact', head: true })
-            .eq('section_id', studentData.section_id)
-            .eq('course_id', session.course_id)
-        : { count: 0 };
-
-      if (!assignCount) {
-        return NextResponse.json(
-          { error: 'Not enrolled in this course' },
-          { status: 403 }
-        );
-      }
-    }
-
-    // Insert reaction (will auto-expire in 10 seconds)
-    const { data: reaction, error: reactionError } = await supabase
-      .from('session_reactions')
-      .insert({
-        session_id: sessionId,
-        student_id: student.id,
-        reaction_type,
-      })
-      .select()
-      .single();
-
-    if (reactionError) {
-      console.error('Error creating reaction:', reactionError);
-      return NextResponse.json(
-        { error: 'Failed to create reaction' },
-        { status: 500 }
-      );
-    }
-
-    // Update participant stats - increment reactions_sent using RPC
-    try {
-      await supabase.rpc('increment_reactions_sent', {
-        p_session_id: sessionId,
-        p_student_id: student.id,
-      });
-    } catch {
-      // Fallback: just log if RPC doesn't exist
-      console.log('Note: increment_reactions_sent RPC not available');
-    }
-
-    return NextResponse.json(reaction, { status: 201 });
-  } catch (error) {
-    console.error('Error in POST /api/live-sessions/[id]/react:', error);
+  if (!reaction_type || !VALID_REACTIONS.includes(reaction_type)) {
     return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
+      { error: `Invalid reaction type. Must be one of: ${VALID_REACTIONS.join(', ')}` },
+      { status: 400 }
     );
   }
-}
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const supabase = createServiceClient();
-    const profile = await getCurrentProfile();
+  const supabase = createServiceClient();
 
-    if (!profile) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  // Verify session is live
+  const { data: session } = await supabase
+    .from('live_sessions')
+    .select('id, course_id, status')
+    .eq('id', sessionId)
+    .single();
 
-    const { id } = await params;
-    const sessionId = id;
-
-    // Get current reactions (not expired)
-    const { data: reactions, error: reactionsError } = await supabase
-      .from('session_reactions')
-      .select('reaction_type, created_at')
-      .eq('session_id', sessionId)
-      .gt('expires_at', new Date().toISOString());
-
-    if (reactionsError) {
-      console.error('Error fetching reactions:', reactionsError);
-      return NextResponse.json(
-        { error: 'Failed to fetch reactions' },
-        { status: 500 }
-      );
-    }
-
-    // Aggregate counts by reaction type
-    const counts = reactions.reduce((acc, r) => {
-      acc[r.reaction_type] = (acc[r.reaction_type] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-
-    return NextResponse.json({
-      counts,
-      total: reactions.length,
-    });
-  } catch (error) {
-    console.error('Error in GET /api/live-sessions/[id]/react:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  if (!session) {
+    return NextResponse.json({ error: 'Session not found' }, { status: 404 });
   }
+
+  if (session.status !== 'live') {
+    return NextResponse.json({ error: 'Session is not live' }, { status: 400 });
+  }
+
+  // Check enrollment OR section-based access (BUG-002 pattern)
+  const { count: enrollCount } = await supabase
+    .from('enrollments')
+    .select('*', { count: 'exact', head: true })
+    .eq('student_id', auth.student.studentId)
+    .eq('course_id', session.course_id);
+
+  if (!enrollCount) {
+    const sectionId = auth.student.sectionId;
+    const { count: assignCount } = sectionId
+      ? await supabase
+          .from('teacher_assignments')
+          .select('*', { count: 'exact', head: true })
+          .eq('section_id', sectionId)
+          .eq('course_id', session.course_id)
+      : { count: 0 };
+
+    if (!assignCount) {
+      return NextResponse.json({ error: 'Not enrolled in this course' }, { status: 403 });
+    }
+  }
+
+  // Insert reaction — expires_at defaults to NOW() + INTERVAL '10 seconds' via table default
+  const { data: reaction, error: reactionError } = await supabase
+    .from('session_reactions')
+    .insert({
+      session_id: sessionId,
+      student_id: auth.student.studentId,
+      reaction_type,
+    })
+    .select()
+    .single();
+
+  if (reactionError) {
+    console.error('[react] insert error:', reactionError);
+    return NextResponse.json({ error: 'Failed to send reaction' }, { status: 500 });
+  }
+
+  return NextResponse.json(reaction, { status: 201 });
 }

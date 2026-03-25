@@ -108,17 +108,46 @@ export default function AssessmentBuilderPage() {
         let options: QuestionOption[] | undefined
 
         // Reconstruct options from choices_json (only for multiple_choice)
+        // Handles two formats:
+        //   Builder format:    choices_json = ["Option A", "Option B", ...]
+        //   AI-planner format: choices_json = [{id:"a", text:"Option A", is_correct:true}, ...]
         if (isMC(q.question_type) && q.choices_json && Array.isArray(q.choices_json)) {
-          const correctIndex = q.answer_key_json?.correctIndex ?? 0
-          options = q.choices_json.map((choice: string, idx: number) => ({
-            id: `${q.id}-opt-${idx}`,
-            option_text: choice,
-            is_correct: idx === correctIndex,
-            order_index: idx,
-          }))
+          const isObjectFormat = q.choices_json.length > 0 && typeof q.choices_json[0] === 'object' && q.choices_json[0] !== null
+          if (isObjectFormat) {
+            // AI-planner format
+            const correctIds: string[] = q.answer_key_json?.correct_ids || []
+            options = q.choices_json.map((choice: any, idx: number) => ({
+              id: `${q.id}-opt-${idx}`,
+              option_text: String(choice.text || ''),
+              is_correct: Boolean(choice.is_correct) || correctIds.includes(choice.id),
+              order_index: idx,
+            }))
+          } else {
+            // Builder format (strings)
+            const correctIndex = q.answer_key_json?.correctIndex ?? 0
+            options = q.choices_json.map((choice: any, idx: number) => ({
+              id: `${q.id}-opt-${idx}`,
+              option_text: String(choice),
+              is_correct: idx === correctIndex,
+              order_index: idx,
+            }))
+          }
         } else if (isMC(q.question_type)) {
           // MC question with no saved choices yet — give blank options
           options = makeBlankOptions()
+        }
+
+        // Resolve correct_answer for true_false:
+        //   Builder format:    answer_key_json = {correctAnswer: "True"}
+        //   AI-planner format: answer_key_json = {correct_ids: ["true"]}
+        let correctAnswer: string | undefined
+        if (q.question_type === 'true_false') {
+          if (q.answer_key_json?.correctAnswer) {
+            correctAnswer = q.answer_key_json.correctAnswer
+          } else if (q.answer_key_json?.correct_ids?.[0]) {
+            const raw = String(q.answer_key_json.correct_ids[0])
+            correctAnswer = raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase()
+          }
         }
 
         return {
@@ -129,10 +158,7 @@ export default function AssessmentBuilderPage() {
           order_index: q.order_index || 0,
           explanation: q.explanation || '',
           options,
-          // Restore correct_answer for true_false from saved answer_key_json
-          correct_answer: q.question_type === 'true_false'
-            ? (q.answer_key_json?.correctAnswer ?? undefined)
-            : undefined,
+          correct_answer: correctAnswer,
         }
       })
 
@@ -154,7 +180,7 @@ export default function AssessmentBuilderPage() {
         return
       }
       if (isMC(q.question_type)) {
-        const filled = q.options?.filter(o => o.option_text.trim()) || []
+        const filled = q.options?.filter(o => String(o.option_text || '').trim()) || []
         if (filled.length < 2) {
           setError('Multiple choice questions need at least 2 filled-in options.')
           return
@@ -171,7 +197,7 @@ export default function AssessmentBuilderPage() {
       const questionsPayload = questions.map((q, index) => {
         const isMultipleChoice = isMC(q.question_type)
         const filledOptions = isMultipleChoice
-          ? (q.options || []).filter(o => o.option_text.trim())
+          ? (q.options || []).filter(o => String(o.option_text || '').trim())
           : []
 
         const isTF = q.question_type === 'true_false'
@@ -181,9 +207,9 @@ export default function AssessmentBuilderPage() {
           points: q.points,
           order_index: index,
           explanation: q.explanation || null,
-          // choices_json only for multiple_choice
+          // choices_json only for multiple_choice — always store as strings
           choices_json: isMultipleChoice && filledOptions.length > 0
-            ? filledOptions.map(o => o.option_text)
+            ? filledOptions.map(o => String(o.option_text || ''))
             : null,
           // answer_key_json: correctIndex for MC, correctAnswer for TF, null otherwise
           answer_key_json: isMultipleChoice && filledOptions.length > 0

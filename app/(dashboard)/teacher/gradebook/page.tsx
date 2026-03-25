@@ -24,7 +24,16 @@ async function GradebookCourseList() {
   const subjects = await getTeacherSubjects(teacherProfile.id)
 
   // Compute quick stats from subjects
-  const totalStudents = subjects.reduce((sum, s) => sum + (s.student_count || 0), 0)
+  // Count students per unique section (not per subject) to avoid counting the same
+  // students multiple times when one section has several subjects
+  const sectionStudentCounts = new Map<string, number>()
+  for (const s of subjects) {
+    const key = s.section_id || `course-${s.id}`
+    if (!sectionStudentCounts.has(key)) {
+      sectionStudentCounts.set(key, s.student_count || 0)
+    }
+  }
+  const totalStudents = Array.from(sectionStudentCounts.values()).reduce((sum, n) => sum + n, 0)
   const totalCourses = subjects.length
 
   if (subjects.length === 0) {

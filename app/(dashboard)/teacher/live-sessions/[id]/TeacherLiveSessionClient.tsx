@@ -7,6 +7,7 @@ import { LiveSessionRoom } from '@/components/live-sessions/LiveSessionRoom';
 import { useLiveSession } from '@/contexts/LiveSessionContext';
 import { SessionChatPanel } from '@/components/live-sessions/SessionChatPanel';
 import { SessionNotesPanel } from '@/components/live-sessions/SessionNotesPanel';
+import { TeacherReactionsPanel } from '@/components/teacher/live-sessions/TeacherReactionsPanel';
 
 interface TeacherLiveSessionClientProps {
   sessionId: string;
@@ -30,7 +31,7 @@ export function TeacherLiveSessionClient({
   const [isEnding, setIsEnding] = useState(false);
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [activeTab, setActiveTab] = useState<'chat' | 'notes'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'reactions' | 'notes'>('chat');
 
   const hasJoinedRef = useRef(false);
   const hasEndedRef = useRef(false);
@@ -196,7 +197,7 @@ export function TeacherLiveSessionClient({
         <div className="flex flex-col h-full min-h-[400px] lg:min-h-0">
           {/* Tab bar */}
           <div className="flex gap-1 mb-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl shrink-0">
-            {(['chat', 'notes'] as const).map((tab) => (
+            {(['chat', 'reactions', 'notes'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -206,13 +207,14 @@ export function TeacherLiveSessionClient({
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
                 }`}
               >
-                {tab === 'chat' ? 'Chat' : 'Notes'}
+                {tab === 'chat' ? 'Chat' : tab === 'reactions' ? 'Reactions' : 'Notes'}
               </button>
             ))}
           </div>
           {/* Tab content */}
           <div className="flex-1 min-h-0">
             {activeTab === 'chat' && <SessionChatPanel sessionId={sessionId} gradeLevel="10" role="teacher" />}
+            {activeTab === 'reactions' && <TeacherReactionsPanel sessionId={sessionId} />}
             {activeTab === 'notes' && <SessionNotesPanel sessionId={sessionId} gradeLevel="10" role="teacher" />}
           </div>
         </div>

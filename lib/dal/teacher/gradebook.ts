@@ -566,8 +566,29 @@ export async function calculateCourseGrade(
     ? (totalWeightedScore / totalWeight) * 100
     : 0
 
+  // Check perfect attendance for +10 bonus
+  let attendanceBonus = 0
+  if (gradingPeriod.start_date && gradingPeriod.end_date) {
+    const { data: attendanceRows } = await supabase
+      .from('teacher_daily_attendance')
+      .select('date, status')
+      .eq('student_id', studentId)
+      .eq('course_id', courseId)
+      .gte('date', gradingPeriod.start_date)
+      .lte('date', gradingPeriod.end_date)
+
+    if (attendanceRows && attendanceRows.length > 0) {
+      const hasAbsence = attendanceRows.some((r: any) => r.status === 'absent')
+      if (!hasAbsence) {
+        attendanceBonus = 10
+      }
+    }
+  }
+
+  const finalGrade = Math.min(numericGrade + attendanceBonus, 100)
+
   // Convert to letter grade
-  const letterGrade = numericToLetterGrade(numericGrade)
+  const letterGrade = numericToLetterGrade(finalGrade)
   const gpaPoints = letterGradeToGPA(letterGrade)
 
   // Get course credit hours (default to 3 if not specified)
@@ -588,11 +609,12 @@ export async function calculateCourseGrade(
         student_id: studentId,
         course_id: courseId,
         grading_period_id: gradingPeriodId,
-        numeric_grade: Math.round(numericGrade * 100) / 100,
+        numeric_grade: Math.round(finalGrade * 100) / 100,
         letter_grade: letterGrade,
         gpa_points: gpaPoints,
         credit_hours: creditHours,
         quality_points: qualityPoints,
+        attendance_bonus: attendanceBonus,
         status: 'calculated' as const,
         is_released: false,
       },

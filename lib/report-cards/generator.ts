@@ -234,7 +234,7 @@ async function fetchStudentGrades(
 
     const { data: gradeRows, error } = await supabase
       .from('course_grades')
-      .select('id, course_id, quarterly_grade, numeric_grade, letter_grade, gpa_points, credit_hours')
+      .select('id, course_id, quarterly_grade, numeric_grade, letter_grade, gpa_points, credit_hours, attendance_bonus')
       .eq('student_id', studentId)
       .eq('grading_period_id', gradingPeriodId)
       .eq('is_released', true)
@@ -269,6 +269,7 @@ async function fetchStudentGrades(
         numeric_grade: numericGrade,
         letter_grade: letterGrade,
         gpa_points: grade.gpa_points || 0,
+        attendance_bonus: grade.attendance_bonus ?? 0,
         teacher_name: '',
       } as ReportCardGrade
     })

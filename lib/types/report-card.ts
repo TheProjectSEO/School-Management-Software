@@ -25,6 +25,7 @@ export interface ReportCardGrade {
   gpa_points: number;
   teacher_name: string;
   remarks?: string;
+  attendance_bonus?: number;
   // Aliases for compatibility
   subject_name?: string;
   final_grade?: number;

@@ -374,7 +374,7 @@ export default function AcademicSettingsPage() {
           <div className="text-right">
             <p className="text-white/80 text-sm">Current Period</p>
             <p className="text-lg font-semibold mt-1">
-              {settings.gradingPeriods[1]?.name || "Second Quarter"}
+              {settings.gradingPeriods.find(p => p.isCurrent)?.name || "Not set"}
             </p>
           </div>
         </div>

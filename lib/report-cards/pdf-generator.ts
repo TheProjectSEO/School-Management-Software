@@ -165,6 +165,10 @@ const styles = StyleSheet.create({
     width: 40,
     textAlign: "center",
   },
+  bonusCol: {
+    width: 40,
+    textAlign: "center",
+  },
   teacherCol: {
     flex: 1,
   },
@@ -399,6 +403,7 @@ function ReportCardPDF({ reportCard, schoolInfo }: ReportCardPDFProps) {
           createElement(Text, { style: [styles.tableHeaderText, styles.codeCol] }, "Code"),
           createElement(Text, { style: [styles.tableHeaderText, styles.creditsCol] }, "Credits"),
           createElement(Text, { style: [styles.tableHeaderText, styles.gradeCol] }, "Grade"),
+          createElement(Text, { style: [styles.tableHeaderText, styles.bonusCol] }, "Att.+"),
           createElement(Text, { style: [styles.tableHeaderText, styles.letterCol] }, "Letter"),
           createElement(Text, { style: [styles.tableHeaderText, styles.gpaCol] }, "GPA")
         ),
@@ -413,6 +418,7 @@ function ReportCardPDF({ reportCard, schoolInfo }: ReportCardPDFProps) {
             createElement(Text, { style: styles.codeCol }, grade.subject_code),
             createElement(Text, { style: styles.creditsCol }, String(grade.credit_hours)),
             createElement(Text, { style: styles.gradeCol }, grade.numeric_grade.toFixed(1)),
+            createElement(Text, { style: styles.bonusCol }, grade.attendance_bonus ? `+${grade.attendance_bonus}` : "-"),
             createElement(Text, { style: styles.letterCol }, grade.letter_grade),
             createElement(Text, { style: styles.gpaCol }, grade.gpa_points.toFixed(2))
           )

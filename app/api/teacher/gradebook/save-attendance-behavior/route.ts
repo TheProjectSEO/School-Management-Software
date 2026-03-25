@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
         attendance_count: Math.max(0, Number(attendanceCount) || 0),
         total_class_days: Math.max(0, Number(totalClassDays) || 0),
         behavior_score:   Math.min(100, Math.max(0, Number(behaviorScore) || 0)),
+        updated_at:       new Date().toISOString(),
       },
       { onConflict: 'student_id,course_id,grading_period_id' }
     )

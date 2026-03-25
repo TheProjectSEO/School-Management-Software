@@ -104,6 +104,7 @@ export async function POST(req: NextRequest) {
     school_id: auth.teacher.schoolId,
     attendance_count: attendanceByStudent[studentId] ?? 0,
     total_class_days: totalClassDays,
+    updated_at: new Date().toISOString(),
   }))
 
   const { error: upsertError } = await supabase

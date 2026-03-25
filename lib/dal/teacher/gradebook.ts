@@ -258,33 +258,32 @@ export async function getGradebookData(
   }
 
   // Get enrolled students via enrollments table
-  const { data: enrollments, error: enrollmentsError } = await supabase
+  const { data: enrollments } = await supabase
     .from('enrollments')
     .select('student_id')
     .eq('course_id', courseId)
 
-  if (enrollmentsError) {
-    console.error('Error fetching enrollments:', enrollmentsError)
-    return null
-  }
-
   const enrolledIds = new Set((enrollments || []).map((e: any) => e.student_id))
 
-  // BUG-002 fallback: also get students via section assignment (Grade 1-6 students
-  // are assigned via teacher_assignments, not explicit enrollment records)
-  const { data: sectionAssignment } = await supabase
+  // BUG-002 fallback: get students via section assignments for this teacher-course pair.
+  // Filter by teacher_profile_id so we only pull THIS teacher's sections.
+  // Get ALL section_ids (teacher may teach multiple sections for the same course).
+  const { data: teacherSectionAssignments } = await supabase
     .from('teacher_assignments')
     .select('section_id')
+    .eq('teacher_profile_id', teacherId)
     .eq('course_id', courseId)
     .not('section_id', 'is', null)
-    .limit(1)
-    .maybeSingle()
 
-  if (sectionAssignment?.section_id) {
+  const sectionIds = [...new Set(
+    (teacherSectionAssignments || []).map((a: any) => a.section_id).filter(Boolean)
+  )]
+
+  if (sectionIds.length > 0) {
     const { data: sectionStudents } = await supabase
       .from('students')
       .select('id')
-      .eq('section_id', sectionAssignment.section_id)
+      .in('section_id', sectionIds)
 
     for (const s of sectionStudents || []) {
       enrolledIds.add(s.id)

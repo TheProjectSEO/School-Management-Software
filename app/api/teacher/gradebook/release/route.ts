@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getTeacherProfile } from '@/lib/dal/teacher'
 import { calculateCourseGrade } from '@/lib/dal/teacher/gradebook'
+import { compileReportCardData, createReportCardSnapshot } from '@/lib/report-cards/generator'
 
 /**
  * POST /api/teacher/gradebook/release
@@ -91,6 +92,44 @@ export async function POST(request: NextRequest) {
             results.failed++
           } else {
             results.released++
+
+            // Mark grading queue items as completed for this student's submissions in this course
+            const { data: assessmentRows } = await supabase
+              .from('assessments')
+              .select('id')
+              .eq('course_id', courseId)
+
+            if (assessmentRows && assessmentRows.length > 0) {
+              const { data: submissionRows } = await supabase
+                .from('submissions')
+                .select('id')
+                .eq('student_id', studentId)
+                .in('assessment_id', assessmentRows.map((a: any) => a.id))
+
+              if (submissionRows && submissionRows.length > 0) {
+                await supabase
+                  .from('teacher_grading_queue')
+                  .update({ status: 'completed', graded_at: new Date().toISOString() })
+                  .in('submission_id', submissionRows.map((s: any) => s.id))
+                  .in('status', ['pending', 'in_review', 'graded'])
+              }
+            }
+
+            // Refresh the student's report card snapshot so it reflects the released grades
+            try {
+              const reportData = await compileReportCardData(studentId, periodId)
+              if (reportData) {
+                await createReportCardSnapshot(
+                  studentId,
+                  periodId,
+                  teacherProfile.school_id,
+                  reportData,
+                  teacherProfile.id
+                )
+              }
+            } catch (rcErr) {
+              console.warn('Could not refresh report card for student', studentId, rcErr)
+            }
           }
         } else {
           results.failed++

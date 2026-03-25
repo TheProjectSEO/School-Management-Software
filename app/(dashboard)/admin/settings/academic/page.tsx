@@ -20,6 +20,7 @@ interface GradingPeriod {
   startDate: string;
   endDate: string;
   weight: number;
+  academicYearId: string | null;
 }
 
 interface GradingScale {
@@ -52,10 +53,10 @@ export default function AcademicSettingsPage() {
       { id: "3", name: "2022-2023", startDate: "2022-08-08", endDate: "2023-06-02", isCurrent: false },
     ],
     gradingPeriods: [
-      { id: "1", name: "First Quarter", shortName: "Q1", startDate: "2024-08-05", endDate: "2024-10-11", weight: 25 },
-      { id: "2", name: "Second Quarter", shortName: "Q2", startDate: "2024-10-14", endDate: "2024-12-20", weight: 25 },
-      { id: "3", name: "Third Quarter", shortName: "Q3", startDate: "2025-01-06", endDate: "2025-03-14", weight: 25 },
-      { id: "4", name: "Fourth Quarter", shortName: "Q4", startDate: "2025-03-17", endDate: "2025-05-30", weight: 25 },
+      { id: "1", name: "First Quarter", shortName: "Q1", startDate: "2024-08-05", endDate: "2024-10-11", weight: 25, academicYearId: null },
+      { id: "2", name: "Second Quarter", shortName: "Q2", startDate: "2024-10-14", endDate: "2024-12-20", weight: 25, academicYearId: null },
+      { id: "3", name: "Third Quarter", shortName: "Q3", startDate: "2025-01-06", endDate: "2025-03-14", weight: 25, academicYearId: null },
+      { id: "4", name: "Fourth Quarter", shortName: "Q4", startDate: "2025-03-17", endDate: "2025-05-30", weight: 25, academicYearId: null },
     ],
     gradingScale: [
       { letter: "A", minScore: 90, maxScore: 100, description: "Excellent", color: "#22c55e" },
@@ -75,6 +76,7 @@ export default function AcademicSettingsPage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<"years" | "grading" | "attendance" | "schedule">("years");
   const [hasChanges, setHasChanges] = useState(false);
+  const [selectedYearFilter, setSelectedYearFilter] = useState<string>("all");
   const [showAddYearModal, setShowAddYearModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState<{ type: string; id: string } | null>(null);
 
@@ -142,6 +144,7 @@ export default function AcademicSettingsPage() {
               startDate: p.start_date,
               endDate: p.end_date,
               weight: p.weight ?? 25,
+              academicYearId: p.academic_year_id ?? null,
             })),
           }));
         }
@@ -412,11 +415,27 @@ export default function AcademicSettingsPage() {
                 </table>
               </div>
 
-              {/* Grading Periods for Current Year */}
+              {/* Grading Periods */}
               <div className="mt-8">
-                <h4 className="font-medium text-gray-700 mb-4">Grading Periods ({settings.currentAcademicYear})</h4>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-medium text-gray-700">Grading Periods</h4>
+                  <select
+                    value={selectedYearFilter}
+                    onChange={(e) => setSelectedYearFilter(e.target.value)}
+                    className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="all">All School Years</option>
+                    {settings.academicYears.map((year) => (
+                      <option key={year.id} value={year.id}>
+                        {year.name}{year.isCurrent ? " (Current)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="space-y-3">
-                  {settings.gradingPeriods.map((period) => (
+                  {settings.gradingPeriods
+                    .filter((p) => selectedYearFilter === "all" || p.academicYearId === selectedYearFilter || p.academicYearId === null)
+                    .map((period) => (
                     <div
                       key={period.id}
                       className="p-4 bg-gray-50 rounded-lg grid grid-cols-1 md:grid-cols-5 gap-4 items-center"

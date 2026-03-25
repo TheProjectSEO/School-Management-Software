@@ -14,7 +14,7 @@ export async function GET() {
 
   const { data: periods, error } = await supabase
     .from('grading_periods')
-    .select('id, name, start_date, end_date, is_active')
+    .select('id, name, start_date, end_date, is_active, academic_year_id')
     .eq('school_id', auth.admin.schoolId)
     .order('start_date', { ascending: true })
 

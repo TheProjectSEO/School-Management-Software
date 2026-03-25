@@ -72,6 +72,8 @@ export default function AcademicSettingsPage() {
   const [activeTab, setActiveTab] = useState<"years" | "grading" | "attendance" | "schedule">("years");
   const [hasChanges, setHasChanges] = useState(false);
   const [selectedYearFilter, setSelectedYearFilter] = useState<string>("all");
+  const [showAddPeriodModal, setShowAddPeriodModal] = useState(false);
+  const [newPeriod, setNewPeriod] = useState({ name: "", startDate: "", endDate: "", academicYearId: "" });
   const [showAddYearModal, setShowAddYearModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState<{ type: string; id: string } | null>(null);
 
@@ -245,6 +247,37 @@ export default function AcademicSettingsPage() {
       ),
     }));
     setHasChanges(true);
+  };
+
+  const handleAddPeriod = async () => {
+    if (!newPeriod.name || !newPeriod.startDate || !newPeriod.endDate) return;
+    const res = await authFetch('/api/admin/grading-periods', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: newPeriod.name,
+        start_date: newPeriod.startDate,
+        end_date: newPeriod.endDate,
+        academic_year_id: newPeriod.academicYearId || null,
+      }),
+    });
+    if (res.ok) {
+      const { period } = await res.json();
+      setSettings((prev) => ({
+        ...prev,
+        gradingPeriods: [...prev.gradingPeriods, {
+          id: period.id,
+          name: period.name,
+          shortName: (() => { const m = period.name.match(/\d+/); return m ? 'Q' + m[0] : period.name.slice(0, 2); })(),
+          startDate: period.start_date,
+          endDate: period.end_date,
+          weight: 25,
+          academicYearId: period.academic_year_id ?? null,
+        }],
+      }));
+      setNewPeriod({ name: "", startDate: "", endDate: "", academicYearId: "" });
+      setShowAddPeriodModal(false);
+    }
   };
 
   const handleDeletePeriod = async (periodId: string) => {
@@ -425,18 +458,30 @@ export default function AcademicSettingsPage() {
               <div className="mt-8">
                 <div className="flex items-center justify-between mb-4">
                   <h4 className="font-medium text-gray-700">Grading Periods</h4>
-                  <select
-                    value={selectedYearFilter}
-                    onChange={(e) => setSelectedYearFilter(e.target.value)}
-                    className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  >
-                    <option value="all">All School Years</option>
-                    {settings.academicYears.map((year) => (
-                      <option key={year.id} value={year.id}>
-                        {year.name}{year.isCurrent ? " (Current)" : ""}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={selectedYearFilter}
+                      onChange={(e) => setSelectedYearFilter(e.target.value)}
+                      className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    >
+                      <option value="all">All School Years</option>
+                      {settings.academicYears.map((year) => (
+                        <option key={year.id} value={year.id}>
+                          {year.name}{year.isCurrent ? " (Current)" : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => {
+                        setNewPeriod({ name: "", startDate: "", endDate: "", academicYearId: selectedYearFilter !== "all" ? selectedYearFilter : "" });
+                        setShowAddPeriodModal(true);
+                      }}
+                      className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-base">add</span>
+                      Add Period
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-3">
                   {settings.gradingPeriods
@@ -719,6 +764,80 @@ export default function AcademicSettingsPage() {
           )}
         </div>
       </div>
+
+      {/* Add Grading Period Modal */}
+      {showAddPeriodModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="fixed inset-0 bg-black/50" onClick={() => setShowAddPeriodModal(false)} />
+          <div className="flex min-h-full items-center justify-center p-4">
+            <div className="relative bg-white rounded-xl shadow-xl max-w-md w-full p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Grading Period</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    placeholder="e.g., First Quarter"
+                    value={newPeriod.name}
+                    onChange={(e) => setNewPeriod({ ...newPeriod, name: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Academic Year</label>
+                  <select
+                    value={newPeriod.academicYearId}
+                    onChange={(e) => setNewPeriod({ ...newPeriod, academicYearId: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                  >
+                    <option value="">None</option>
+                    {settings.academicYears.map((year) => (
+                      <option key={year.id} value={year.id}>
+                        {year.name}{year.isCurrent ? " (Current)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      value={newPeriod.startDate}
+                      onChange={(e) => setNewPeriod({ ...newPeriod, startDate: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                    <input
+                      type="date"
+                      value={newPeriod.endDate}
+                      onChange={(e) => setNewPeriod({ ...newPeriod, endDate: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={() => setShowAddPeriodModal(false)}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAddPeriod}
+                  disabled={!newPeriod.name || !newPeriod.startDate || !newPeriod.endDate}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Add Period
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Academic Year Modal */}
       {showAddYearModal && (

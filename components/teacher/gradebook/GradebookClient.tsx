@@ -85,6 +85,8 @@ export default function GradebookClient({
   const router = useRouter()
   const [isBulkModalOpen, setIsBulkModalOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isSyncingAttendance, setIsSyncingAttendance] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
   const [localRows, setLocalRows] = useState(gradebookData.rows)
   const [depedRows, setDepedRows] = useState(gradebookData.depedRows ?? [])
 
@@ -197,6 +199,33 @@ export default function GradebookClient({
     [gradebookData.course_id, gradebookData.grading_period.id]
   )
 
+  // Sync attendance from teacher_daily_attendance into course_grades
+  const handleSyncAttendance = useCallback(async () => {
+    setIsSyncingAttendance(true)
+    setSyncMessage(null)
+    try {
+      const response = await authFetch('/api/teacher/gradebook/sync-attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          courseId: gradebookData.course_id,
+          gradingPeriodId: gradebookData.grading_period.id,
+        }),
+      })
+      const result = await response.json()
+      if (response.ok && result.success) {
+        setSyncMessage(result.message)
+        router.refresh()
+      } else {
+        setSyncMessage(result.error || 'Sync failed')
+      }
+    } catch {
+      setSyncMessage('Sync failed')
+    } finally {
+      setIsSyncingAttendance(false)
+    }
+  }, [gradebookData.course_id, gradebookData.grading_period.id, router])
+
   // Handle bulk grade entry
   const handleBulkSave = async () => {
     router.refresh()
@@ -256,13 +285,23 @@ export default function GradebookClient({
               <span className="material-symbols-outlined text-lg mr-2">more_vert</span>
               Actions
             </Button>
-            <div className="absolute right-0 top-full mt-2 w-44 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
+            <div className="absolute right-0 top-full mt-2 w-52 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50">
               <button
                 onClick={() => setIsBulkModalOpen(true)}
-                className="w-full px-4 py-3 text-left text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2"
+                className="w-full px-4 py-3 text-left text-sm text-slate-900 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700 flex items-center gap-2 rounded-t-lg"
               >
                 <span className="material-symbols-outlined text-lg">upload</span>
                 Bulk Entry
+              </button>
+              <button
+                onClick={handleSyncAttendance}
+                disabled={isSyncingAttendance}
+                className="w-full px-4 py-3 text-left text-sm text-teal-700 dark:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-900/20 flex items-center gap-2 rounded-b-lg disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-lg">
+                  {isSyncingAttendance ? 'sync' : 'event_available'}
+                </span>
+                {isSyncingAttendance ? 'Syncing…' : 'Sync Attendance'}
               </button>
             </div>
           </div>
@@ -343,6 +382,23 @@ export default function GradebookClient({
           </div>
         </Card>
       </div>
+
+      {/* Sync attendance feedback */}
+      {syncMessage && (
+        <div className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm ${
+          syncMessage.toLowerCase().includes('fail') || syncMessage.toLowerCase().includes('error')
+            ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400'
+            : 'bg-teal-50 dark:bg-teal-900/20 text-teal-700 dark:text-teal-400'
+        }`}>
+          <span className="material-symbols-outlined text-lg">
+            {syncMessage.toLowerCase().includes('fail') || syncMessage.toLowerCase().includes('error') ? 'error' : 'check_circle'}
+          </span>
+          {syncMessage}
+          <button onClick={() => setSyncMessage(null)} className="ml-auto opacity-60 hover:opacity-100">
+            <span className="material-symbols-outlined text-base">close</span>
+          </button>
+        </div>
+      )}
 
       {/* Score Entry Table */}
       <Card className="p-0 overflow-hidden">

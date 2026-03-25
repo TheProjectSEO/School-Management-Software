@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getCurrentUser } from '@/lib/auth/session'
-import { getGradingQueue, GradingQueueFilters } from '@/lib/dal/grading-queue'
+import { getGradingQueue, type GradingQueueFilters } from '@/lib/dal/grading-queue'
 
 export const dynamic = 'force-dynamic';
 
@@ -41,8 +41,8 @@ export async function GET(request: NextRequest) {
     const filters: GradingQueueFilters = {}
 
     const status = searchParams.get('status')
-    if (status && ['pending', 'graded', 'flagged'].includes(status)) {
-      filters.status = status as 'pending' | 'graded' | 'flagged'
+    if (status && ['pending', 'graded', 'flagged', 'completed', 'in_review', 'all'].includes(status)) {
+      filters.status = status as GradingQueueFilters['status']
     }
 
     const assessmentId = searchParams.get('assessmentId')

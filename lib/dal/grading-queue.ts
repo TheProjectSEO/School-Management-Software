@@ -24,7 +24,7 @@ export interface GradingQueueItem {
   points_awarded: number | null
   feedback: string | null
   rubric_json: any | null
-  status: 'pending' | 'graded' | 'flagged'
+  status: 'pending' | 'graded' | 'flagged' | 'completed' | 'in_review'
   priority: number
   graded_by: string | null
   graded_at: string | null
@@ -41,7 +41,7 @@ export interface GradingQueueItem {
 }
 
 export interface GradingQueueFilters {
-  status?: 'pending' | 'graded' | 'flagged' | 'all'
+  status?: 'pending' | 'graded' | 'flagged' | 'completed' | 'in_review' | 'all'
   assessmentId?: string
   courseId?: string
   questionType?: string
@@ -202,6 +202,9 @@ export async function getGradingQueue(
 
   if (filters?.status && filters.status !== 'all') {
     queueQuery = queueQuery.eq('status', filters.status)
+  } else {
+    // 'all' tab: exclude 'completed' items (they've been fully released)
+    queueQuery = queueQuery.not('status', 'eq', 'completed')
   }
 
   if (filters?.questionType) {
@@ -302,7 +305,7 @@ export async function getGradingQueue(
       points_awarded: item.points_awarded as number | null,
       feedback: item.feedback as string | null,
       rubric_json: item.rubric_json ?? null,
-      status: item.status as 'pending' | 'graded' | 'flagged',
+      status: item.status as GradingQueueItem['status'],
       priority: item.priority as number,
       graded_by: item.graded_by as string | null,
       graded_at: item.graded_at as string | null,
@@ -789,7 +792,7 @@ export async function getQueueStats(teacherId: string): Promise<GradingQueueStat
   for (const item of queueItems) {
     const status = item.status as string
     if (status === 'pending') pending++
-    else if (status === 'graded') graded++
+    else if (status === 'graded' || status === 'completed') graded++
     else if (status === 'flagged') flagged++
 
     if (status === 'pending') {

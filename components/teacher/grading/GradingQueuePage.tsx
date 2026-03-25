@@ -15,7 +15,7 @@ interface GradingQueueItem {
   max_points: number;
   points_awarded: number | null;
   feedback: string | null;
-  status: "pending" | "graded" | "flagged";
+  status: "pending" | "graded" | "flagged" | "completed" | "in_review";
   priority: number;
   graded_at: string | null;
   created_at: string;
@@ -149,6 +149,12 @@ export default function GradingQueuePage({ teacherId }: GradingQueuePageProps) {
         return (
           <span className="inline-flex items-center rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-medium text-green-800 dark:bg-green-900/30 dark:text-green-400">
             Graded
+          </span>
+        );
+      case "completed":
+        return (
+          <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800 dark:bg-blue-900/30 dark:text-blue-400">
+            Released
           </span>
         );
       default:

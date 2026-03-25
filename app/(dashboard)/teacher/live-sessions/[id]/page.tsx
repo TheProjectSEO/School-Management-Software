@@ -160,6 +160,10 @@ export default async function TeacherLiveSessionPage({ params }: PageProps) {
         courseName,
         recording_enabled: session.recording_enabled ?? false,
       }}
+      currentUser={{
+        id: profile.id,
+        name: profile.full_name,
+      }}
     />
   );
 }

@@ -8,6 +8,7 @@ import { useLiveSession } from '@/contexts/LiveSessionContext';
 import { SessionChatPanel } from '@/components/live-sessions/SessionChatPanel';
 import { SessionNotesPanel } from '@/components/live-sessions/SessionNotesPanel';
 import { TeacherReactionsPanel } from '@/components/teacher/live-sessions/TeacherReactionsPanel';
+import { ParticipantsList } from '@/components/live-sessions/ParticipantsList';
 
 interface TeacherLiveSessionClientProps {
   sessionId: string;
@@ -16,11 +17,16 @@ interface TeacherLiveSessionClientProps {
     courseName: string;
     recording_enabled: boolean;
   };
+  currentUser: {
+    id: string;
+    name: string;
+  };
 }
 
 export function TeacherLiveSessionClient({
   sessionId,
   sessionData,
+  currentUser,
 }: TeacherLiveSessionClientProps) {
   const router = useRouter();
   const { session: ctxSession, setSession, clearSession, isFloating, setFloating } = useLiveSession();
@@ -31,7 +37,7 @@ export function TeacherLiveSessionClient({
   const [isEnding, setIsEnding] = useState(false);
   const [startTime] = useState(Date.now());
   const [elapsedTime, setElapsedTime] = useState(0);
-  const [activeTab, setActiveTab] = useState<'chat' | 'reactions' | 'notes'>('chat');
+  const [activeTab, setActiveTab] = useState<'chat' | 'people' | 'reactions' | 'notes'>('chat');
 
   const hasJoinedRef = useRef(false);
   const hasEndedRef = useRef(false);
@@ -197,23 +203,28 @@ export function TeacherLiveSessionClient({
         <div className="flex flex-col h-full min-h-[400px] lg:min-h-0">
           {/* Tab bar */}
           <div className="flex gap-1 mb-2 p-1 bg-slate-100 dark:bg-slate-800 rounded-xl shrink-0">
-            {(['chat', 'reactions', 'notes'] as const).map((tab) => (
+            {(['chat', 'people', 'reactions', 'notes'] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-all capitalize ${
+                className={`flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all capitalize ${
                   activeTab === tab
                     ? 'bg-white dark:bg-slate-700 text-[#7B1113] shadow-sm'
                     : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
                 }`}
               >
-                {tab === 'chat' ? 'Chat' : tab === 'reactions' ? 'Reactions' : 'Notes'}
+                {tab === 'chat' ? 'Chat' : tab === 'people' ? 'People' : tab === 'reactions' ? 'Reactions' : 'Notes'}
               </button>
             ))}
           </div>
           {/* Tab content */}
           <div className="flex-1 min-h-0">
             {activeTab === 'chat' && <SessionChatPanel sessionId={sessionId} gradeLevel="10" role="teacher" />}
+            {activeTab === 'people' && (
+              <div className="h-full overflow-y-auto">
+                <ParticipantsList sessionId={sessionId} gradeLevel="10" currentUser={currentUser} />
+              </div>
+            )}
             {activeTab === 'reactions' && <TeacherReactionsPanel sessionId={sessionId} />}
             {activeTab === 'notes' && <SessionNotesPanel sessionId={sessionId} gradeLevel="10" role="teacher" />}
           </div>

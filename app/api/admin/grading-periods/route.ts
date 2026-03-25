@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   if (!auth.success) return auth.response
 
   const body = await request.json()
-  const { name, start_date, end_date, academic_year_id, period_type } = body
+  const { name, start_date, end_date, academic_year_id, period_type, period_number } = body
 
   if (!name || !start_date || !end_date) {
     return NextResponse.json({ error: 'name, start_date, and end_date are required' }, { status: 400 })
@@ -51,6 +51,7 @@ export async function POST(request: NextRequest) {
       start_date,
       end_date,
       period_type: period_type || 'quarter',
+      period_number: period_number ?? (() => { const m = name.match(/\d+/); return m ? parseInt(m[0]) : 1; })(),
       is_active: false,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),

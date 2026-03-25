@@ -112,6 +112,7 @@ export async function POST(request: NextRequest) {
             start_date: qStart.toISOString().split('T')[0],
             end_date: qEnd.toISOString().split('T')[0],
             period_type: 'quarter',
+            period_number: i + 1,
             is_active: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),

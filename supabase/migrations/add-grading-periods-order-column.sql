@@ -31,7 +31,17 @@ DO $$ BEGIN
   END IF;
 END $$;
 
--- 4. Populate order from quarter name for existing rows
+-- 4. Add DEFAULT to period_number so inserts without it don't fail
+DO $$ BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_name = 'grading_periods' AND column_name = 'period_number'
+  ) THEN
+    ALTER TABLE grading_periods ALTER COLUMN period_number SET DEFAULT 1;
+  END IF;
+END $$;
+
+-- 5. Populate order from quarter name for existing rows
 UPDATE grading_periods SET "order" = CASE
   WHEN name ILIKE '%first%'  OR name ILIKE '%1st%' OR name ILIKE 'q1' THEN 1
   WHEN name ILIKE '%second%' OR name ILIKE '%2nd%' OR name ILIKE 'q2' THEN 2

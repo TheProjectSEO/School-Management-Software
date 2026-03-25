@@ -24,6 +24,7 @@ const navItems: NavItem[] = [
   { name: 'Submissions', href: '/teacher/submissions', icon: 'assignment_turned_in' },
   { name: 'Grading Queue', href: '/teacher/grading', icon: 'grading' },
   { name: 'Feedback Templates', href: '/teacher/feedback-templates', icon: 'content_paste' },
+  { name: 'Gradebook', href: '/teacher/gradebook', icon: 'grade' },
   { name: 'Report Cards', href: '/teacher/report-cards', icon: 'description' },
   { name: 'Attendance', href: '/teacher/attendance', icon: 'fact_check' },
   { name: 'Student Alerts', href: '/teacher/alerts', icon: 'notification_important' },

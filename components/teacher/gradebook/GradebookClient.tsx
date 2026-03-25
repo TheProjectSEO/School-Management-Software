@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/Tabs'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import GradebookTable from './GradebookTable'
@@ -296,58 +295,16 @@ export default function GradebookClient({
         </Card>
       </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="scores">
-        <TabsList>
-          <TabsTrigger value="scores">
-            <span className="material-symbols-outlined text-lg mr-2">table_chart</span>
-            Score Entry
-          </TabsTrigger>
-          <TabsTrigger value="deped">
-            <span className="material-symbols-outlined text-lg mr-2">calculate</span>
-            DepEd Grades
-          </TabsTrigger>
-          <TabsTrigger value="analytics">
-            <span className="material-symbols-outlined text-lg mr-2">analytics</span>
-            Analytics
-          </TabsTrigger>
-        </TabsList>
-
-        {/* Raw score entry — unchanged */}
-        <TabsContent value="scores">
-          <Card className="p-0 overflow-hidden">
-            <GradebookTable
-              rows={localRows}
-              assessments={gradebookData.assessments}
-              weightConfig={gradebookData.weight_config}
-              onScoreUpdate={handleScoreUpdate}
-              isSaving={isSaving}
-            />
-          </Card>
-        </TabsContent>
-
-        {/* DepEd quarterly grade computation */}
-        <TabsContent value="deped">
-          <DepEdGradebookView
-            courseId={gradebookData.course_id}
-            periodId={currentPeriodId}
-            schoolId={gradebookData.school_id ?? ''}
-            courseName={gradebookData.course_name}
-            periodName={gradebookData.grading_period.name}
-            subjectType={gradebookData.subject_type ?? 'academic'}
-            students={depedRows}
-            onRecompute={handleDepEdRefresh}
-            onRelease={handleDepEdRefresh}
-          />
-        </TabsContent>
-
-        <TabsContent value="analytics">
-          <GradeAnalytics
-            rows={localRows}
-            assessments={gradebookData.assessments}
-          />
-        </TabsContent>
-      </Tabs>
+      {/* Score Entry Table */}
+      <Card className="p-0 overflow-hidden">
+        <GradebookTable
+          rows={localRows}
+          assessments={gradebookData.assessments}
+          weightConfig={gradebookData.weight_config}
+          onScoreUpdate={handleScoreUpdate}
+          isSaving={isSaving}
+        />
+      </Card>
 
       {/* Modals */}
       <BulkGradeModal

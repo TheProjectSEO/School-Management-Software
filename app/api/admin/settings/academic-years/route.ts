@@ -108,11 +108,13 @@ export async function POST(request: NextRequest) {
           .insert({
             school_id: admin.schoolId,
             academic_year_id: yearId,
+            academic_year: name,
             name: quarterNames[i],
             start_date: qStart.toISOString().split('T')[0],
             end_date: qEnd.toISOString().split('T')[0],
             period_type: 'quarter',
             period_number: i + 1,
+            is_current: false,
             is_active: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),

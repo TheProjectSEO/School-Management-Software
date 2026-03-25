@@ -21,6 +21,7 @@ interface GradingPeriod {
   endDate: string;
   weight: number;
   academicYearId: string | null;
+  isCurrent: boolean;
 }
 
 interface GradingScale {
@@ -142,6 +143,7 @@ export default function AcademicSettingsPage() {
               endDate: p.end_date,
               weight: p.weight ?? 25,
               academicYearId: p.academic_year_id ?? null,
+              isCurrent: p.is_current ?? false,
             })),
           }));
         }
@@ -273,10 +275,25 @@ export default function AcademicSettingsPage() {
           endDate: period.end_date,
           weight: 25,
           academicYearId: period.academic_year_id ?? null,
+          isCurrent: period.is_current ?? false,
         }],
       }));
       setNewPeriod({ name: "", startDate: "", endDate: "", academicYearId: "" });
       setShowAddPeriodModal(false);
+    }
+  };
+
+  const handleSetCurrentPeriod = async (periodId: string) => {
+    const res = await authFetch('/api/admin/grading-periods', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ periodId }),
+    });
+    if (res.ok) {
+      setSettings((prev) => ({
+        ...prev,
+        gradingPeriods: prev.gradingPeriods.map((p) => ({ ...p, isCurrent: p.id === periodId })),
+      }));
     }
   };
 
@@ -528,16 +545,34 @@ export default function AcademicSettingsPage() {
                         />
                       </div>
                       <div className="flex items-end justify-between gap-2">
-                        <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full font-medium">
-                          {period.shortName}
-                        </span>
-                        <button
-                          onClick={() => handleDeletePeriod(period.id)}
-                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete period"
-                        >
-                          <span className="material-symbols-outlined text-lg">delete</span>
-                        </button>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full font-medium">
+                            {period.shortName}
+                          </span>
+                          {period.isCurrent && (
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                              Current
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          {!period.isCurrent && (
+                            <button
+                              onClick={() => handleSetCurrentPeriod(period.id)}
+                              className="p-1.5 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                              title="Set as current period"
+                            >
+                              <span className="material-symbols-outlined text-lg">check_circle</span>
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleDeletePeriod(period.id)}
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Delete period"
+                          >
+                            <span className="material-symbols-outlined text-lg">delete</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))}

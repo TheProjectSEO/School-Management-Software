@@ -14,9 +14,9 @@ export async function GET() {
 
   const { data: periods, error } = await supabase
     .from('grading_periods')
-    .select('id, name, start_date, end_date, order, is_active')
+    .select('id, name, start_date, end_date, is_active')
     .eq('school_id', auth.admin.schoolId)
-    .order('order', { ascending: true })
+    .order('start_date', { ascending: true })
 
   if (error) {
     console.error('Error fetching grading periods:', error)

@@ -9,9 +9,9 @@ export async function GET() {
   const supabase = createServiceClient();
   const { data: periods, error } = await supabase
     .from('grading_periods')
-    .select('id, name, start_date, end_date, is_active, order')
+    .select('id, name, start_date, end_date, is_active')
     .eq('school_id', auth.teacher.schoolId)
-    .order('order', { ascending: true });
+    .order('start_date', { ascending: true });
 
   if (error) {
     console.error('Error fetching grading periods:', error);

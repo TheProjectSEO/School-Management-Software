@@ -281,7 +281,7 @@ export async function getGradingPeriods(params?: {
         )
       `
       )
-      .order('order', { ascending: true });
+      .order('start_date', { ascending: true });
 
     if (params?.schoolId) {
       query = query.eq('school_id', params.schoolId);

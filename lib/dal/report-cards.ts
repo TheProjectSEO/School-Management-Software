@@ -330,7 +330,7 @@ export async function getSectionReportCardsList(
       return {
         id: item.id as string,
         student_id: item.student_id as string,
-        student_name: studentInfo?.full_name || profile?.full_name || "Unknown",
+        student_name: studentInfo?.full_name?.trim() || profile?.full_name?.trim() || studentRow?.lrn || "Unknown",
         student_lrn: studentInfo?.lrn || studentRow?.lrn || "",
         student_avatar: profile?.avatar_url,
         section_name: studentInfo?.section_name || sectionRow?.name || "",

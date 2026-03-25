@@ -326,7 +326,6 @@ async function fetchStudentGPA(
       .select('quarterly_grade, numeric_grade')
       .eq('student_id', studentId)
       .eq('grading_period_id', gradingPeriodId)
-      .eq('is_released', true)
 
     const gradeValues = (grades || [])
       .map((g: any) => g.quarterly_grade ?? g.numeric_grade ?? 0)

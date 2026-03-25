@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useMemo, useState, useCallback } from 'react'
+import { useRef, useMemo, useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import GradebookCell from './GradebookCell'
 import type {
@@ -62,6 +62,10 @@ export default function GradebookTable({
     Record<string, { attended: string; total: string; behavior: string; saving: boolean }>
   >({})
 
+  // Ref always holds the latest edits — prevents stale closure in blur handler
+  const attendanceEditsRef = useRef(attendanceEdits)
+  useEffect(() => { attendanceEditsRef.current = attendanceEdits }, [attendanceEdits])
+
   // Group assessments by type
   const groupedAssessments = useMemo(() => {
     const groups: Record<string, GradebookAssessment[]> = {}
@@ -85,14 +89,30 @@ export default function GradebookTable({
   }
 
   // Handle blur on attendance/behavior inputs — save to server
+  // Uses ref to read latest edits, avoiding stale closure when onChange + onBlur fire together
   const handleAttendanceBehaviorBlur = useCallback(
-    async (studentId: string) => {
-      const edit = attendanceEdits[studentId]
+    async (studentId: string, row: SerializedGradebookRow) => {
+      const edit = attendanceEditsRef.current[studentId]
+
+      // If no local edit exists, nothing changed — skip save
       if (!edit) return
 
       const attended = Math.max(0, Number(edit.attended) || 0)
       const total = Math.max(0, Number(edit.total) || 0)
       const behavior = Math.min(100, Math.max(0, Number(edit.behavior) || 0))
+
+      // Also compare with original row values — skip if nothing actually changed
+      const origAttended = row.courseGrade?.attendance_count ?? 0
+      const origTotal = row.courseGrade?.total_class_days ?? 0
+      const origBehavior = row.courseGrade?.behavior_score ?? 0
+      if (attended === origAttended && total === origTotal && behavior === origBehavior) {
+        setAttendanceEdits((prev) => {
+          const next = { ...prev }
+          delete next[studentId]
+          return next
+        })
+        return
+      }
 
       setAttendanceEdits((prev) => ({
         ...prev,
@@ -107,7 +127,7 @@ export default function GradebookTable({
         return next
       })
     },
-    [attendanceEdits, onAttendanceBehaviorUpdate]
+    [onAttendanceBehaviorUpdate]
   )
 
   // Calculate weighted average from assessments only (85% of final grade)
@@ -433,7 +453,7 @@ export default function GradebookTable({
                         },
                       }))
                     }}
-                    onBlur={() => handleAttendanceBehaviorBlur(row.student.student_id)}
+                    onBlur={() => handleAttendanceBehaviorBlur(row.student.student_id, row)}
                     className="w-16 text-center text-sm font-medium rounded border border-teal-200 dark:border-teal-700 bg-white dark:bg-slate-800 text-teal-800 dark:text-teal-300 focus:outline-none focus:ring-1 focus:ring-teal-400 px-1 py-0.5 disabled:opacity-50"
                   />
                 </td>
@@ -457,7 +477,7 @@ export default function GradebookTable({
                         },
                       }))
                     }}
-                    onBlur={() => handleAttendanceBehaviorBlur(row.student.student_id)}
+                    onBlur={() => handleAttendanceBehaviorBlur(row.student.student_id, row)}
                     className="w-16 text-center text-sm font-medium rounded border border-teal-200 dark:border-teal-700 bg-white dark:bg-slate-800 text-teal-800 dark:text-teal-300 focus:outline-none focus:ring-1 focus:ring-teal-400 px-1 py-0.5 disabled:opacity-50"
                   />
                 </td>
@@ -482,7 +502,7 @@ export default function GradebookTable({
                         },
                       }))
                     }}
-                    onBlur={() => handleAttendanceBehaviorBlur(row.student.student_id)}
+                    onBlur={() => handleAttendanceBehaviorBlur(row.student.student_id, row)}
                     className="w-16 text-center text-sm font-medium rounded border border-purple-200 dark:border-purple-700 bg-white dark:bg-slate-800 text-purple-800 dark:text-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-400 px-1 py-0.5 disabled:opacity-50"
                   />
                 </td>

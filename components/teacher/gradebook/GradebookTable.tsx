@@ -119,13 +119,27 @@ export default function GradebookTable({
         [studentId]: { ...prev[studentId], saving: true },
       }))
 
-      await onAttendanceBehaviorUpdate(studentId, attended, total, behavior)
+      const saved = await onAttendanceBehaviorUpdate(studentId, attended, total, behavior)
 
-      setAttendanceEdits((prev) => {
-        const next = { ...prev }
-        delete next[studentId]
-        return next
-      })
+      if (saved) {
+        // Success — clear the local edit; the parent has updated localRows with new values
+        setAttendanceEdits((prev) => {
+          const next = { ...prev }
+          delete next[studentId]
+          return next
+        })
+      } else {
+        // Failed — keep the typed value visible so user doesn't lose their input
+        setAttendanceEdits((prev) => ({
+          ...prev,
+          [studentId]: {
+            attended: String(attended),
+            total: String(total),
+            behavior: String(behavior),
+            saving: false,
+          },
+        }))
+      }
     },
     [onAttendanceBehaviorUpdate]
   )

@@ -1,7 +1,7 @@
 /**
  * Student Session Notes API
  * GET  — fetch own notes for a session
- * POST — save (upsert) notes
+ * POST — save (upsert) notes + sync to student_notes tab
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -54,10 +54,52 @@ export async function POST(
   const profileId = await getProfileId(supabase, auth.student.studentId);
   if (!profileId) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
+  const now = new Date().toISOString();
+
+  // 1. Save to session_notes (private per-session store)
   await supabase.from('session_notes').upsert(
-    { session_id: sessionId, profile_id: profileId, content, updated_at: new Date().toISOString() },
+    { session_id: sessionId, profile_id: profileId, content, updated_at: now },
     { onConflict: 'session_id,profile_id' }
   );
+
+  // 2. Sync to student_notes so it appears in the Notes tab
+  // Fetch session title + course_id for the note entry
+  const { data: sessionData } = await supabase
+    .from('live_sessions')
+    .select('title, course_id')
+    .eq('id', sessionId)
+    .single();
+
+  if (sessionData) {
+    const sessionTag = `session:${sessionId}`;
+
+    // Check if a synced note already exists for this session
+    const { data: existing } = await supabase
+      .from('student_notes')
+      .select('id')
+      .eq('student_id', auth.student.studentId)
+      .contains('tags', [sessionTag])
+      .maybeSingle();
+
+    if (existing) {
+      // Update content on existing note
+      await supabase
+        .from('student_notes')
+        .update({ content, updated_at: now })
+        .eq('id', existing.id);
+    } else if (content.trim()) {
+      // Create a new note entry (only when there's actual content)
+      await supabase.from('student_notes').insert({
+        student_id: auth.student.studentId,
+        title: `Live Session: ${sessionData.title}`,
+        content,
+        type: 'note',
+        course_id: sessionData.course_id || null,
+        tags: [sessionTag, 'live-session'],
+        is_favorite: false,
+      });
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -156,7 +156,11 @@ async function ReportCardsContent({
       />
 
       {/* Report Cards List */}
-      <ReportCardsList reportCards={reportCards} />
+      <ReportCardsList
+        reportCards={reportCards}
+        sectionId={selectedSectionId}
+        gradingPeriodId={selectedPeriodId}
+      />
     </>
   );
 }

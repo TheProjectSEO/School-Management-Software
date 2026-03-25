@@ -8,6 +8,8 @@ import type { ReportCardListItem, ReportCardStatus } from "@/lib/types/report-ca
 
 interface ReportCardsListProps {
   reportCards: ReportCardListItem[];
+  sectionId?: string;
+  gradingPeriodId?: string;
 }
 
 /**
@@ -19,9 +21,10 @@ interface ReportCardsListProps {
  * - Quick stats (GPA, attendance)
  * - Actions (view, add remarks, submit for review)
  */
-export function ReportCardsList({ reportCards }: ReportCardsListProps) {
+export function ReportCardsList({ reportCards, sectionId, gradingPeriodId }: ReportCardsListProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<ReportCardStatus | "all">("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -95,6 +98,25 @@ export function ReportCardsList({ reportCards }: ReportCardsListProps) {
     }
   };
 
+  const handleGenerate = async () => {
+    if (isGenerating || !sectionId || !gradingPeriodId) return;
+    setIsGenerating(true);
+    try {
+      const res = await authFetch('/api/teacher/report-cards/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section_id: sectionId, grading_period_id: gradingPeriodId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to generate');
+      router.refresh();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to generate report cards');
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   // Status badge component
   const StatusBadge = ({ status }: { status: ReportCardStatus }) => {
     const config = {
@@ -145,9 +167,23 @@ export function ReportCardsList({ reportCards }: ReportCardsListProps) {
         <p className="text-slate-500 dark:text-slate-400 font-medium">
           No report cards found
         </p>
-        <p className="text-sm text-slate-400 dark:text-slate-500 mt-2">
-          Report cards will appear here once generated for the selected period
+        <p className="text-sm text-slate-400 dark:text-slate-500 mt-2 mb-6">
+          Generate draft report cards to initialize grades for all students in this section
         </p>
+        {sectionId && gradingPeriodId && (
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          >
+            {isGenerating ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <span className="material-symbols-outlined text-[18px]">auto_awesome</span>
+            )}
+            {isGenerating ? 'Generating...' : 'Initialize Report Cards'}
+          </button>
+        )}
       </div>
     );
   }
@@ -169,6 +205,22 @@ export function ReportCardsList({ reportCards }: ReportCardsListProps) {
             className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-[#1a2634] text-slate-900 dark:text-white placeholder:text-slate-400 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
           />
         </div>
+
+        {/* Generate / Refresh Button */}
+        {sectionId && gradingPeriodId && (
+          <button
+            onClick={handleGenerate}
+            disabled={isGenerating}
+            className="flex items-center gap-1.5 px-3 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition-colors"
+          >
+            {isGenerating ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <span className="material-symbols-outlined text-[18px]">refresh</span>
+            )}
+            {isGenerating ? 'Generating...' : 'Refresh Grades'}
+          </button>
+        )}
 
         {/* Status Filter */}
         <div className="flex items-center gap-2">

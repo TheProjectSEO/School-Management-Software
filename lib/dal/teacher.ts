@@ -199,7 +199,7 @@ export async function getTeacherSubjects(teacherId: string) {
 
       const [moduleCount, studentCount] = await Promise.all([
         getModuleCountForCourse(assignment.course_id),
-        getStudentCountForCourse(assignment.course_id)
+        getStudentCountForCourse(assignment.course_id, assignment.section_id)
       ])
 
       return {
@@ -250,7 +250,7 @@ export async function getTeacherSubject(courseId: string, teacherId: string): Pr
       ? supabase.from('sections').select('id, name, grade_level').eq('id', assignment.section_id).maybeSingle()
       : Promise.resolve({ data: null }),
     getModuleCountForCourse(courseId),
-    getStudentCountForCourse(courseId)
+    getStudentCountForCourse(courseId, assignment.section_id ?? undefined)
   ])
 
   const course = courseResult.data
@@ -535,16 +535,27 @@ async function getModuleCountForCourse(courseId: string): Promise<number> {
   return count || 0
 }
 
-async function getStudentCountForCourse(courseId: string): Promise<number> {
+async function getStudentCountForCourse(courseId: string, sectionId?: string | null): Promise<number> {
   const supabase = createServiceClient()
 
-  // Count students enrolled in this course (consistent with API route)
-  const { count } = await supabase
+  // Count from enrollments first
+  const { count: enrollCount } = await supabase
     .from('enrollments')
     .select('*', { count: 'exact', head: true })
     .eq('course_id', courseId)
 
-  return count || 0
+  if ((enrollCount || 0) > 0) return enrollCount || 0
+
+  // BUG-002 fallback: count students in the section
+  if (sectionId) {
+    const { count: sectionCount } = await supabase
+      .from('students')
+      .select('*', { count: 'exact', head: true })
+      .eq('section_id', sectionId)
+    return sectionCount || 0
+  }
+
+  return 0
 }
 
 async function getLessonCountForModule(moduleId: string): Promise<number> {

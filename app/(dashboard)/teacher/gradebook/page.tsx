@@ -23,6 +23,10 @@ async function GradebookCourseList() {
 
   const subjects = await getTeacherSubjects(teacherProfile.id)
 
+  // Compute quick stats from subjects
+  const totalStudents = subjects.reduce((sum, s) => sum + (s.student_count || 0), 0)
+  const totalCourses = subjects.length
+
   if (subjects.length === 0) {
     return (
       <EmptyState
@@ -34,6 +38,32 @@ async function GradebookCourseList() {
   }
 
   return (
+    <>
+    {/* Stats banner — rendered here so we have real subject data */}
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-primary/20 flex items-center justify-center">
+            <span className="material-symbols-outlined text-primary text-xl">school</span>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{totalCourses}</div>
+            <div className="text-xs text-slate-500">Courses</div>
+          </div>
+        </div>
+      </Card>
+      <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+            <span className="material-symbols-outlined text-blue-600 text-xl">group</span>
+          </div>
+          <div>
+            <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{totalStudents}</div>
+            <div className="text-xs text-slate-500">Total Students</div>
+          </div>
+        </div>
+      </Card>
+    </div>
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
       {subjects.map((subject) => (
         <Link
@@ -128,6 +158,7 @@ async function GradebookCourseList() {
         </Link>
       ))}
     </div>
+    </>
   )
 }
 
@@ -143,81 +174,6 @@ export default function GradebookPage() {
         <p className="text-slate-600 dark:text-slate-400 text-sm sm:text-base">
           Select a course to view and manage student grades
         </p>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center">
-              <span className="material-symbols-outlined text-primary text-2xl">
-                score
-              </span>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                —
-              </div>
-              <div className="text-sm text-slate-600 dark:text-slate-400">
-                Grades Entered
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-yellow-500/10 to-yellow-500/5">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-yellow-500/20 flex items-center justify-center">
-              <span className="material-symbols-outlined text-yellow-600 text-2xl">
-                pending_actions
-              </span>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                —
-              </div>
-              <div className="text-sm text-slate-600 dark:text-slate-400">
-                Pending Review
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-green-500/10 to-green-500/5">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center">
-              <span className="material-symbols-outlined text-green-600 text-2xl">
-                check_circle
-              </span>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                —
-              </div>
-              <div className="text-sm text-slate-600 dark:text-slate-400">
-                Released
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="bg-gradient-to-br from-blue-500/10 to-blue-500/5">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center">
-              <span className="material-symbols-outlined text-blue-600 text-2xl">
-                percent
-              </span>
-            </div>
-            <div>
-              <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                —
-              </div>
-              <div className="text-sm text-slate-600 dark:text-slate-400">
-                Class Average
-              </div>
-            </div>
-          </div>
-        </Card>
       </div>
 
       {/* Course List */}

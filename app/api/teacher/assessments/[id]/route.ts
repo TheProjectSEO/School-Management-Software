@@ -120,7 +120,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     // First verify the assessment exists and teacher has access
     const { data: existingAssessment, error: fetchError } = await supabase
       .from('assessments')
-      .select('id, created_by')
+      .select('id, created_by, course_id')
       .eq('id', id)
       .single()
 
@@ -128,13 +128,18 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ error: 'Assessment not found' }, { status: 404 })
     }
 
-    // Check if teacher owns this assessment OR allow any teacher to edit (for flexibility)
-    // For now, skip ownership check if assessment has no created_by
-    if (existingAssessment.created_by && existingAssessment.created_by !== teacherProfile.id) {
-      console.log('Ownership mismatch:', {
-        assessmentCreatedBy: existingAssessment.created_by,
-        teacherProfileId: teacherProfile.id
-      })
+    // Allow edit if teacher created it OR is assigned to the assessment's course
+    const isCreator = !existingAssessment.created_by || existingAssessment.created_by === teacherProfile.id
+    let hasAccess = isCreator
+    if (!isCreator && existingAssessment.course_id) {
+      const { count } = await supabase
+        .from('teacher_assignments')
+        .select('*', { count: 'exact', head: true })
+        .eq('teacher_profile_id', teacherProfile.id)
+        .eq('course_id', existingAssessment.course_id)
+      hasAccess = (count ?? 0) > 0
+    }
+    if (!hasAccess) {
       return NextResponse.json({ error: 'You do not have permission to edit this assessment' }, { status: 403 })
     }
 

@@ -100,12 +100,15 @@ export async function POST(
           })
           .eq('id', courseGrade.id)
 
-        // Mark all grading queue items for this submission as completed
-        await supabase
+        // Mark all grading queue items for this submission as completed (released)
+        // No status filter — update all rows for this submission
+        const { error: queueReleaseError } = await supabase
           .from('teacher_grading_queue')
           .update({ status: 'completed', graded_at: new Date().toISOString() })
           .eq('submission_id', submissionId)
-          .in('status', ['pending', 'in_review', 'graded'])
+        if (queueReleaseError) {
+          console.error('[release] queue update error:', queueReleaseError.message)
+        }
 
         // Regenerate report card snapshot so it reflects the released grade
         try {

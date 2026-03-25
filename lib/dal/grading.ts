@@ -273,16 +273,22 @@ export async function gradeSubmission(
     }
   }
 
-  // Mark all grading queue items for this submission as completed
-  await supabase
+  // Mark all grading queue items for this submission as graded
+  // No status filter — update regardless of current status to avoid silent 0-row misses
+  const { data: updatedQueue, error: queueError } = await supabase
     .from('teacher_grading_queue')
     .update({
       status: 'graded',
-      graded_by: teacherProfileId,
       graded_at: new Date().toISOString(),
     })
     .eq('submission_id', submissionId)
-    .in('status', ['pending', 'in_review'])
+    .select('id, status')
+
+  if (queueError) {
+    console.error('[gradeSubmission] queue update error:', queueError.message)
+  } else {
+    console.log(`[gradeSubmission] queue rows updated: ${updatedQueue?.length ?? 0}`, updatedQueue)
+  }
 
   return { success: true }
 }

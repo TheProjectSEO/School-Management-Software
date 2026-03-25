@@ -20,7 +20,15 @@ export async function getUpcomingAssessments(
   const courseIds = await getStudentCourseIds(studentId);
   if (courseIds.length === 0) return [];
 
-  const { data: assessments, error } = await supabase
+  // Get student's section_id so we can filter assessments by section
+  const { data: studentRow } = await supabase
+    .from("students")
+    .select("section_id")
+    .eq("id", studentId)
+    .single();
+  const sectionId = studentRow?.section_id ?? null;
+
+  let query = supabase
     .from("assessments")
     .select("*")
     .in("course_id", courseIds)
@@ -29,6 +37,14 @@ export async function getUpcomingAssessments(
     // see overdue items and teachers' feedback on submitted work.
     .order("due_date", { ascending: false, nullsFirst: true })
     .limit(limit);
+
+  // Filter by the student's section — show assessments created for their section
+  // OR course-level assessments (section_id IS NULL)
+  if (sectionId) {
+    query = query.or(`section_id.eq.${sectionId},section_id.is.null`);
+  }
+
+  const { data: assessments, error } = await query;
 
   if (error) {
     console.error("Error fetching assessments:", error);
@@ -157,12 +173,26 @@ export async function getCourseAssessments(
 ): Promise<(Assessment & { submission?: AssessmentSubmission })[]> {
   const supabase = createAdminClient();
 
-  const { data: assessments, error } = await supabase
+  // Get student's section_id to filter assessments by section
+  const { data: studentRow } = await supabase
+    .from("students")
+    .select("section_id")
+    .eq("id", studentId)
+    .single();
+  const sectionId = studentRow?.section_id ?? null;
+
+  let query = supabase
     .from("assessments")
     .select("*")
     .eq("course_id", courseId)
     .eq("status", "published")  // Only show published assessments to students
     .order("due_date", { ascending: true });
+
+  if (sectionId) {
+    query = query.or(`section_id.eq.${sectionId},section_id.is.null`);
+  }
+
+  const { data: assessments, error } = await query;
 
   if (error) {
     console.error("Error fetching assessments:", error);

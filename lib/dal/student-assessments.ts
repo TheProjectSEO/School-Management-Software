@@ -22,12 +22,7 @@ export async function getUpcomingAssessments(
 
   const { data: assessments, error } = await supabase
     .from("assessments")
-    .select(
-      `
-      *,
-      course:courses(*)
-    `
-    )
+    .select("*")
     .in("course_id", courseIds)
     .eq("status", "published")  // Only show published assessments to students
     // No due-date filter — past-due assessments must remain visible so students can
@@ -38,6 +33,17 @@ export async function getUpcomingAssessments(
   if (error) {
     console.error("Error fetching assessments:", error);
     return [];
+  }
+
+  // Batch-fetch courses separately (BUG-001: no FK joins)
+  const uniqueCourseIds = [...new Set((assessments || []).map((a: any) => a.course_id).filter(Boolean))];
+  const courseMap = new Map<string, Course>();
+  if (uniqueCourseIds.length > 0) {
+    const { data: courseRows } = await supabase
+      .from("courses")
+      .select("*")
+      .in("id", uniqueCourseIds);
+    (courseRows || []).forEach((c: any) => courseMap.set(c.id, c));
   }
 
   // Get submissions for these assessments
@@ -134,6 +140,7 @@ export async function getUpcomingAssessments(
   return (
     assessments?.map((a) => ({
       ...a,
+      course: courseMap.get((a as any).course_id) ?? null,
       submission: submissionMap.get(a.id),
       isLocked: lockMap.get(a.id)?.isLocked ?? false,
       lockReason: lockMap.get(a.id)?.lockReason,
@@ -198,12 +205,7 @@ export async function getAssessmentById(assessmentId: string): Promise<(Assessme
 
   const { data, error } = await supabase
     .from("assessments")
-    .select(
-      `
-      *,
-      course:courses(*)
-    `
-    )
+    .select("*")
     .eq("id", assessmentId)
     .eq("status", "published")  // Only allow access to published assessments
     .single();
@@ -213,7 +215,18 @@ export async function getAssessmentById(assessmentId: string): Promise<(Assessme
     return null;
   }
 
-  return data;
+  // Fetch course separately (BUG-001: no FK joins)
+  let course: Course | undefined
+  if ((data as any)?.course_id) {
+    const { data: courseRow } = await supabase
+      .from("courses")
+      .select("*")
+      .eq("id", (data as any).course_id)
+      .single();
+    course = courseRow ?? undefined;
+  }
+
+  return { ...data, course };
 }
 
 /**
@@ -318,17 +331,9 @@ export async function getGradedAssessments(
   const page = options?.page || 1;
   const offset = (page - 1) * pageSize;
 
-  const { data, error } = await supabase
+  const { data: submissions, error } = await supabase
     .from("submissions")
-    .select(
-      `
-      *,
-      assessment:assessments(
-        *,
-        course:courses(*)
-      )
-    `
-    )
+    .select("*")
     .eq("student_id", studentId)
     .eq("status", "graded")
     .order("graded_at", { ascending: false })
@@ -339,7 +344,37 @@ export async function getGradedAssessments(
     return [];
   }
 
-  return data || [];
+  if (!submissions?.length) return [];
+
+  // Batch-fetch assessments separately (BUG-001: no FK joins)
+  const assessmentIds = [...new Set(submissions.map((s: any) => s.assessment_id).filter(Boolean))];
+  const assessmentMap = new Map<string, Assessment & { course?: Course }>();
+  if (assessmentIds.length > 0) {
+    const { data: assessmentRows } = await supabase
+      .from("assessments")
+      .select("*")
+      .in("id", assessmentIds);
+
+    // Batch-fetch courses separately
+    const courseIds = [...new Set((assessmentRows || []).map((a: any) => a.course_id).filter(Boolean))];
+    const courseMap = new Map<string, Course>();
+    if (courseIds.length > 0) {
+      const { data: courseRows } = await supabase
+        .from("courses")
+        .select("*")
+        .in("id", courseIds);
+      (courseRows || []).forEach((c: any) => courseMap.set(c.id, c));
+    }
+
+    (assessmentRows || []).forEach((a: any) =>
+      assessmentMap.set(a.id, { ...a, course: courseMap.get(a.course_id) ?? null })
+    );
+  }
+
+  return submissions.map((s: any) => ({
+    ...s,
+    assessment: assessmentMap.get(s.assessment_id) ?? null,
+  })) as any;
 }
 
 /**

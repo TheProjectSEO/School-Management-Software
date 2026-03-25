@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI'
-import { createServiceClient } from '@/lib/supabase/service'
 import { batchGenerateReportCards } from '@/lib/report-cards/generator'
 
 /**
@@ -22,16 +21,7 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const supabase = createServiceClient()
-
-  // Get school_id from teacher profile
-  const { data: teacherProfile } = await supabase
-    .from('teacher_profiles')
-    .select('school_id')
-    .eq('profile_id', auth.teacher.userId)
-    .single()
-
-  const schoolId = teacherProfile?.school_id
+  const schoolId = auth.teacher.schoolId
   if (!schoolId) {
     return NextResponse.json({ error: 'Teacher school not found' }, { status: 400 })
   }

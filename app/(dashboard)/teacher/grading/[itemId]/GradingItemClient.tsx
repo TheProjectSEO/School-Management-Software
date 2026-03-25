@@ -3,7 +3,8 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { authFetch } from "@/lib/utils/authFetch";
+import { authFetch } from "@/lib/utils/authFetch"
+import { toast } from 'sonner'
 
 interface GradingItem {
   id: string
@@ -89,13 +90,13 @@ export default function GradingItemClient({ item }: GradingItemClientProps) {
   }
 
   const saveGrades = async (release: boolean = false) => {
-    try {
-      if (release) {
-        setIsReleasing(true)
-      } else {
-        setIsSaving(true)
-      }
+    if (release) {
+      setIsReleasing(true)
+    } else {
+      setIsSaving(true)
+    }
 
+    try {
       const response = await authFetch(`/api/teacher/grading/${item.id}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -107,13 +108,25 @@ export default function GradingItemClient({ item }: GradingItemClientProps) {
         })
       })
 
-      if (!response.ok) throw new Error('Failed to save grades')
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Failed to save grades')
+      }
 
       if (release) {
-        router.push('/teacher/grading')
+        toast.success('Grade released!', {
+          description: `${item.student.full_name}'s grade has been released and their report card updated.`,
+          duration: 4000,
+        })
+        setTimeout(() => router.push('/teacher/grading'), 1500)
+      } else {
+        toast.success('Draft saved', { description: 'Grade saved as draft.' })
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save grades:', error)
+      toast.error(release ? 'Failed to release grade' : 'Failed to save draft', {
+        description: error?.message || 'Please try again.',
+      })
     } finally {
       setIsSaving(false)
       setIsReleasing(false)

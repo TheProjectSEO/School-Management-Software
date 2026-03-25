@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI'
 import { gradeSubmission, releaseSubmission } from '@/lib/dal/grading'
 import { calculateCourseGrade } from '@/lib/dal/teacher/gradebook'
+import { compileReportCardData, createReportCardSnapshot } from '@/lib/report-cards/generator'
 
 /**
  * POST /api/teacher/grading/[itemId]
@@ -60,11 +61,11 @@ export async function POST(
   if (release) {
     const releaseResult = await releaseSubmission(submissionId, auth.teacher.teacherId)
     if (!releaseResult.success) {
-      return NextResponse.json({ error: releaseResult.error || 'Failed to release' }, { status: 500 })
+      // Non-fatal: log but continue so grade calc + report card still happen
+      console.warn('releaseSubmission warning:', releaseResult.error)
     }
   }
 
-  // Update course grade so the gradebook reflects the new score
   // Look up student_id, course_id, and grading_period_id from the submission
   const { data: submissionMeta } = await supabase
     .from('submissions')
@@ -80,13 +81,67 @@ export async function POST(
       .single()
 
     if (assessment?.course_id && assessment?.grading_period_id) {
-      await calculateCourseGrade(
+      // Recalculate and save course grade
+      const courseGrade = await calculateCourseGrade(
         submissionMeta.student_id,
         assessment.course_id,
         assessment.grading_period_id
       )
+
+      if (release && courseGrade) {
+        // Mark the course grade as released so it shows in the report card
+        await supabase
+          .from('course_grades')
+          .update({
+            is_released: true,
+            status: 'released',
+            released_at: new Date().toISOString(),
+            released_by: auth.teacher.teacherId,
+          })
+          .eq('id', courseGrade.id)
+
+        // Mark all grading queue items for this submission as completed
+        await supabase
+          .from('teacher_grading_queue')
+          .update({ status: 'completed', graded_at: new Date().toISOString() })
+          .eq('submission_id', submissionId)
+          .in('status', ['pending', 'in_review', 'graded'])
+
+        // Regenerate report card snapshot so it reflects the released grade
+        try {
+          const reportData = await compileReportCardData(
+            submissionMeta.student_id,
+            assessment.grading_period_id
+          )
+          if (reportData) {
+            await createReportCardSnapshot(
+              submissionMeta.student_id,
+              assessment.grading_period_id,
+              auth.teacher.schoolId,
+              reportData,
+              auth.teacher.teacherId
+            )
+          }
+        } catch (rcErr) {
+          console.warn('Could not regenerate report card snapshot:', rcErr)
+        }
+
+        // Notify the student
+        try {
+          await supabase.from('notifications').insert({
+            student_id: submissionMeta.student_id,
+            type: 'grade_released',
+            title: 'Grade Released',
+            message: 'Your grade for an assessment has been released. Check your gradebook.',
+            is_read: false,
+            created_at: new Date().toISOString(),
+          })
+        } catch {
+          // Non-critical
+        }
+      }
     }
   }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, released: !!release })
 }

@@ -506,7 +506,7 @@ export async function calculateCourseGrade(
     .select('assessment_id, score')
     .eq('student_id', studentId)
     .in('assessment_id', assessmentIds)
-    .eq('status', 'graded')
+    .in('status', ['graded', 'released'])
 
   if (submissionsError) {
     console.error('Error fetching submissions:', submissionsError)
@@ -600,6 +600,17 @@ export async function calculateCourseGrade(
   const creditHours = course?.credit_hours ?? 3
   const qualityPoints = gpaPoints * creditHours
 
+  // Check if grade was already released — preserve that flag so recalculation doesn't un-release it
+  const { data: existingGrade } = await supabase
+    .from('course_grades')
+    .select('id, is_released, status')
+    .eq('student_id', studentId)
+    .eq('course_id', courseId)
+    .eq('grading_period_id', gradingPeriodId)
+    .maybeSingle()
+
+  const wasReleased = existingGrade?.is_released === true
+
   // Upsert course grade
   const { data: courseGrade, error: upsertError } = await supabase
     .from('course_grades')
@@ -614,8 +625,8 @@ export async function calculateCourseGrade(
         credit_hours: creditHours,
         quality_points: qualityPoints,
         attendance_bonus: attendanceBonus,
-        status: 'calculated' as const,
-        is_released: false,
+        status: wasReleased ? ('released' as const) : ('calculated' as const),
+        is_released: wasReleased,
       },
       {
         onConflict: 'student_id,course_id,grading_period_id',

@@ -70,6 +70,8 @@ export default function AcademicSettingsPage() {
   });
 
   const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"years" | "grading" | "attendance" | "schedule">("years");
   const [hasChanges, setHasChanges] = useState(false);
   const [selectedYearFilter, setSelectedYearFilter] = useState<string>("all");
@@ -99,15 +101,17 @@ export default function AcademicSettingsPage() {
       // Merge scalar settings only — never replace arrays
       if (settingsRes.ok) {
         const data = await settingsRes.json();
-        setSettings(prev => ({
-          ...prev,
-          passingGrade: data.passing_grade ?? prev.passingGrade,
-          attendanceRequired: data.attendance_required ?? prev.attendanceRequired,
-          maxAbsences: data.max_absences ?? prev.maxAbsences,
-          lateThreshold: data.late_threshold ?? prev.lateThreshold,
-          classStartTime: data.class_start_time ?? prev.classStartTime,
-          classEndTime: data.class_end_time ?? prev.classEndTime,
-        }));
+        if (!data.error) {
+          setSettings(prev => ({
+            ...prev,
+            passingGrade: data.passing_grade ?? prev.passingGrade,
+            attendanceRequired: data.attendance_required ?? prev.attendanceRequired,
+            maxAbsences: data.max_absences ?? prev.maxAbsences,
+            lateThreshold: data.late_threshold ?? prev.lateThreshold,
+            classStartTime: data.class_start_time ?? prev.classStartTime,
+            classEndTime: data.class_end_time ?? prev.classEndTime,
+          }));
+        }
       }
 
       // Load academic years from DB
@@ -155,17 +159,32 @@ export default function AcademicSettingsPage() {
 
   const handleSave = async () => {
     setSaving(true);
+    setSaveError(null);
+    setSaveSuccess(false);
     try {
-      // Save scalar settings
+      // Save scalar settings — map camelCase UI state → snake_case API fields
       const settingsRes = await authFetch('/api/admin/settings/academic', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
+        body: JSON.stringify({
+          passing_grade: settings.passingGrade,
+          attendance_required: settings.attendanceRequired,
+          max_absences: settings.maxAbsences,
+          late_threshold: settings.lateThreshold,
+          class_start_time: settings.classStartTime,
+          class_end_time: settings.classEndTime,
+        }),
       });
 
-      // Save grading period edits (only periods with real DB IDs — not temp ones)
+      if (!settingsRes.ok) {
+        const err = await settingsRes.json().catch(() => ({}));
+        setSaveError(err.error || 'Failed to save settings');
+        return;
+      }
+
+      // Save grading period edits (only periods with real DB IDs — UUIDs are 36 chars)
       const periodSaves = settings.gradingPeriods
-        .filter(p => p.id && p.id.length > 10) // real UUIDs are long; Date.now() IDs are short
+        .filter(p => p.id && p.id.length === 36)
         .map(p =>
           authFetch(`/api/admin/settings/grading-periods/${p.id}`, {
             method: 'PUT',
@@ -181,11 +200,12 @@ export default function AcademicSettingsPage() {
 
       await Promise.all(periodSaves);
 
-      if (settingsRes.ok) {
-        setHasChanges(false);
-      }
+      setHasChanges(false);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
       console.error('Failed to save settings:', error);
+      setSaveError('An unexpected error occurred');
     } finally {
       setSaving(false);
     }
@@ -339,7 +359,19 @@ export default function AcademicSettingsPage() {
           <p className="text-gray-500 mt-1 text-sm sm:text-base">Configure academic year, grading, and attendance policies</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
-          {hasChanges && (
+          {saveError && (
+            <span className="text-sm text-red-600 flex items-center gap-1">
+              <span className="material-symbols-outlined text-lg">error</span>
+              {saveError}
+            </span>
+          )}
+          {saveSuccess && (
+            <span className="text-sm text-green-600 flex items-center gap-1">
+              <span className="material-symbols-outlined text-lg">check_circle</span>
+              Saved successfully
+            </span>
+          )}
+          {hasChanges && !saveSuccess && (
             <span className="text-sm text-orange-600 flex items-center gap-1">
               <span className="material-symbols-outlined text-lg">warning</span>
               Unsaved changes

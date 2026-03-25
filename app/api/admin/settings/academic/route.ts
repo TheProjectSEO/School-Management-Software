@@ -81,14 +81,15 @@ export async function PUT(request: NextRequest) {
 
     // Handle academic settings update
     const updates: Partial<AcademicSettings> = {};
-    const validFields = [
+    const validFields: (keyof AcademicSettings)[] = [
       "passing_grade", "attendance_required", "max_absences",
-      "late_threshold", "class_start_time", "class_end_time"
+      "late_threshold", "class_start_time", "class_end_time",
+      "grading_system", "max_grade", "allow_late_submissions", "late_submission_penalty",
     ];
 
     for (const field of validFields) {
       if (data[field] !== undefined) {
-        updates[field as keyof AcademicSettings] = data[field];
+        (updates as any)[field] = data[field];
       }
     }
 

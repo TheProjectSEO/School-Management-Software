@@ -14,6 +14,11 @@ export interface AcademicSettings {
   max_grade: number;
   allow_late_submissions: boolean;
   late_submission_penalty: number;
+  attendance_required: number;
+  max_absences: number;
+  late_threshold: number;
+  class_start_time: string;
+  class_end_time: string;
 }
 
 export interface GradingScale {
@@ -87,6 +92,11 @@ export interface SchoolSettings {
   enrollment_approval_required: boolean;
   student_messaging: boolean;
   message_quota_per_day: number;
+  attendance_required: number;
+  max_absences: number;
+  late_threshold: number;
+  class_start_time: string;
+  class_end_time: string;
   created_at: string;
   updated_at: string;
 }
@@ -102,6 +112,11 @@ export interface UpdateSchoolSettingsInput {
   enrollment_approval_required?: boolean;
   student_messaging?: boolean;
   message_quota_per_day?: number;
+  attendance_required?: number;
+  max_absences?: number;
+  late_threshold?: number;
+  class_start_time?: string;
+  class_end_time?: string;
 }
 
 export interface ActionResult<T> {
@@ -633,6 +648,11 @@ export async function getAcademicSettings(
     max_grade: settings.max_grade,
     allow_late_submissions: settings.allow_late_submissions,
     late_submission_penalty: settings.late_submission_penalty,
+    attendance_required: settings.attendance_required ?? 80,
+    max_absences: settings.max_absences ?? 20,
+    late_threshold: settings.late_threshold ?? 15,
+    class_start_time: settings.class_start_time ?? '07:30',
+    class_end_time: settings.class_end_time ?? '17:00',
   };
 }
 
@@ -656,6 +676,11 @@ export async function updateAcademicSettings(
       max_grade: result.data!.max_grade,
       allow_late_submissions: result.data!.allow_late_submissions,
       late_submission_penalty: result.data!.late_submission_penalty,
+      attendance_required: result.data!.attendance_required ?? 80,
+      max_absences: result.data!.max_absences ?? 20,
+      late_threshold: result.data!.late_threshold ?? 15,
+      class_start_time: result.data!.class_start_time ?? '07:30',
+      class_end_time: result.data!.class_end_time ?? '17:00',
     },
   };
 }

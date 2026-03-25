@@ -382,7 +382,7 @@ export async function getGradebookData(
   const { data: allCourseGrades } = studentIds.length > 0
     ? await supabase
         .from('course_grades')
-        .select('student_id, numeric_grade, letter_grade')
+        .select('student_id, numeric_grade, letter_grade, attendance_count, total_class_days, behavior_score')
         .in('student_id', studentIds)
         .eq('course_id', courseId)
         .eq('grading_period_id', gradingPeriodId)
@@ -427,6 +427,9 @@ export async function getGradebookData(
         ? {
             numeric_grade: courseGrade.numeric_grade,
             letter_grade: courseGrade.letter_grade,
+            attendance_count: courseGrade.attendance_count ?? 0,
+            total_class_days: courseGrade.total_class_days ?? 0,
+            behavior_score: courseGrade.behavior_score ?? 0,
           }
         : undefined,
     } as GradebookRow

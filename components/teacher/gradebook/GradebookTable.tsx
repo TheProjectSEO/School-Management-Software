@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useMemo } from 'react'
+import { useRef, useMemo, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import GradebookCell from './GradebookCell'
 import type {
@@ -22,6 +22,9 @@ interface SerializedGradebookRow {
   courseGrade?: {
     numeric_grade?: number
     letter_grade?: string
+    attendance_count?: number
+    total_class_days?: number
+    behavior_score?: number
   }
 }
 
@@ -34,6 +37,12 @@ interface GradebookTableProps {
     assessmentId: string,
     score: number | null
   ) => Promise<boolean>
+  onAttendanceBehaviorUpdate: (
+    studentId: string,
+    attendanceCount: number,
+    totalClassDays: number,
+    behaviorScore: number
+  ) => Promise<boolean>
   isSaving: boolean
 }
 
@@ -42,10 +51,16 @@ export default function GradebookTable({
   assessments,
   weightConfig,
   onScoreUpdate,
+  onAttendanceBehaviorUpdate,
   isSaving,
 }: GradebookTableProps) {
   const router = useRouter()
   const tableRef = useRef<HTMLDivElement>(null)
+
+  // Local state for attendance/behavior edits per student
+  const [attendanceEdits, setAttendanceEdits] = useState<
+    Record<string, { attended: string; total: string; behavior: string; saving: boolean }>
+  >({})
 
   // Group assessments by type
   const groupedAssessments = useMemo(() => {
@@ -59,12 +74,47 @@ export default function GradebookTable({
     return groups
   }, [assessments])
 
-  // Calculate weighted average for each student
-  const calculateWeightedAverage = (
+  // Get attendance/behavior values for a student (local edits override row data)
+  const getAttendanceValues = (row: SerializedGradebookRow) => {
+    const edit = attendanceEdits[row.student.student_id]
+    return {
+      attended: edit?.attended ?? String(row.courseGrade?.attendance_count ?? 0),
+      total: edit?.total ?? String(row.courseGrade?.total_class_days ?? 0),
+      behavior: edit?.behavior ?? String(row.courseGrade?.behavior_score ?? 0),
+    }
+  }
+
+  // Handle blur on attendance/behavior inputs — save to server
+  const handleAttendanceBehaviorBlur = useCallback(
+    async (studentId: string) => {
+      const edit = attendanceEdits[studentId]
+      if (!edit) return
+
+      const attended = Math.max(0, Number(edit.attended) || 0)
+      const total = Math.max(0, Number(edit.total) || 0)
+      const behavior = Math.min(100, Math.max(0, Number(edit.behavior) || 0))
+
+      setAttendanceEdits((prev) => ({
+        ...prev,
+        [studentId]: { ...prev[studentId], saving: true },
+      }))
+
+      await onAttendanceBehaviorUpdate(studentId, attended, total, behavior)
+
+      setAttendanceEdits((prev) => {
+        const next = { ...prev }
+        delete next[studentId]
+        return next
+      })
+    },
+    [attendanceEdits, onAttendanceBehaviorUpdate]
+  )
+
+  // Calculate weighted average from assessments only (85% of final grade)
+  const calculateAssessmentGrade = (
     studentScores: Record<string, AssessmentScore>
-  ) => {
+  ): number | null => {
     if (weightConfig.length === 0) {
-      // Simple average if no weights configured
       let total = 0
       let count = 0
       assessments.forEach((assessment) => {
@@ -77,7 +127,6 @@ export default function GradebookTable({
       return count > 0 ? total / count : null
     }
 
-    // Weighted average calculation
     let totalWeightedScore = 0
     let totalWeight = 0
 
@@ -85,10 +134,8 @@ export default function GradebookTable({
       const typeAssessments = assessments.filter(
         (a) => a.type === weight.assessment_type
       )
-
       if (typeAssessments.length === 0) return
 
-      // Calculate scores for this type
       const typeScores = typeAssessments
         .map((assessment) => {
           const scoreData = studentScores[assessment.id]
@@ -105,15 +152,10 @@ export default function GradebookTable({
 
       if (typeScores.length === 0) return
 
-      // Sort by percentage for drop_lowest
       typeScores.sort((a, b) => a.percentage - b.percentage)
-
-      // Apply drop_lowest
       const scoresToUse = typeScores.slice(weight.drop_lowest)
-
       if (scoresToUse.length === 0) return
 
-      // Calculate type average
       const typeAvg =
         scoresToUse.reduce((sum, s) => sum + s.percentage, 0) / scoresToUse.length
 
@@ -122,6 +164,23 @@ export default function GradebookTable({
     })
 
     return totalWeight > 0 ? (totalWeightedScore / totalWeight) * 100 : null
+  }
+
+  // Final grade = assessments×85% + attendance×10% + behavior×5%
+  const calculateFinalGrade = (
+    row: SerializedGradebookRow
+  ): number | null => {
+    const assessmentGrade = calculateAssessmentGrade(row.assessmentScores)
+    if (assessmentGrade === null) return null
+
+    const vals = getAttendanceValues(row)
+    const attended = Math.max(0, Number(vals.attended) || 0)
+    const total = Math.max(0, Number(vals.total) || 0)
+    const behavior = Math.min(100, Math.max(0, Number(vals.behavior) || 0))
+
+    const attendanceGrade = total > 0 ? (attended / total) * 100 : 0
+
+    return assessmentGrade * 0.85 + attendanceGrade * 0.10 + behavior * 0.05
   }
 
   // Convert numeric grade to letter grade
@@ -217,6 +276,27 @@ export default function GradebookTable({
                 </div>
               </th>
             ))}
+            {/* Attendance column group */}
+            <th
+              colSpan={2}
+              className="px-4 py-2 text-center text-xs font-semibold text-teal-700 dark:text-teal-400 uppercase tracking-wider border-b border-r border-slate-200 dark:border-slate-700 bg-teal-50 dark:bg-teal-900/20"
+            >
+              <div className="flex items-center justify-center gap-1">
+                <span className="material-symbols-outlined text-sm">event_available</span>
+                Attendance (10%)
+              </div>
+            </th>
+            {/* Behavior column group */}
+            <th
+              colSpan={1}
+              className="px-4 py-2 text-center text-xs font-semibold text-purple-700 dark:text-purple-400 uppercase tracking-wider border-b border-r border-slate-200 dark:border-slate-700 bg-purple-50 dark:bg-purple-900/20"
+            >
+              <div className="flex items-center justify-center gap-1">
+                <span className="material-symbols-outlined text-sm">psychology</span>
+                Behavior (5%)
+              </div>
+            </th>
+            {/* Final Grade */}
             <th
               className="px-4 py-2 text-center text-xs font-semibold text-primary uppercase tracking-wider border-b border-slate-200 dark:border-slate-700 bg-primary/10"
               colSpan={2}
@@ -246,25 +326,36 @@ export default function GradebookTable({
                 )}
               </th>
             ))}
+            {/* Attendance sub-headers */}
+            <th className="px-2 py-3 text-center border-b border-r border-slate-200 dark:border-slate-700 min-w-[80px] bg-teal-50/50 dark:bg-teal-900/10">
+              <div className="text-xs font-medium text-teal-700 dark:text-teal-400">Days Present</div>
+            </th>
+            <th className="px-2 py-3 text-center border-b border-r border-slate-200 dark:border-slate-700 min-w-[80px] bg-teal-50/50 dark:bg-teal-900/10">
+              <div className="text-xs font-medium text-teal-700 dark:text-teal-400">Total Days</div>
+            </th>
+            {/* Behavior sub-header */}
+            <th className="px-2 py-3 text-center border-b border-r border-slate-200 dark:border-slate-700 min-w-[80px] bg-purple-50/50 dark:bg-purple-900/10">
+              <div className="text-xs font-medium text-purple-700 dark:text-purple-400">Score (0–100)</div>
+            </th>
+            {/* Final grade sub-headers */}
             <th className="px-2 py-3 text-center border-b border-r border-slate-200 dark:border-slate-700 min-w-[80px] bg-primary/5">
-              <div className="text-xs font-medium text-slate-900 dark:text-slate-100">
-                Average
-              </div>
+              <div className="text-xs font-medium text-slate-900 dark:text-slate-100">Average</div>
             </th>
             <th className="px-2 py-3 text-center border-b border-slate-200 dark:border-slate-700 min-w-[60px] bg-primary/5">
-              <div className="text-xs font-medium text-slate-900 dark:text-slate-100">
-                Grade
-              </div>
+              <div className="text-xs font-medium text-slate-900 dark:text-slate-100">Grade</div>
             </th>
           </tr>
         </thead>
 
         <tbody>
           {rows.map((row, rowIndex) => {
-            const weightedAverage = calculateWeightedAverage(row.assessmentScores)
-            const letterGrade = weightedAverage !== null
-              ? numericToLetterGrade(weightedAverage)
+            const finalGrade = calculateFinalGrade(row)
+            const letterGrade = finalGrade !== null
+              ? numericToLetterGrade(finalGrade)
               : '—'
+            const vals = getAttendanceValues(row)
+            const edit = attendanceEdits[row.student.student_id]
+            const isSavingRow = edit?.saving ?? false
 
             return (
               <tr
@@ -315,7 +406,6 @@ export default function GradebookTable({
                         pendingGradingCount={scoreData?.pending_grading_count}
                         onSave={onScoreUpdate}
                         onViewGradingQueue={(submissionId) => {
-                          // Navigate to grading queue filtered by submission
                           router.push(`/teacher/grading?submission=${submissionId}`)
                         }}
                         disabled={isSaving}
@@ -324,20 +414,93 @@ export default function GradebookTable({
                   )
                 })}
 
+                {/* Days Present */}
+                <td className="px-1 py-1 text-center border-b border-r border-slate-200 dark:border-slate-700 bg-teal-50/30 dark:bg-teal-900/10">
+                  <input
+                    type="number"
+                    min={0}
+                    value={vals.attended}
+                    disabled={isSaving || isSavingRow}
+                    onChange={(e) => {
+                      const studentId = row.student.student_id
+                      setAttendanceEdits((prev) => ({
+                        ...prev,
+                        [studentId]: {
+                          attended: e.target.value,
+                          total: prev[studentId]?.total ?? vals.total,
+                          behavior: prev[studentId]?.behavior ?? vals.behavior,
+                          saving: false,
+                        },
+                      }))
+                    }}
+                    onBlur={() => handleAttendanceBehaviorBlur(row.student.student_id)}
+                    className="w-16 text-center text-sm font-medium rounded border border-teal-200 dark:border-teal-700 bg-white dark:bg-slate-800 text-teal-800 dark:text-teal-300 focus:outline-none focus:ring-1 focus:ring-teal-400 px-1 py-0.5 disabled:opacity-50"
+                  />
+                </td>
+
+                {/* Total Days */}
+                <td className="px-1 py-1 text-center border-b border-r border-slate-200 dark:border-slate-700 bg-teal-50/30 dark:bg-teal-900/10">
+                  <input
+                    type="number"
+                    min={0}
+                    value={vals.total}
+                    disabled={isSaving || isSavingRow}
+                    onChange={(e) => {
+                      const studentId = row.student.student_id
+                      setAttendanceEdits((prev) => ({
+                        ...prev,
+                        [studentId]: {
+                          attended: prev[studentId]?.attended ?? vals.attended,
+                          total: e.target.value,
+                          behavior: prev[studentId]?.behavior ?? vals.behavior,
+                          saving: false,
+                        },
+                      }))
+                    }}
+                    onBlur={() => handleAttendanceBehaviorBlur(row.student.student_id)}
+                    className="w-16 text-center text-sm font-medium rounded border border-teal-200 dark:border-teal-700 bg-white dark:bg-slate-800 text-teal-800 dark:text-teal-300 focus:outline-none focus:ring-1 focus:ring-teal-400 px-1 py-0.5 disabled:opacity-50"
+                  />
+                </td>
+
+                {/* Behavior Score */}
+                <td className="px-1 py-1 text-center border-b border-r border-slate-200 dark:border-slate-700 bg-purple-50/30 dark:bg-purple-900/10">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={vals.behavior}
+                    disabled={isSaving || isSavingRow}
+                    onChange={(e) => {
+                      const studentId = row.student.student_id
+                      setAttendanceEdits((prev) => ({
+                        ...prev,
+                        [studentId]: {
+                          attended: prev[studentId]?.attended ?? vals.attended,
+                          total: prev[studentId]?.total ?? vals.total,
+                          behavior: e.target.value,
+                          saving: false,
+                        },
+                      }))
+                    }}
+                    onBlur={() => handleAttendanceBehaviorBlur(row.student.student_id)}
+                    className="w-16 text-center text-sm font-medium rounded border border-purple-200 dark:border-purple-700 bg-white dark:bg-slate-800 text-purple-800 dark:text-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-400 px-1 py-0.5 disabled:opacity-50"
+                  />
+                </td>
+
                 {/* Weighted Average */}
                 <td className="px-3 py-3 text-center border-b border-r border-slate-200 dark:border-slate-700 bg-primary/5">
                   <span
                     className={`font-semibold ${
-                      weightedAverage !== null
-                        ? weightedAverage >= 90
+                      finalGrade !== null
+                        ? finalGrade >= 90
                           ? 'text-green-600 dark:text-green-400'
-                          : weightedAverage >= 70
+                          : finalGrade >= 70
                           ? 'text-yellow-600 dark:text-yellow-400'
                           : 'text-red-600 dark:text-red-400'
                         : 'text-slate-400'
                     }`}
                   >
-                    {weightedAverage !== null ? `${weightedAverage.toFixed(1)}%` : '—'}
+                    {finalGrade !== null ? `${finalGrade.toFixed(1)}%` : '—'}
                   </span>
                 </td>
 

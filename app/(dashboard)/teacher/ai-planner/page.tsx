@@ -316,7 +316,7 @@ export default function AIPlannerPage() {
     setSaveStatus(null)
 
     // Generate stable idempotency key on first save attempt
-    const key = assessmentIdempotencyKey || crypto.randomUUID()
+    const key = assessmentIdempotencyKey || `${Date.now()}-${Math.random().toString(36).slice(2)}`
     if (!assessmentIdempotencyKey) setAssessmentIdempotencyKey(key)
 
     try {

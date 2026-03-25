@@ -28,6 +28,9 @@ interface SerializedGradebookRow {
   courseGrade?: {
     numeric_grade?: number
     letter_grade?: string
+    attendance_count?: number
+    total_class_days?: number
+    behavior_score?: number
   }
 }
 
@@ -147,6 +150,51 @@ export default function GradebookClient({
       }
     },
     [gradebookData.course_id, gradebookData.assessments]
+  )
+
+  // Handle attendance / behavior update
+  const handleAttendanceBehaviorUpdate = useCallback(
+    async (
+      studentId: string,
+      attendanceCount: number,
+      totalClassDays: number,
+      behaviorScore: number
+    ): Promise<boolean> => {
+      try {
+        const response = await authFetch('/api/teacher/gradebook/save-attendance-behavior', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            studentId,
+            courseId: gradebookData.course_id,
+            gradingPeriodId: gradebookData.grading_period.id,
+            attendanceCount,
+            totalClassDays,
+            behaviorScore,
+          }),
+        })
+        if (!response.ok) return false
+
+        setLocalRows((prev) =>
+          prev.map((row) => {
+            if (row.student.student_id !== studentId) return row
+            return {
+              ...row,
+              courseGrade: {
+                ...row.courseGrade,
+                attendance_count: attendanceCount,
+                total_class_days: totalClassDays,
+                behavior_score: behaviorScore,
+              },
+            }
+          })
+        )
+        return true
+      } catch {
+        return false
+      }
+    },
+    [gradebookData.course_id, gradebookData.grading_period.id]
   )
 
   // Handle bulk grade entry
@@ -303,6 +351,7 @@ export default function GradebookClient({
           assessments={gradebookData.assessments}
           weightConfig={gradebookData.weight_config}
           onScoreUpdate={handleScoreUpdate}
+          onAttendanceBehaviorUpdate={handleAttendanceBehaviorUpdate}
           isSaving={isSaving}
         />
       </Card>

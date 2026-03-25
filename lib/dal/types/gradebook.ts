@@ -116,6 +116,9 @@ export interface GradebookRow {
   courseGrade?: {
     numeric_grade?: number
     letter_grade?: string
+    attendance_count?: number
+    total_class_days?: number
+    behavior_score?: number
   }
 }
 

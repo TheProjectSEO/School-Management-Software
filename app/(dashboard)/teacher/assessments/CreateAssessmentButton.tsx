@@ -45,18 +45,35 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
     course_id: '',
     lesson_id: '',
     section_id: '',
-    grading_period_id: ''
+    grading_period_id: '',
+    grade_level: '',
+    topic: '',
   })
 
-  // Unique courses (deduplicated by course_id)
-  const uniqueCourses = Array.from(
-    new Map(subjects.map(s => [s.id, { id: s.id, name: s.name, subject_code: s.subject_code }])).values()
+  // Unique sorted grade levels from teacher's assigned subjects
+  const uniqueGradeLevels = Array.from(new Set(subjects.map(s => s.grade_level).filter(Boolean)))
+    .sort((a, b) => {
+      const na = parseInt(a), nb = parseInt(b)
+      return isNaN(na) || isNaN(nb) ? a.localeCompare(b) : na - nb
+    })
+
+  // Sections for the selected grade level
+  const sectionsForGrade = Array.from(
+    new Map(
+      subjects
+        .filter(s => s.grade_level === formData.grade_level)
+        .map(s => [s.section_id, { id: s.section_id, name: s.section_name }])
+    ).values()
   )
 
-  // Sections available for the currently selected course
-  const sectionsForCourse = subjects
-    .filter(s => s.id === formData.course_id)
-    .map(s => ({ id: s.section_id, name: s.section_name, grade_level: s.grade_level }))
+  // Courses for the selected section
+  const coursesForSection = Array.from(
+    new Map(
+      subjects
+        .filter(s => s.section_id === formData.section_id)
+        .map(s => [s.id, { id: s.id, name: s.name, subject_code: s.subject_code }])
+    ).values()
+  )
 
   useEffect(() => {
     if (!isModalOpen) return
@@ -111,20 +128,16 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
 
   const handleSubjectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const courseId = e.target.value
-    // Find sections for this course
-    const availableSections = subjects.filter(s => s.id === courseId)
-    // Auto-select section only if exactly one exists
-    const autoSection = availableSections.length === 1 ? availableSections[0].section_id : ''
-    setFormData({
-      ...formData,
-      course_id: courseId,
-      lesson_id: '',
-      section_id: autoSection,
-    })
+    setFormData({ ...formData, course_id: courseId, lesson_id: '' })
   }
 
   const handleCreate = async () => {
-    if (!formData.title.trim() || !formData.course_id) return
+    // Auto-generate title from topic if left blank
+    const resolvedTitle = formData.title.trim() ||
+      (formData.topic.trim()
+        ? `${formData.topic.trim()} ${formData.type.charAt(0).toUpperCase() + formData.type.slice(1)}`
+        : '')
+    if (!resolvedTitle || !formData.course_id || !formData.section_id) return
     if (isCreatingRef.current) return // synchronous guard
     isCreatingRef.current = true
 
@@ -139,11 +152,12 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: formData.title.trim(),
+          title: resolvedTitle,
           type: formData.type,
           course_id: formData.course_id,
           lesson_id: formData.lesson_id || null,
           section_id: formData.section_id,
+          description: formData.topic.trim() || null,
           status: 'draft',
           total_points: 100,
           max_attempts: 1,
@@ -196,108 +210,82 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
             </h2>
 
             <div className="space-y-4">
-              {/* Title */}
+              {/* Step 1: Grade Level */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  value={formData.title}
-                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                  placeholder="Enter assessment title"
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
-                />
-              </div>
-
-              {/* Type */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Type
+                  Grade Level <span className="text-red-500">*</span>
                 </label>
                 <select
-                  value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as typeof formData.type })}
+                  value={formData.grade_level}
+                  onChange={(e) => setFormData({ ...formData, grade_level: e.target.value, section_id: '', course_id: '', lesson_id: '' })}
                   className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
-                  <option value="quiz">Quiz</option>
-                  <option value="assignment">Assignment</option>
-                  <option value="project">Project</option>
-                  <option value="midterm">Midterm Exam</option>
-                  <option value="final">Final Exam</option>
-                </select>
-              </div>
-
-              {/* Grading Period */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Grading Period <span className="text-slate-400 font-normal">(optional)</span>
-                </label>
-                <select
-                  value={formData.grading_period_id}
-                  onChange={(e) => setFormData({ ...formData, grading_period_id: e.target.value })}
-                  disabled={loadingPeriods}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
-                >
-                  <option value="">{loadingPeriods ? 'Loading...' : 'None (not tied to a quarter)'}</option>
-                  {gradingPeriods.map((period) => (
-                    <option key={period.id} value={period.id}>
-                      {period.name}{period.is_active ? ' (Current)' : ''}
-                    </option>
+                  <option value="">Select grade level</option>
+                  {uniqueGradeLevels.map((g) => (
+                    <option key={g} value={g}>Grade {g}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Subject */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                  Subject <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={formData.course_id}
-                  onChange={handleSubjectChange}
-                  className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
-                >
-                  <option value="">Select a subject</option>
-                  {uniqueCourses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.name} ({course.subject_code})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Section */}
-              {formData.course_id && (
+              {/* Step 2: Section (filtered by grade) */}
+              {formData.grade_level && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                     Section <span className="text-red-500">*</span>
                   </label>
                   <select
                     value={formData.section_id}
-                    onChange={(e) => setFormData({ ...formData, section_id: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, section_id: e.target.value, course_id: '', lesson_id: '' })}
                     className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
                   >
-                    <option value="">
-                      {sectionsForCourse.length === 0 ? 'No sections found' : 'Select a section'}
-                    </option>
-                    {sectionsForCourse.map((sec) => (
-                      <option key={sec.id} value={sec.id}>
-                        {sec.name} — Grade {sec.grade_level}
-                      </option>
+                    <option value="">{sectionsForGrade.length === 0 ? 'No sections for this grade' : 'Select section'}</option>
+                    {sectionsForGrade.map((sec) => (
+                      <option key={sec.id} value={sec.id}>{sec.name}</option>
                     ))}
                   </select>
-                  {sectionsForCourse.length === 0 && (
-                    <p className="text-xs text-red-500 mt-1">No sections assigned for this subject.</p>
-                  )}
                 </div>
               )}
 
-              {/* Linked Lesson */}
+              {/* Step 3: Subject (filtered by section) */}
+              {formData.section_id && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Subject <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    value={formData.course_id}
+                    onChange={handleSubjectChange}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                  >
+                    <option value="">{coursesForSection.length === 0 ? 'No subjects for this section' : 'Select subject'}</option>
+                    {coursesForSection.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name} ({c.subject_code})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Step 4: Topic */}
               {formData.course_id && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                    Linked Lesson <span className="text-slate-400 font-normal">(optional)</span>
+                    Topic / Coverage <span className="text-slate-400 font-normal">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.topic}
+                    onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                    placeholder="e.g., Quadratic Equations, World War II, Cell Division"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                </div>
+              )}
+
+              {/* Step 5: Lesson (filtered by subject) */}
+              {formData.course_id && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Lesson <span className="text-slate-400 font-normal">(optional)</span>
                   </label>
                   <select
                     value={formData.lesson_id}
@@ -305,13 +293,72 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
                     className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
                     disabled={loadingLessons}
                   >
-                    <option value="">{loadingLessons ? 'Loading lessons...' : 'None (course-level)'}</option>
+                    <option value="">{loadingLessons ? 'Loading...' : 'None (not tied to a lesson)'}</option>
                     {lessons.map((lesson) => (
                       <option key={lesson.id} value={lesson.id}>
                         {lesson.module_title ? `${lesson.module_title} — ` : ''}{lesson.title}
                       </option>
                     ))}
                   </select>
+                </div>
+              )}
+
+              {/* Step 6: Type + Grading Period (side by side) */}
+              {formData.course_id && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={formData.type}
+                      onChange={(e) => setFormData({ ...formData, type: e.target.value as typeof formData.type })}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="quiz">Quiz</option>
+                      <option value="assignment">Assignment</option>
+                      <option value="project">Project</option>
+                      <option value="midterm">Midterm Exam</option>
+                      <option value="final">Final Exam</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                      Grading Period
+                    </label>
+                    <select
+                      value={formData.grading_period_id}
+                      onChange={(e) => setFormData({ ...formData, grading_period_id: e.target.value })}
+                      disabled={loadingPeriods}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                    >
+                      <option value="">{loadingPeriods ? 'Loading...' : 'None'}</option>
+                      {gradingPeriods.map((period) => (
+                        <option key={period.id} value={period.id}>
+                          {period.name}{period.is_active ? ' ✓' : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 7: Title (auto-filled from topic, always editable) */}
+              {formData.course_id && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
+                    Title <span className="text-slate-400 font-normal">(auto-filled from topic)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.title}
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    placeholder={formData.topic ? `${formData.topic} ${formData.type.charAt(0).toUpperCase() + formData.type.slice(1)}` : 'Enter assessment title'}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
+                  />
+                  {!formData.title && formData.topic && (
+                    <p className="text-xs text-slate-400 mt-1">Leave blank to use "{formData.topic} {formData.type.charAt(0).toUpperCase() + formData.type.slice(1)}"</p>
+                  )}
                 </div>
               )}
             </div>
@@ -327,7 +374,7 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
               </button>
               <button
                 onClick={handleCreate}
-                disabled={isCreating || !formData.title.trim() || !formData.course_id || !formData.section_id}
+                disabled={isCreating || (!formData.title.trim() && !formData.topic.trim()) || !formData.course_id || !formData.section_id}
                 className="px-4 py-2 rounded-lg bg-primary text-white font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
                 {isCreating ? (

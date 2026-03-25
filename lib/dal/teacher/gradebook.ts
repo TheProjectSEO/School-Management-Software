@@ -257,37 +257,49 @@ export async function getGradebookData(
     return null
   }
 
-  // Get enrolled students
+  // Get enrolled students — flat select to avoid BUG-001 (FK join silently returns 0 rows)
   const { data: enrollments, error: enrollmentsError } = await supabase
     .from('enrollments')
-    .select(`
-      student_id,
-      student:students!inner(
-        id,
-        lrn,
-        profile_id,
-        profile:school_profiles!inner(full_name)
-      )
-    `)
+    .select('student_id')
     .eq('course_id', courseId)
     .eq('status', 'active')
-    .order('student(profile(full_name))', { ascending: true })
 
   if (enrollmentsError) {
     console.error('Error fetching enrollments:', enrollmentsError)
     return null
   }
 
+  const studentIds = (enrollments || []).map((e: any) => e.student_id)
+
+  // Fetch student rows separately
+  const { data: studentRows } = studentIds.length > 0
+    ? await supabase.from('students').select('id, lrn, profile_id').in('id', studentIds)
+    : { data: [] }
+
+  // Fetch profiles separately
+  const profileIds = (studentRows || []).map((s: any) => s.profile_id).filter(Boolean)
+  const { data: profileRows } = profileIds.length > 0
+    ? await supabase.from('school_profiles').select('id, full_name').in('id', profileIds)
+    : { data: [] }
+
+  const profileMap = new Map((profileRows || []).map((p: any) => [p.id, p]))
+
+  // Merge and sort by name
+  const students = (studentRows || [])
+    .map((s: any) => ({ ...s, profile: profileMap.get(s.profile_id) }))
+    .sort((a: any, b: any) =>
+      (a.profile?.full_name || '').localeCompare(b.profile?.full_name || '')
+    )
+
   // Get grade weights
   const weightConfig = await getGradeWeights(courseId, gradingPeriodId)
 
   // Build gradebook rows
   const rows: GradebookRow[] = await Promise.all(
-    enrollments.map(async (enrollment: any) => {
-      const studentData = enrollment.student
+    students.map(async (studentData: any) => {
 
       // Get all submissions for this student for the assessments
-      const assessmentIds = assessments?.map(a => a.id) || []
+      const assessmentIds = assessments?.map((a: any) => a.id) || []
       const { data: submissions } = await supabase
         .from('submissions')
         .select('id, assessment_id, score, status')

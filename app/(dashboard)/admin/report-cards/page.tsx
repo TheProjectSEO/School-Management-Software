@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { authFetch } from '@/lib/utils/authFetch'
 
 interface ReportCardItem {
@@ -10,7 +11,8 @@ interface ReportCardItem {
   student_lrn: string
   grade_level: string
   section_name: string
-  status: 'pending_review' | 'approved' | 'released'
+  grading_period_name: string
+  status: 'draft' | 'pending_review' | 'approved' | 'released'
   generated_at: string
   approved_at?: string
   released_at?: string
@@ -30,12 +32,14 @@ interface GradingPeriod {
 }
 
 const STATUS_LABELS: Record<string, string> = {
+  draft: 'Draft',
   pending_review: 'Pending Review',
   approved: 'Approved',
   released: 'Released',
 }
 
 const STATUS_COLORS: Record<string, string> = {
+  draft: 'bg-gray-100 text-gray-700',
   pending_review: 'bg-yellow-100 text-yellow-800',
   approved: 'bg-blue-100 text-blue-800',
   released: 'bg-green-100 text-green-800',
@@ -49,10 +53,14 @@ export default function AdminReportCardsPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [message, setMessage] = useState('')
 
-  // Generate modal state
-  const [showGenerateModal, setShowGenerateModal] = useState(false)
+  // Filters
+  const [filterSectionId, setFilterSectionId] = useState('')
+  const [filterPeriodId, setFilterPeriodId] = useState('')
   const [sections, setSections] = useState<Section[]>([])
   const [gradingPeriods, setGradingPeriods] = useState<GradingPeriod[]>([])
+
+  // Generate modal state
+  const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [generateSectionId, setGenerateSectionId] = useState('')
   const [generatePeriodId, setGeneratePeriodId] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
@@ -62,7 +70,10 @@ export default function AdminReportCardsPage() {
     setLoading(true)
     setSelected(new Set())
     try {
-      const res = await authFetch(`/api/admin/report-cards?status=${statusFilter}`)
+      const params = new URLSearchParams({ status: statusFilter })
+      if (filterSectionId) params.set('sectionId', filterSectionId)
+      if (filterPeriodId) params.set('gradingPeriodId', filterPeriodId)
+      const res = await authFetch(`/api/admin/report-cards?${params}`)
       const data = await res.json()
       setReportCards(data.reportCards || [])
     } catch (err) {
@@ -70,14 +81,13 @@ export default function AdminReportCardsPage() {
     } finally {
       setLoading(false)
     }
-  }, [statusFilter])
+  }, [statusFilter, filterSectionId, filterPeriodId])
 
   useEffect(() => { fetchReportCards() }, [fetchReportCards])
 
-  // Load sections and grading periods when modal opens
+  // Load sections and grading periods on mount (needed for both filters and modal)
   useEffect(() => {
-    if (!showGenerateModal) return
-    async function loadModalData() {
+    async function loadFilterData() {
       try {
         const [sectRes, periodRes] = await Promise.all([
           authFetch('/api/admin/sections'),
@@ -88,11 +98,11 @@ export default function AdminReportCardsPage() {
         setSections(sectData.sections || sectData || [])
         setGradingPeriods(periodData.periods || periodData.gradingPeriods || [])
       } catch (err) {
-        console.error('Failed to load modal data:', err)
+        console.error('Failed to load filter data:', err)
       }
     }
-    loadModalData()
-  }, [showGenerateModal])
+    loadFilterData()
+  }, [])
 
   const toggleSelect = (id: string) => {
     setSelected(prev => {
@@ -260,9 +270,41 @@ export default function AdminReportCardsPage() {
         </div>
       )}
 
+      {/* Filters */}
+      <div className="flex flex-wrap gap-3 items-center">
+        <select
+          value={filterSectionId}
+          onChange={e => setFilterSectionId(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7B1113]/20 focus:border-[#7B1113] bg-white"
+        >
+          <option value="">All Sections</option>
+          {sections.map(s => (
+            <option key={s.id} value={s.id}>{s.name} — Grade {s.grade_level}</option>
+          ))}
+        </select>
+        <select
+          value={filterPeriodId}
+          onChange={e => setFilterPeriodId(e.target.value)}
+          className="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#7B1113]/20 focus:border-[#7B1113] bg-white"
+        >
+          <option value="">All Grading Periods</option>
+          {gradingPeriods.map(p => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+        {(filterSectionId || filterPeriodId) && (
+          <button
+            onClick={() => { setFilterSectionId(''); setFilterPeriodId('') }}
+            className="text-sm text-gray-500 hover:text-gray-700 underline"
+          >
+            Clear filters
+          </button>
+        )}
+      </div>
+
       {/* Status filter tabs */}
       <div className="flex gap-2 border-b border-gray-200">
-        {['pending_review', 'approved', 'released', 'all'].map(s => (
+        {['draft', 'pending_review', 'approved', 'released', 'all'].map(s => (
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
@@ -283,14 +325,14 @@ export default function AdminReportCardsPage() {
           <span className="text-sm text-blue-700 font-medium">{selected.size} selected</span>
           <button
             onClick={() => bulkAction('approve')}
-            disabled={actionLoading || statusFilter !== 'pending_review'}
+            disabled={actionLoading || !['draft', 'pending_review', 'all'].includes(statusFilter)}
             className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
           >
             Approve Selected
           </button>
           <button
             onClick={() => bulkAction('release')}
-            disabled={actionLoading || statusFilter !== 'approved'}
+            disabled={actionLoading || !['approved', 'all'].includes(statusFilter)}
             className="px-3 py-1 text-sm bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
           >
             Release Selected
@@ -332,6 +374,7 @@ export default function AdminReportCardsPage() {
                 </th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Student</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Section / Grade</th>
+                <th className="px-4 py-3 text-left font-medium text-gray-600">Grading Period</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">GPA</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Status</th>
                 <th className="px-4 py-3 text-left font-medium text-gray-600">Generated</th>
@@ -357,6 +400,9 @@ export default function AdminReportCardsPage() {
                     <div>{rc.section_name}</div>
                     <div className="text-xs text-gray-400">Grade {rc.grade_level}</div>
                   </td>
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {rc.grading_period_name || '—'}
+                  </td>
                   <td className="px-4 py-3 font-medium">
                     {rc.term_gpa ? rc.term_gpa.toFixed(2) : '—'}
                   </td>
@@ -365,12 +411,18 @@ export default function AdminReportCardsPage() {
                       {STATUS_LABELS[rc.status] || rc.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-500">
+                  <td className="px-4 py-3 text-gray-500 text-sm">
                     {rc.generated_at ? new Date(rc.generated_at).toLocaleDateString() : '—'}
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      {rc.status === 'pending_review' && (
+                    <div className="flex gap-2 items-center">
+                      <Link
+                        href={`/admin/report-cards/${rc.id}`}
+                        className="px-2 py-1 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
+                      >
+                        View
+                      </Link>
+                      {(rc.status === 'draft' || rc.status === 'pending_review') && (
                         <button
                           onClick={() => singleAction(rc.id, 'approve')}
                           disabled={actionLoading}

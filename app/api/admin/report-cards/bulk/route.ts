@@ -25,19 +25,25 @@ export async function POST(request: NextRequest) {
   const supabase = createServiceClient();
   const now = new Date().toISOString();
 
-  const fromStatus = action === "approve" ? "pending_review" : "approved";
   const updates =
     action === "approve"
       ? { status: "approved", approved_at: now, approved_by: auth.admin.adminId, updated_at: now }
       : { status: "released", released_at: now, released_by: auth.admin.adminId, updated_at: now };
 
-  const { data, error } = await supabase
+  // For approve: accept both draft and pending_review. For release: only approved.
+  let bulkQuery = supabase
     .from("report_cards")
     .update(updates)
     .in("id", ids)
-    .eq("status", fromStatus)
-    .eq("school_id", auth.admin.schoolId)
-    .select("id");
+    .eq("school_id", auth.admin.schoolId);
+
+  if (action === "approve") {
+    bulkQuery = bulkQuery.in("status", ["draft", "pending_review"]);
+  } else {
+    bulkQuery = bulkQuery.eq("status", "approved");
+  }
+
+  const { data, error } = await bulkQuery.select("id");
 
   if (error) {
     console.error("Error bulk updating report cards:", error);

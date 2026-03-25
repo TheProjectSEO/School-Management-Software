@@ -52,6 +52,17 @@ export async function GET(request: NextRequest) {
       filtered = reportCards.filter((rc) => sectionStudentIds.has(rc.student_id));
     }
 
+    // Batch-fetch grading period names
+    const uniquePeriodIds = Array.from(new Set(filtered.map((rc) => rc.grading_period_id).filter(Boolean)));
+    const gradingPeriodsMap = new Map<string, string>();
+    if (uniquePeriodIds.length) {
+      const { data: periods } = await supabase
+        .from("grading_periods")
+        .select("id, name, academic_year")
+        .in("id", uniquePeriodIds);
+      (periods || []).forEach((p) => gradingPeriodsMap.set(p.id, `${p.name}${p.academic_year ? ` (${p.academic_year})` : ''}`));
+    }
+
     // Enrich with student names from student_info_json (already stored as snapshot)
     const enriched = filtered.map((rc) => {
       const studentInfo = rc.student_info_json as Record<string, unknown> | null;
@@ -60,6 +71,7 @@ export async function GET(request: NextRequest) {
         id: rc.id,
         student_id: rc.student_id,
         grading_period_id: rc.grading_period_id,
+        grading_period_name: gradingPeriodsMap.get(rc.grading_period_id) || "",
         status: rc.status,
         generated_at: rc.generated_at,
         approved_at: rc.approved_at,

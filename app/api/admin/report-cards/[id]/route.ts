@@ -1,6 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdminAPI } from "@/lib/dal/admin";
 import { createServiceClient } from "@/lib/supabase/service";
+import { getReportCard } from "@/lib/dal/report-cards";
+
+/**
+ * GET /api/admin/report-cards/[id]
+ * Fetch full report card detail for admin review.
+ */
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const auth = await requireAdminAPI("users:read");
+  if (!auth.success) return auth.response;
+
+  const { id } = await params;
+  const reportCard = await getReportCard(id);
+
+  if (!reportCard) {
+    return NextResponse.json({ error: "Report card not found" }, { status: 404 });
+  }
+
+  // Verify it belongs to this school
+  if (reportCard.school_id !== auth.admin.schoolId) {
+    return NextResponse.json({ error: "Access denied" }, { status: 403 });
+  }
+
+  return NextResponse.json({ reportCard });
+}
 
 /**
  * PATCH /api/admin/report-cards/[id]
@@ -48,9 +75,10 @@ export async function PATCH(
   }
 
   // Validate allowed transitions
-  if (action === "approve" && reportCard.status !== "pending_review") {
+  // Admin can approve both draft (self-generated) and pending_review (teacher-submitted)
+  if (action === "approve" && !["draft", "pending_review"].includes(reportCard.status)) {
     return NextResponse.json(
-      { error: `Cannot approve a report card with status '${reportCard.status}'. Must be 'pending_review'.` },
+      { error: `Cannot approve a report card with status '${reportCard.status}'.` },
       { status: 400 }
     );
   }

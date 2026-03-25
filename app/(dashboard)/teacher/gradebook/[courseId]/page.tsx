@@ -126,6 +126,7 @@ async function GradebookContent({
       initial_grade:       s.breakdown?.initialGrade ?? null,
       transmuted_grade:    s.breakdown?.transmutedGrade ?? null,
       quarterly_grade:     s.quarterly_grade,
+      attendance_bonus:    s.attendance_bonus ?? null,
       is_locked:           s.is_locked,
       is_released:         s.is_released,
     })),

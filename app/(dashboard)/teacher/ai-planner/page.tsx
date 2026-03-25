@@ -95,6 +95,7 @@ export default function AIPlannerPage() {
   const [baseLessonId, setBaseLessonId] = useState('')
   const [assessmentIdempotencyKey, setAssessmentIdempotencyKey] = useState('')
   const [isSavingAssessment, setIsSavingAssessment] = useState(false)
+  const [assessmentSaved, setAssessmentSaved] = useState(false)
 
   useEffect(() => {
     async function loadSubjects() {
@@ -253,6 +254,7 @@ export default function AIPlannerPage() {
             : baseModule
             ? `${baseModule.title} Assessment`
             : `${topic} Assessment`
+          setAssessmentSaved(false)
           setAssessmentDraft({
             title: draftTitle,
             type: assessmentType,
@@ -350,6 +352,7 @@ export default function AIPlannerPage() {
         setSaveStatus('Assessment saved successfully.')
         setSuccessMessage(`Assessment "${assessmentDraft.title}" has been saved successfully with ${assessmentDraft.questions.length} question${assessmentDraft.questions.length !== 1 ? 's' : ''}.`)
         setShowSuccessModal(true)
+        setAssessmentSaved(true)
         setAssessmentIdempotencyKey('') // reset for next draft
       }
     } catch (error) {
@@ -1034,9 +1037,17 @@ export default function AIPlannerPage() {
               ))}
             </div>
 
-            <Button onClick={handleSaveAssessment} disabled={isSavingAssessment}>
-              {isSavingAssessment ? 'Saving...' : 'Save Assessment'}
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button onClick={handleSaveAssessment} disabled={isSavingAssessment || assessmentSaved}>
+                {isSavingAssessment ? 'Saving...' : assessmentSaved ? 'Saved' : 'Save Assessment'}
+              </Button>
+              {assessmentSaved && (
+                <span className="flex items-center gap-1.5 text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                  <span className="material-symbols-outlined text-base">check_circle</span>
+                  Assessment saved successfully!
+                </span>
+              )}
+            </div>
           </div>
         </Card>
       )}

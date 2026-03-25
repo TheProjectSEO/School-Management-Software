@@ -93,6 +93,7 @@ export interface ClassQuarterlyReport {
     lrn: string
     breakdown: QuarterGradeBreakdown | null
     quarterly_grade: number | null
+    attendance_bonus: number | null
     is_locked: boolean
     is_released: boolean
   }>
@@ -217,6 +218,33 @@ export async function computeAndSaveQuarterlyGrade(
       method
     )
 
+    // Compute attendance bonus (0–10 pts) based on attendance rate in the grading period
+    let attendanceBonus = 0
+    const { data: period } = await supabase
+      .from('grading_periods')
+      .select('start_date, end_date')
+      .eq('id', gradingPeriodId)
+      .maybeSingle()
+
+    if (period?.start_date && period?.end_date) {
+      const { data: attendanceRecords } = await supabase
+        .from('teacher_daily_attendance')
+        .select('status')
+        .eq('student_id', studentId)
+        .gte('date', period.start_date)
+        .lte('date', period.end_date)
+
+      const records = attendanceRecords ?? []
+      if (records.length > 0) {
+        const present = records.filter((r) => r.status === 'present' || r.status === 'late').length
+        const attendanceRate = (present / records.length) * 100
+        // Linear scale: 90% → 0 pts, 95% → 5 pts, 100% → 10 pts. Below 90% → 0.
+        attendanceBonus = Math.round(Math.max(0, attendanceRate - 90))
+      }
+    }
+
+    const finalQuarterlyGrade = Math.min(100, breakdown.quarterlyGrade + attendanceBonus)
+
     // Upsert into course_grades
     const { error: upsertError } = await supabase
       .from('course_grades')
@@ -242,10 +270,11 @@ export async function computeAndSaveQuarterlyGrade(
           qa_percentage_score: breakdown.qa.percentageScore,
           qa_weighted_score:   breakdown.qa.weightedScore,
           // Computed grades
-          initial_grade:    breakdown.initialGrade,
-          transmuted_grade: breakdown.transmutedGrade,
-          quarterly_grade:  breakdown.quarterlyGrade,
-          numeric_grade:    breakdown.quarterlyGrade, // keep numeric_grade in sync
+          initial_grade:       breakdown.initialGrade,
+          transmuted_grade:    breakdown.transmutedGrade,
+          quarterly_grade:     finalQuarterlyGrade,
+          numeric_grade:       finalQuarterlyGrade, // keep numeric_grade in sync
+          attendance_bonus:    attendanceBonus,
           // Status
           status:        'calculated',
           is_released:   false,
@@ -425,7 +454,7 @@ export async function getClassQuarterlyGrades(
       pt_total_score, pt_highest_score, pt_percentage_score, pt_weighted_score,
       qa_total_score, qa_highest_score, qa_percentage_score, qa_weighted_score,
       initial_grade, transmuted_grade, quarterly_grade,
-      is_locked, is_released
+      attendance_bonus, is_locked, is_released
     `)
     .eq('course_id', courseId)
     .eq('grading_period_id', gradingPeriodId)
@@ -465,13 +494,14 @@ export async function getClassQuarterlyGrades(
     }
 
     return {
-      student_id:    studentId,
-      student_name:  student?.name ?? 'Unknown',
-      lrn:           student?.lrn ?? '',
+      student_id:      studentId,
+      student_name:    student?.name ?? 'Unknown',
+      lrn:             student?.lrn ?? '',
       breakdown,
       quarterly_grade: grade?.quarterly_grade ?? null,
-      is_locked:     grade?.is_locked ?? false,
-      is_released:   grade?.is_released ?? false,
+      attendance_bonus: grade?.attendance_bonus ?? null,
+      is_locked:       grade?.is_locked ?? false,
+      is_released:     grade?.is_released ?? false,
     }
   })
 

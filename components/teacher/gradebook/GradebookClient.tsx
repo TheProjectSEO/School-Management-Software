@@ -60,6 +60,7 @@ interface SerializedGradebookData {
     initial_grade: number | null
     transmuted_grade: number | null
     quarterly_grade: number | null
+    attendance_bonus: number | null
     is_locked: boolean
     is_released: boolean
   }>

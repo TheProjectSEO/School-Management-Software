@@ -247,6 +247,17 @@ export default function AcademicSettingsPage() {
     setHasChanges(true);
   };
 
+  const handleDeletePeriod = async (periodId: string) => {
+    if (!confirm("Delete this grading period?")) return;
+    const res = await authFetch(`/api/admin/settings/grading-periods/${periodId}`, { method: "DELETE" });
+    if (res.ok) {
+      setSettings((prev) => ({
+        ...prev,
+        gradingPeriods: prev.gradingPeriods.filter((p) => p.id !== periodId),
+      }));
+    }
+  };
+
   const handleGradingScaleChange = (index: number, field: keyof GradingScale, value: string | number) => {
     setSettings((prev) => ({
       ...prev,
@@ -471,10 +482,17 @@ export default function AcademicSettingsPage() {
                           className="w-full px-2 py-1.5 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
                         />
                       </div>
-                      <div className="flex items-end justify-center">
+                      <div className="flex items-end justify-between gap-2">
                         <span className="px-2 py-1 bg-primary/10 text-primary text-xs rounded-full font-medium">
                           {period.shortName}
                         </span>
+                        <button
+                          onClick={() => handleDeletePeriod(period.id)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete period"
+                        >
+                          <span className="material-symbols-outlined text-lg">delete</span>
+                        </button>
                       </div>
                     </div>
                   ))}

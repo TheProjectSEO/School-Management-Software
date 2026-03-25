@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hasPermission, getCurrentAdmin } from "@/lib/dal/admin";
 import { updateGradingPeriod, GradingPeriod } from "@/lib/dal/settings";
+import { createServiceClient } from "@/lib/supabase/service";
 
 // PUT /api/admin/settings/grading-periods/[id] - Update a grading period
 export async function PUT(
@@ -75,5 +76,30 @@ export async function PUT(
       { error: "Internal server error" },
       { status: 500 }
     );
+  }
+}
+
+// DELETE /api/admin/settings/grading-periods/[id] - Delete a grading period
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const admin = await getCurrentAdmin();
+    if (!admin) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const canUpdate = await hasPermission("settings:update");
+    if (!canUpdate) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+    const { id } = await params;
+    const supabase = createServiceClient();
+    const { error } = await supabase.from("grading_periods").delete().eq("id", id);
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error("Error in DELETE /api/admin/settings/grading-periods/[id]:", error);
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
   }
 }

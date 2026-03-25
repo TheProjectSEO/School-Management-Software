@@ -111,7 +111,6 @@ export async function POST(request: NextRequest) {
                   .from('teacher_grading_queue')
                   .update({ status: 'completed', graded_at: new Date().toISOString() })
                   .in('submission_id', submissionRows.map((s: any) => s.id))
-                  .in('status', ['pending', 'in_review', 'graded'])
               }
             }
 

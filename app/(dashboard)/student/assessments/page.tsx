@@ -118,7 +118,7 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
   const upcomingAssessments = filteredAssessments.filter((assessment) => {
     if (!assessment.due_date) return false;
     const dueDate = new Date(assessment.due_date);
-    return dueDate > new Date(now.getTime() + 48 * 60 * 60 * 1000) && dueDate <= oneWeekFromNow;
+    return dueDate > new Date(now.getTime() + 48 * 60 * 60 * 1000); // All future assessments beyond 48h
   });
 
   // Assessments with no due date — always visible
@@ -293,7 +293,7 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
                         {assessment.type.charAt(0).toUpperCase() + assessment.type.slice(1)}
                       </span>
                       <span>•</span>
-                      <span>{assessment.course.name}</span>
+                      <span>{assessment.course?.name}</span>
                     </div>
                     <h4 className="text-lg font-bold text-slate-900 dark:text-white group-hover:text-primary transition-colors">
                       {assessment.title}
@@ -443,7 +443,7 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
                       </div>
                       <div>
                         <p className="text-xs text-slate-500 font-bold uppercase tracking-wide">
-                          {assessment.course.name}
+                          {assessment.course?.name}
                         </p>
                         <h4 className="text-base font-bold text-slate-900 dark:text-white mt-1">
                           {assessment.title}
@@ -495,6 +495,74 @@ export default async function AssessmentsPage({ searchParams }: PageProps) {
               <p className={`font-medium ${isPlayful ? 'text-purple-600' : 'text-slate-500 dark:text-slate-400'}`}>
                 {isPlayful ? 'Nothing coming up! Enjoy your free time! \u{1F60A}' : 'No upcoming assessments'}
               </p>
+            </div>
+          </div>
+        )}
+
+        {/* No Due Date Assessments — Open Assignments */}
+        {noDueDateAssessments.length > 0 && (
+          <div className="flex flex-col gap-4">
+            <h3 className={`text-xl font-bold flex items-center gap-2 mt-4 ${isPlayful ? 'text-purple-900' : 'text-slate-900 dark:text-white'}`}>
+              {isPlayful ? '\u{1F4CB} Open Assignments!' : 'Open Assignments'}
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {noDueDateAssessments.map((assessment) => {
+                const hasSubmission = !!assessment.submission;
+                const isGraded = assessment.submission?.status === "graded";
+                const isLocked = assessment.isLocked;
+
+                return (
+                  <div
+                    key={assessment.id}
+                    className={`flex flex-col justify-between p-5 shadow-sm ${isLocked ? 'opacity-70' : ''} ${isPlayful ? 'rounded-2xl border-2 border-pink-200 bg-gradient-to-br from-pink-50/50 to-purple-50/50' : 'rounded-xl bg-white dark:bg-[#1a2634] border border-slate-200 dark:border-slate-700'}`}
+                  >
+                    <div className="flex flex-col gap-3">
+                      <div className="flex justify-between items-start">
+                        <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800">
+                          <span className="material-symbols-outlined text-slate-600 dark:text-slate-400">
+                            {isLocked ? "lock" : getAssessmentIcon(assessment.type)}
+                          </span>
+                        </div>
+                        <span className="text-xs font-medium text-slate-500 bg-slate-50 dark:bg-slate-800 px-2 py-1 rounded">
+                          No deadline
+                        </span>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-500 font-bold uppercase tracking-wide">
+                          {assessment.course?.name}
+                        </p>
+                        <h4 className="text-base font-bold text-slate-900 dark:text-white mt-1">
+                          {assessment.title}
+                        </h4>
+                        {isLocked && assessment.lockReason && (
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                            {assessment.lockReason}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                      <span className={`text-sm font-medium ${
+                        isGraded
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : hasSubmission
+                            ? "text-yellow-600 dark:text-yellow-500"
+                            : "text-slate-500"
+                      }`}>
+                        {isLocked ? "Locked" : isGraded ? "Completed" : hasSubmission ? "Submitted" : "Not Started"}
+                      </span>
+                      <Link
+                        href={`/student/assessments/${assessment.id}`}
+                        className={isGraded ? "text-emerald-600 hover:text-emerald-700 dark:text-emerald-400" : "text-primary hover:text-[#5a0c0e]"}
+                      >
+                        <span className="material-symbols-outlined">
+                          {isGraded ? "check_circle" : hasSubmission ? "visibility" : "arrow_forward"}
+                        </span>
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

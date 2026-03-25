@@ -1,8 +1,3 @@
--- Populate academic_year for grading_periods where it is NULL
--- Derives the academic year from start_date using Philippine school year convention:
--- School year starts in June/July, so a period starting in 2025-06 belongs to "2025-2026"
--- A period starting in 2026-01 (second semester) belongs to "2025-2026"
-
 UPDATE grading_periods
 SET academic_year = CASE
   -- If start month >= 6 (June or later), academic year starts that calendar year

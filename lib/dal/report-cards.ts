@@ -327,10 +327,18 @@ export async function getSectionReportCardsList(
       const studentRow = studentsMap.get(item.student_id as string);
       const profile = studentRow ? profilesMap.get(studentRow.profile_id) : undefined;
 
+      // Prefer live profile name — skip snapshot values that are stale placeholders
+      const snapshotName = studentInfo?.full_name?.trim()
+      const profileName = profile?.full_name?.trim()
+      const resolvedName =
+        (profileName && profileName !== 'Unknown Student') ? profileName :
+        (snapshotName && snapshotName !== 'Unknown Student') ? snapshotName :
+        profileName || snapshotName || studentRow?.lrn || 'Unknown'
+
       return {
         id: item.id as string,
         student_id: item.student_id as string,
-        student_name: studentInfo?.full_name?.trim() || profile?.full_name?.trim() || studentRow?.lrn || "Unknown",
+        student_name: resolvedName,
         student_lrn: studentInfo?.lrn || studentRow?.lrn || "",
         student_avatar: profile?.avatar_url,
         section_name: studentInfo?.section_name || sectionRow?.name || "",
@@ -838,17 +846,20 @@ function transformReportCardData(data: Record<string, unknown>): ReportCard {
     };
   } | null;
 
+  // Resolve name: prefer live profile over stale snapshot placeholder
+  const snapshotInfo = (data.student_info_json as ReportCardStudentInfo) || { full_name: '', lrn: '', grade_level: '', section_name: '' }
+  const liveProfileName = student?.profile?.full_name?.trim()
+  const resolvedFullName =
+    (liveProfileName && liveProfileName !== 'Unknown Student') ? liveProfileName :
+    (snapshotInfo.full_name?.trim() && snapshotInfo.full_name !== 'Unknown Student') ? snapshotInfo.full_name.trim() :
+    liveProfileName || snapshotInfo.full_name || ''
+
   return {
     id: data.id as string,
     student_id: data.student_id as string,
     grading_period_id: data.grading_period_id as string,
     school_id: data.school_id as string,
-    student_info: (data.student_info_json as ReportCardStudentInfo) || {
-      full_name: "",
-      lrn: "",
-      grade_level: "",
-      section_name: "",
-    },
+    student_info: { ...snapshotInfo, full_name: resolvedFullName },
     grades: (data.grades_snapshot_json as ReportCardGrade[]) || [],
     gpa: (data.gpa_snapshot_json as ReportCardGPA) || {
       term_gpa: 0,

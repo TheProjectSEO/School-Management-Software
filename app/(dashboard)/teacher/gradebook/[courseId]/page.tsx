@@ -32,11 +32,21 @@ function serializeGradebookRows(rows: GradebookRow[]): Array<{
   courseGrade?: {
     numeric_grade?: number
     letter_grade?: string
+    attendance_count?: number
+    total_class_days?: number
+    behavior_score?: number
   }
 }> {
   return rows.map(row => ({
     ...row,
-    assessmentScores: Object.fromEntries(row.assessmentScores)
+    assessmentScores: Object.fromEntries(row.assessmentScores),
+    courseGrade: row.courseGrade ? {
+      numeric_grade: row.courseGrade.numeric_grade,
+      letter_grade: row.courseGrade.letter_grade,
+      attendance_count: row.courseGrade.attendance_count,
+      total_class_days: row.courseGrade.total_class_days,
+      behavior_score: row.courseGrade.behavior_score,
+    } : undefined,
   }))
 }
 
@@ -97,6 +107,61 @@ async function GradebookContent({
     .select('subject_type')
     .eq('id', courseId)
     .single()
+
+  // Auto-sync attendance: read teacher_daily_attendance and merge into rows
+  // so the gradebook always reflects the latest recorded attendance
+  try {
+    // Find the section linked to this course for this teacher
+    const { data: assignment } = await supabase
+      .from('teacher_assignments')
+      .select('section_id')
+      .eq('course_id', courseId)
+      .eq('teacher_profile_id', teacherProfile.id)
+      .limit(1)
+      .single()
+
+    if (assignment?.section_id) {
+      // Fetch all attendance records in the grading period date range
+      const { data: attendanceRecords } = await supabase
+        .from('teacher_daily_attendance')
+        .select('student_id, date, status')
+        .in('student_id', gradebookData.rows.map(r => r.student.student_id))
+        .gte('date', currentPeriod.start_date)
+        .lte('date', currentPeriod.end_date)
+
+      if (attendanceRecords && attendanceRecords.length > 0) {
+        // total_class_days = distinct dates any record exists
+        const allDates = new Set(attendanceRecords.map((r: { date: string }) => r.date))
+        const totalClassDays = allDates.size
+
+        // per-student: count present + late
+        const attendedMap: Record<string, number> = {}
+        for (const rec of attendanceRecords as { student_id: string; date: string; status: string }[]) {
+          if (rec.status === 'present' || rec.status === 'late') {
+            attendedMap[rec.student_id] = (attendedMap[rec.student_id] ?? 0) + 1
+          }
+        }
+
+        // Merge into gradebook rows
+        gradebookData.rows = gradebookData.rows.map(row => {
+          const attended = attendedMap[row.student.student_id] ?? row.courseGrade?.attendance_count ?? 0
+          const savedTotal = row.courseGrade?.total_class_days ?? 0
+          // Use computed total if it's larger than what's stored (attendance was recorded but not yet synced)
+          const total = Math.max(totalClassDays, savedTotal)
+          return {
+            ...row,
+            courseGrade: {
+              ...row.courseGrade,
+              attendance_count: attended,
+              total_class_days: total,
+            },
+          }
+        })
+      }
+    }
+  } catch {
+    // Non-fatal: if attendance sync fails, rows still load with stored values
+  }
 
   // Get DepEd quarterly grades for the current period
   const depedReport = await getClassQuarterlyGrades(courseId, currentPeriod.id)

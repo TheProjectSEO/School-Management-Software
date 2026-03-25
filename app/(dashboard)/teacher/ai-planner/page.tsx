@@ -22,7 +22,16 @@ type ModuleDraft = {
 type CourseLesson = {
   id: string
   title: string
+  content?: string
+  module_id?: string
   module_title?: string
+}
+
+type CourseModule = {
+  id: string
+  title: string
+  description?: string
+  learning_objectives?: string[]
 }
 
 type AssessmentDraft = {
@@ -69,9 +78,12 @@ export default function AIPlannerPage() {
   const [successMessage, setSuccessMessage] = useState('')
   const [courseLessons, setCourseLessons] = useState<CourseLesson[]>([])
   const [loadingLessons, setLoadingLessons] = useState(false)
-  const [courseModules, setCourseModules] = useState<{ id: string; title: string }[]>([])
+  const [courseModules, setCourseModules] = useState<CourseModule[]>([])
   const [loadingModules, setLoadingModules] = useState(false)
   const [selectedModuleId, setSelectedModuleId] = useState('')
+  // Pre-generation: module/lesson to base the assessment on
+  const [baseModuleId, setBaseModuleId] = useState('')
+  const [baseLessonId, setBaseLessonId] = useState('')
   const [assessmentIdempotencyKey, setAssessmentIdempotencyKey] = useState('')
   const [isSavingAssessment, setIsSavingAssessment] = useState(false)
 
@@ -105,6 +117,8 @@ export default function AIPlannerPage() {
       setCourseLessons([])
       setCourseModules([])
       setSelectedModuleId('')
+      setBaseModuleId('')
+      setBaseLessonId('')
       return
     }
     async function loadLessonsAndModules() {
@@ -115,11 +129,22 @@ export default function AIPlannerPage() {
         if (!res.ok) return
         const data = await res.json()
         const lessons: CourseLesson[] = []
-        const modules: { id: string; title: string }[] = []
+        const modules: CourseModule[] = []
         for (const mod of data.modules || []) {
-          modules.push({ id: mod.id, title: mod.title })
+          modules.push({
+            id: mod.id,
+            title: mod.title,
+            description: mod.description || '',
+            learning_objectives: Array.isArray(mod.learning_objectives) ? mod.learning_objectives : [],
+          })
           for (const lesson of mod.lessons || []) {
-            lessons.push({ id: lesson.id, title: lesson.title, module_title: mod.title })
+            lessons.push({
+              id: lesson.id,
+              title: lesson.title,
+              content: lesson.content || '',
+              module_id: mod.id,
+              module_title: mod.title,
+            })
           }
         }
         setCourseLessons(lessons)
@@ -174,6 +199,9 @@ export default function AIPlannerPage() {
           .filter(([, enabled]) => enabled)
           .map(([key]) => key)
 
+        const baseModule = courseModules.find((m) => m.id === baseModuleId)
+        const baseLesson = courseLessons.find((l) => l.id === baseLessonId)
+
         const response = await authFetch('/api/teacher/ai/generate-quiz', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -185,6 +213,11 @@ export default function AIPlannerPage() {
             difficulty,
             questionTypes: types,
             includeTags: true,
+            moduleTitle: baseModule?.title || null,
+            moduleDescription: baseModule?.description || null,
+            moduleLearningObjectives: baseModule?.learning_objectives || null,
+            lessonTitle: baseLesson?.title || null,
+            lessonContent: baseLesson?.content || null,
           }),
         })
 
@@ -192,16 +225,24 @@ export default function AIPlannerPage() {
         if (!response.ok) {
           alert(data.error || 'Failed to generate assessment')
         } else {
+          const draftTitle = baseLesson
+            ? `${baseLesson.title} Assessment`
+            : baseModule
+            ? `${baseModule.title} Assessment`
+            : `${topic} Assessment`
           setAssessmentDraft({
-            title: `${topic} Assessment`,
+            title: draftTitle,
             type: 'quiz',
             instructions: '',
             due_date: '',
             time_limit_minutes: null,
             max_attempts: 1,
             publish_now: false,
+            lesson_id: baseLessonId || undefined,
             questions: data.questions || [],
           })
+          // Pre-select the base module in the draft linker
+          if (baseModuleId) setSelectedModuleId(baseModuleId)
           setModuleDraft(null)
         }
       }
@@ -396,47 +437,103 @@ export default function AIPlannerPage() {
             </div>
           </div>
         ) : (
-          <div className="mt-4 grid gap-4 md:grid-cols-3">
-            <div>
-              <label className="text-sm font-semibold text-slate-700">Question Count</label>
-              <input
-                type="number"
-                min={1}
-                value={questionCount}
-                onChange={(e) => setQuestionCount(Number(e.target.value))}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-slate-700">Difficulty</label>
-              <select
-                value={difficulty}
-                onChange={(e) => setDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-              >
-                <option value="easy">Easy</option>
-                <option value="medium">Medium</option>
-                <option value="hard">Hard</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-semibold text-slate-700">Question Types</label>
-              <div className="mt-2 space-y-2 text-sm">
-                {Object.entries(questionTypes).map(([key, value]) => (
-                  <label key={key} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={value}
-                      onChange={(e) =>
-                        setQuestionTypes((prev) => ({ ...prev, [key]: e.target.checked }))
-                      }
-                    />
-                    {key.replace('_', ' ')}
-                  </label>
-                ))}
+          <>
+            {/* Module / Lesson basis */}
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-semibold text-slate-700">
+                  Base on Module <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <select
+                  value={baseModuleId}
+                  onChange={(e) => {
+                    const id = e.target.value
+                    setBaseModuleId(id)
+                    setBaseLessonId('')
+                    // Auto-fill topic from module title
+                    const mod = courseModules.find((m) => m.id === id)
+                    if (mod) setTopic(mod.title)
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                  disabled={loadingModules || !courseId}
+                >
+                  <option value="">{!courseId ? 'Select course first' : loadingModules ? 'Loading...' : 'None — use custom topic'}</option>
+                  {courseModules.map((mod) => (
+                    <option key={mod.id} value={mod.id}>{mod.title}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-slate-700">
+                  Specific Lesson / Topic <span className="text-slate-400 font-normal">(optional)</span>
+                </label>
+                <select
+                  value={baseLessonId}
+                  onChange={(e) => {
+                    const id = e.target.value
+                    setBaseLessonId(id)
+                    // Auto-fill topic from lesson title
+                    const lesson = courseLessons.find((l) => l.id === id)
+                    if (lesson) setTopic(lesson.title)
+                  }}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                  disabled={loadingLessons || !courseId}
+                >
+                  <option value="">{!courseId ? 'Select course first' : loadingLessons ? 'Loading...' : 'None — cover whole module'}</option>
+                  {(baseModuleId
+                    ? courseLessons.filter((l) => l.module_id === baseModuleId)
+                    : courseLessons
+                  ).map((lesson) => (
+                    <option key={lesson.id} value={lesson.id}>
+                      {!baseModuleId && lesson.module_title ? `${lesson.module_title} — ` : ''}{lesson.title}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-          </div>
+
+            <div className="mt-4 grid gap-4 md:grid-cols-3">
+              <div>
+                <label className="text-sm font-semibold text-slate-700">Question Count</label>
+                <input
+                  type="number"
+                  min={1}
+                  value={questionCount}
+                  onChange={(e) => setQuestionCount(Number(e.target.value))}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-slate-700">Difficulty</label>
+                <select
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value as 'easy' | 'medium' | 'hard')}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                >
+                  <option value="easy">Easy</option>
+                  <option value="medium">Medium</option>
+                  <option value="hard">Hard</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-slate-700">Question Types</label>
+                <div className="mt-2 space-y-2 text-sm">
+                  {Object.entries(questionTypes).map(([key, value]) => (
+                    <label key={key} className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={value}
+                        onChange={(e) =>
+                          setQuestionTypes((prev) => ({ ...prev, [key]: e.target.checked }))
+                        }
+                      />
+                      {key.replace('_', ' ')}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
         )}
 
         <div className="mt-4 flex items-center gap-3">
@@ -592,9 +689,12 @@ export default function AIPlannerPage() {
                   disabled={loadingLessons}
                 >
                   <option value="">{loadingLessons ? 'Loading...' : 'None (course-level)'}</option>
-                  {courseLessons.map((lesson) => (
+                  {(selectedModuleId
+                    ? courseLessons.filter((l) => l.module_id === selectedModuleId)
+                    : courseLessons
+                  ).map((lesson) => (
                     <option key={lesson.id} value={lesson.id}>
-                      {lesson.module_title ? `${lesson.module_title} — ` : ''}{lesson.title}
+                      {!selectedModuleId && lesson.module_title ? `${lesson.module_title} — ` : ''}{lesson.title}
                     </option>
                   ))}
                 </select>

@@ -23,6 +23,11 @@ export async function POST(request: NextRequest) {
       difficulty,
       questionTypes,
       includeTags,
+      moduleTitle,
+      moduleDescription,
+      moduleLearningObjectives,
+      lessonTitle,
+      lessonContent,
     } = body;
 
     // Validate required fields
@@ -37,6 +42,8 @@ export async function POST(request: NextRequest) {
       ? questionTypes
       : ["multiple_choice", "true_false", "short_answer"];
 
+    const hasModuleContext = moduleTitle || lessonTitle || lessonContent;
+
     const systemPrompt = [
       "You are an AI assistant for K-12 STEM teachers.",
       "Return ONLY valid JSON with a top-level key 'questions'. No markdown, no code blocks.",
@@ -45,12 +52,21 @@ export async function POST(request: NextRequest) {
       "For true_false, include correct_answer as 'true' or 'false' string.",
       "For short_answer, include correct_answer as a short phrase.",
       "Keep explanations concise (1-2 sentences max).",
-    ].join(" ");
+      hasModuleContext
+        ? "Generate questions that are directly based on the provided module/lesson content. Questions must be answerable from that content alone."
+        : null,
+    ].filter(Boolean).join(" ");
 
     const userPrompt = [
       `Topic: ${topic}`,
       courseName ? `Course: ${courseName}` : null,
       gradeLevel ? `Grade Level: ${gradeLevel}` : null,
+      moduleTitle ? `Module: ${moduleTitle}` : null,
+      moduleDescription ? `Module Description: ${moduleDescription}` : null,
+      moduleLearningObjectives?.length
+        ? `Module Objectives: ${moduleLearningObjectives.join("; ")}` : null,
+      lessonTitle ? `Lesson/Topic: ${lessonTitle}` : null,
+      lessonContent ? `Lesson Content:\n${lessonContent.slice(0, 3000)}` : null,
       `Question count: ${questionCount}`,
       `Difficulty: ${difficulty || "medium"}`,
       `Allowed types: ${allowedTypes.join(", ")}`,

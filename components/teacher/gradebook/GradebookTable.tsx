@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useMemo, useState, useCallback, useEffect } from 'react'
+import { useRef, useMemo, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import GradebookCell from './GradebookCell'
 import type {
@@ -59,12 +59,8 @@ export default function GradebookTable({
 
   // Local state for attendance/behavior edits per student
   const [attendanceEdits, setAttendanceEdits] = useState<
-    Record<string, { attended: string; total: string; behavior: string; saving: boolean }>
+    Record<string, { attended: string; total: string; behavior: string; saving: boolean; saved: boolean }>
   >({})
-
-  // Ref always holds the latest edits — prevents stale closure in blur handler
-  const attendanceEditsRef = useRef(attendanceEdits)
-  useEffect(() => { attendanceEditsRef.current = attendanceEdits }, [attendanceEdits])
 
   // Group assessments by type
   const groupedAssessments = useMemo(() => {
@@ -88,60 +84,63 @@ export default function GradebookTable({
     }
   }
 
-  // Handle blur on attendance/behavior inputs — save to server
-  // Uses ref to read latest edits, avoiding stale closure when onChange + onBlur fire together
-  const handleAttendanceBehaviorBlur = useCallback(
+  // Check if a row has unsaved changes
+  const hasUnsavedChanges = (row: SerializedGradebookRow) => {
+    const edit = attendanceEdits[row.student.student_id]
+    if (!edit) return false
+    const attended = Number(edit.attended) || 0
+    const total = Number(edit.total) || 0
+    const behavior = Number(edit.behavior) || 0
+    return (
+      attended !== (row.courseGrade?.attendance_count ?? 0) ||
+      total !== (row.courseGrade?.total_class_days ?? 0) ||
+      behavior !== (row.courseGrade?.behavior_score ?? 0)
+    )
+  }
+
+  // Explicit save button handler per student row
+  const handleSaveRow = useCallback(
     async (studentId: string, row: SerializedGradebookRow) => {
-      const edit = attendanceEditsRef.current[studentId]
-
-      // If no local edit exists, nothing changed — skip save
-      if (!edit) return
-
-      const attended = Math.max(0, Number(edit.attended) || 0)
-      const total = Math.max(0, Number(edit.total) || 0)
-      const behavior = Math.min(100, Math.max(0, Number(edit.behavior) || 0))
-
-      // Also compare with original row values — skip if nothing actually changed
-      const origAttended = row.courseGrade?.attendance_count ?? 0
-      const origTotal = row.courseGrade?.total_class_days ?? 0
-      const origBehavior = row.courseGrade?.behavior_score ?? 0
-      if (attended === origAttended && total === origTotal && behavior === origBehavior) {
-        setAttendanceEdits((prev) => {
-          const next = { ...prev }
-          delete next[studentId]
-          return next
-        })
-        return
-      }
+      const edit = attendanceEdits[studentId]
+      const attended = Math.max(0, Number(edit?.attended ?? row.courseGrade?.attendance_count ?? 0))
+      const total = Math.max(0, Number(edit?.total ?? row.courseGrade?.total_class_days ?? 0))
+      const behavior = Math.min(100, Math.max(0, Number(edit?.behavior ?? row.courseGrade?.behavior_score ?? 0)))
 
       setAttendanceEdits((prev) => ({
         ...prev,
-        [studentId]: { ...prev[studentId], saving: true },
+        [studentId]: {
+          attended: String(attended),
+          total: String(total),
+          behavior: String(behavior),
+          saving: true,
+          saved: false,
+        },
       }))
 
-      const saved = await onAttendanceBehaviorUpdate(studentId, attended, total, behavior)
+      const ok = await onAttendanceBehaviorUpdate(studentId, attended, total, behavior)
 
-      if (saved) {
-        // Success — clear the local edit; the parent has updated localRows with new values
-        setAttendanceEdits((prev) => {
-          const next = { ...prev }
-          delete next[studentId]
-          return next
-        })
-      } else {
-        // Failed — keep the typed value visible so user doesn't lose their input
+      if (ok) {
+        // Flash a checkmark for 2 seconds, then clear the edit (parent localRows has new values)
         setAttendanceEdits((prev) => ({
           ...prev,
-          [studentId]: {
-            attended: String(attended),
-            total: String(total),
-            behavior: String(behavior),
-            saving: false,
-          },
+          [studentId]: { ...prev[studentId], saving: false, saved: true },
+        }))
+        setTimeout(() => {
+          setAttendanceEdits((prev) => {
+            const next = { ...prev }
+            delete next[studentId]
+            return next
+          })
+        }, 2000)
+      } else {
+        // Keep values but mark not saving so user can retry
+        setAttendanceEdits((prev) => ({
+          ...prev,
+          [studentId]: { ...prev[studentId], saving: false, saved: false },
         }))
       }
     },
-    [onAttendanceBehaviorUpdate]
+    [attendanceEdits, onAttendanceBehaviorUpdate]
   )
 
   // Calculate weighted average from assessments only (85% of final grade)
@@ -322,7 +321,7 @@ export default function GradebookTable({
             </th>
             {/* Behavior column group */}
             <th
-              colSpan={1}
+              colSpan={2}
               className="px-4 py-2 text-center text-xs font-semibold text-purple-700 dark:text-purple-400 uppercase tracking-wider border-b border-r border-slate-200 dark:border-slate-700 bg-purple-50 dark:bg-purple-900/20"
             >
               <div className="flex items-center justify-center gap-1">
@@ -371,6 +370,10 @@ export default function GradebookTable({
             <th className="px-2 py-3 text-center border-b border-r border-slate-200 dark:border-slate-700 min-w-[80px] bg-purple-50/50 dark:bg-purple-900/10">
               <div className="text-xs font-medium text-purple-700 dark:text-purple-400">Score (0–100)</div>
             </th>
+            {/* Save sub-header */}
+            <th className="px-2 py-3 text-center border-b border-r border-slate-200 dark:border-slate-700 min-w-[60px] bg-slate-50 dark:bg-slate-800/50">
+              <div className="text-xs font-medium text-slate-500 dark:text-slate-400">Save</div>
+            </th>
             {/* Final grade sub-headers */}
             <th className="px-2 py-3 text-center border-b border-r border-slate-200 dark:border-slate-700 min-w-[80px] bg-primary/5">
               <div className="text-xs font-medium text-slate-900 dark:text-slate-100">Average</div>
@@ -390,6 +393,8 @@ export default function GradebookTable({
             const vals = getAttendanceValues(row)
             const edit = attendanceEdits[row.student.student_id]
             const isSavingRow = edit?.saving ?? false
+            const isSavedRow = edit?.saved ?? false
+            const isDirty = hasUnsavedChanges(row)
 
             return (
               <tr
@@ -464,10 +469,10 @@ export default function GradebookTable({
                           total: prev[studentId]?.total ?? vals.total,
                           behavior: prev[studentId]?.behavior ?? vals.behavior,
                           saving: false,
+                          saved: false,
                         },
                       }))
                     }}
-                    onBlur={() => handleAttendanceBehaviorBlur(row.student.student_id, row)}
                     className="w-16 text-center text-sm font-medium rounded border border-teal-200 dark:border-teal-700 bg-white dark:bg-slate-800 text-teal-800 dark:text-teal-300 focus:outline-none focus:ring-1 focus:ring-teal-400 px-1 py-0.5 disabled:opacity-50"
                   />
                 </td>
@@ -488,10 +493,10 @@ export default function GradebookTable({
                           total: e.target.value,
                           behavior: prev[studentId]?.behavior ?? vals.behavior,
                           saving: false,
+                          saved: false,
                         },
                       }))
                     }}
-                    onBlur={() => handleAttendanceBehaviorBlur(row.student.student_id, row)}
                     className="w-16 text-center text-sm font-medium rounded border border-teal-200 dark:border-teal-700 bg-white dark:bg-slate-800 text-teal-800 dark:text-teal-300 focus:outline-none focus:ring-1 focus:ring-teal-400 px-1 py-0.5 disabled:opacity-50"
                   />
                 </td>
@@ -513,12 +518,38 @@ export default function GradebookTable({
                           total: prev[studentId]?.total ?? vals.total,
                           behavior: e.target.value,
                           saving: false,
+                          saved: false,
                         },
                       }))
                     }}
-                    onBlur={() => handleAttendanceBehaviorBlur(row.student.student_id, row)}
                     className="w-16 text-center text-sm font-medium rounded border border-purple-200 dark:border-purple-700 bg-white dark:bg-slate-800 text-purple-800 dark:text-purple-300 focus:outline-none focus:ring-1 focus:ring-purple-400 px-1 py-0.5 disabled:opacity-50"
                   />
+                </td>
+
+                {/* Save Button */}
+                <td className="px-1 py-1 text-center border-b border-r border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/20">
+                  {isSavedRow ? (
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-green-100 dark:bg-green-900/30">
+                      <span className="material-symbols-outlined text-green-600 dark:text-green-400 text-base">check</span>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => handleSaveRow(row.student.student_id, row)}
+                      disabled={isSaving || isSavingRow || !isDirty}
+                      title={isDirty ? 'Save changes' : 'No changes'}
+                      className={`inline-flex items-center justify-center w-8 h-8 rounded-full transition-colors ${
+                        isDirty
+                          ? 'bg-primary text-white hover:bg-primary/80 cursor-pointer'
+                          : 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-default'
+                      } disabled:opacity-50`}
+                    >
+                      {isSavingRow ? (
+                        <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+                      ) : (
+                        <span className="material-symbols-outlined text-base">save</span>
+                      )}
+                    </button>
+                  )}
                 </td>
 
                 {/* Weighted Average */}

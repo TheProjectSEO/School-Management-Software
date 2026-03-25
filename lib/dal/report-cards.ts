@@ -854,6 +854,23 @@ function transformReportCardData(data: Record<string, unknown>): ReportCard {
     (snapshotInfo.full_name?.trim() && snapshotInfo.full_name !== 'Unknown Student') ? snapshotInfo.full_name.trim() :
     liveProfileName || snapshotInfo.full_name || ''
 
+  // Derive academic year from period dates when the DB column is null/empty
+  const resolvedAcademicYear = (() => {
+    if (gradingPeriod?.academic_year && gradingPeriod.academic_year !== 'Unknown') {
+      return gradingPeriod.academic_year
+    }
+    const dateStr = gradingPeriod?.start_date || gradingPeriod?.end_date
+    if (dateStr) {
+      const d = new Date(dateStr)
+      const month = d.getMonth() + 1 // 1-based
+      const year = d.getFullYear()
+      // Philippine school year: starts June/July
+      const startYear = month >= 6 ? year : year - 1
+      return `${startYear}-${startYear + 1}`
+    }
+    return null
+  })()
+
   return {
     id: data.id as string,
     student_id: data.student_id as string,
@@ -892,7 +909,7 @@ function transformReportCardData(data: Record<string, unknown>): ReportCard {
       ? {
           id: gradingPeriod.id || "",
           name: gradingPeriod.name || "Unknown",
-          academic_year: gradingPeriod.academic_year || "Unknown",
+          academic_year: resolvedAcademicYear || "",
           start_date: gradingPeriod.start_date,
           end_date: gradingPeriod.end_date,
         }

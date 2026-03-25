@@ -174,7 +174,7 @@ async function fetchStudentInfo(
     const supabase = createServiceClient()
     const { data: student } = await supabase
       .from('students')
-      .select('id, lrn, student_number, section_id, profile_id')
+      .select('id, lrn, section_id, profile_id')
       .eq('id', studentId)
       .single()
 
@@ -212,7 +212,6 @@ async function fetchStudentInfo(
       lrn: student.lrn || '',
       grade_level: gradeName,
       section_name: sectionName,
-      student_number: (student as any).student_number,
       email,
       date_of_birth: dateOfBirth,
     }
@@ -394,11 +393,11 @@ async function fetchStudentAttendance(
 
     // Get attendance records within the period
     const { data: attendanceRecords, error } = await supabase
-      .from("teacher_attendance")
-      .select("attendance_date, status")
+      .from("teacher_daily_attendance")
+      .select("date, status")
       .eq("student_id", studentId)
-      .gte("attendance_date", period.start_date)
-      .lte("attendance_date", period.end_date);
+      .gte("date", period.start_date)
+      .lte("date", period.end_date);
 
     if (error) {
       console.error("Error fetching attendance:", error);
@@ -408,14 +407,14 @@ async function fetchStudentAttendance(
     // Aggregate by date (take worst status if multiple per day)
     const dailyStatuses = new Map<string, string>();
     for (const record of attendanceRecords || []) {
-      const existing = dailyStatuses.get(record.attendance_date);
+      const existing = dailyStatuses.get(record.date);
       const current = record.status;
 
       if (
         !existing ||
         getStatusPriority(current) > getStatusPriority(existing)
       ) {
-        dailyStatuses.set(record.attendance_date, current);
+        dailyStatuses.set(record.date, current);
       }
     }
 

@@ -152,7 +152,11 @@ export async function computeAndSaveQuarterlyGrade(
       .eq('id', courseId)
       .single()
 
-    const subjectType = (course?.subject_type ?? 'academic') as DepEdSubjectType
+    const VALID_SUBJECT_TYPES: DepEdSubjectType[] = ['academic', 'mapeh', 'tle']
+    const rawSubjectType = course?.subject_type ?? 'academic'
+    const subjectType: DepEdSubjectType = VALID_SUBJECT_TYPES.includes(rawSubjectType as DepEdSubjectType)
+      ? (rawSubjectType as DepEdSubjectType)
+      : 'academic'
 
     // Get transmutation method for this school
     const method = await getTransmutationMethod(schoolId)
@@ -198,8 +202,9 @@ export async function computeAndSaveQuarterlyGrade(
       const highestPossible = assessment.total_points ?? 0
       if (highestPossible <= 0) continue
 
-      const score = submissionMap.get(assessment.id) ?? 0
-      componentTotals[component].totalScore += score
+      const rawScore = submissionMap.get(assessment.id) ?? 0
+      const clampedScore = Math.max(0, Math.min(highestPossible, rawScore))
+      componentTotals[component].totalScore += clampedScore
       componentTotals[component].highestPossibleScore += highestPossible
     }
 
@@ -271,20 +276,43 @@ export async function computeClassQuarterlyGrades(
 ): Promise<{ success: number; failed: number; errors: string[] }> {
   const supabase = createServiceClient()
 
-  // Get all enrolled students
+  // Get all students: enrollments + BUG-002 section fallback
   const { data: enrollments } = await supabase
     .from('enrollments')
     .select('student_id')
     .eq('course_id', courseId)
     .eq('status', 'active')
 
-  if (!enrollments || enrollments.length === 0) {
+  const enrolledIds = new Set((enrollments ?? []).map((e) => e.student_id))
+
+  // BUG-002 fallback: students in sections assigned to this course
+  const { data: sectionAssignments } = await supabase
+    .from('teacher_assignments')
+    .select('section_id')
+    .eq('course_id', courseId)
+    .not('section_id', 'is', null)
+
+  const sectionIds = [...new Set(
+    (sectionAssignments ?? []).map((a) => a.section_id).filter(Boolean)
+  )]
+
+  if (sectionIds.length > 0) {
+    const { data: sectionStudents } = await supabase
+      .from('students')
+      .select('id')
+      .in('section_id', sectionIds)
+    ;(sectionStudents ?? []).forEach((s) => enrolledIds.add(s.id))
+  }
+
+  const allStudentIds = Array.from(enrolledIds)
+
+  if (allStudentIds.length === 0) {
     return { success: 0, failed: 0, errors: ['No active enrollments found'] }
   }
 
   const results = await Promise.allSettled(
-    enrollments.map((e) =>
-      computeAndSaveQuarterlyGrade(e.student_id, courseId, gradingPeriodId, computedBy, schoolId)
+    allStudentIds.map((sid) =>
+      computeAndSaveQuarterlyGrade(sid, courseId, gradingPeriodId, computedBy, schoolId)
     )
   )
 
@@ -300,12 +328,13 @@ export async function computeClassQuarterlyGrades(
       const error = result.status === 'rejected'
         ? String(result.reason)
         : result.value.error ?? 'Unknown error'
-      errors.push(`Student ${enrollments[i].student_id}: ${error}`)
+      errors.push(`Student ${allStudentIds[i]}: ${error}`)
     }
   })
 
   return { success, failed, errors }
 }
+
 
 /**
  * Get quarterly grade breakdown for all students in a class.
@@ -334,16 +363,37 @@ export async function getClassQuarterlyGrades(
 
   if (!period) return null
 
-  // Get enrolled students (flat select, no FK joins per project pattern)
+  // Get enrolled students + BUG-002 section fallback
   const { data: enrollments } = await supabase
     .from('enrollments')
     .select('student_id')
     .eq('course_id', courseId)
     .eq('status', 'active')
 
-  if (!enrollments) return null
+  const enrolledIds = new Set((enrollments ?? []).map((e) => e.student_id))
 
-  const studentIds = enrollments.map((e) => e.student_id)
+  // BUG-002 fallback: students in sections assigned to this course
+  const { data: sectionAssignments } = await supabase
+    .from('teacher_assignments')
+    .select('section_id')
+    .eq('course_id', courseId)
+    .not('section_id', 'is', null)
+
+  const sectionIds = [...new Set(
+    (sectionAssignments ?? []).map((a) => a.section_id).filter(Boolean)
+  )]
+
+  if (sectionIds.length > 0) {
+    const { data: sectionStudents } = await supabase
+      .from('students')
+      .select('id')
+      .in('section_id', sectionIds)
+    ;(sectionStudents ?? []).forEach((s) => enrolledIds.add(s.id))
+  }
+
+  if (enrolledIds.size === 0) return null
+
+  const studentIds = Array.from(enrolledIds)
 
   // Get student profiles
   const { data: students } = await supabase

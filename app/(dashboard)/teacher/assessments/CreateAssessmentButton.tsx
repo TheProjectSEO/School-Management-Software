@@ -41,7 +41,7 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
   const [loadingPeriods, setLoadingPeriods] = useState(false)
   const [formData, setFormData] = useState({
     title: '',
-    type: 'quiz' as 'quiz' | 'assignment' | 'project' | 'midterm' | 'final',
+    type: 'short_quiz' as 'essay' | 'assignment' | 'short_quiz' | 'long_quiz' | 'exam',
     course_id: '',
     lesson_id: '',
     section_id: '',
@@ -131,11 +131,16 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
     setFormData({ ...formData, course_id: courseId, lesson_id: '' })
   }
 
+  const typeLabels: Record<string, string> = {
+    essay: 'Essay', assignment: 'Assignment',
+    short_quiz: 'Short Quiz', long_quiz: 'Long Quiz', exam: 'Exam',
+  }
+
   const handleCreate = async () => {
     // Auto-generate title from topic if left blank
     const resolvedTitle = formData.title.trim() ||
       (formData.topic.trim()
-        ? `${formData.topic.trim()} ${formData.type.charAt(0).toUpperCase() + formData.type.slice(1)}`
+        ? `${formData.topic.trim()} ${typeLabels[formData.type] ?? formData.type}`
         : '')
     if (!resolvedTitle || !formData.course_id || !formData.section_id) return
     if (isCreatingRef.current) return // synchronous guard
@@ -315,11 +320,17 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
                       onChange={(e) => setFormData({ ...formData, type: e.target.value as typeof formData.type })}
                       className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
                     >
-                      <option value="quiz">Quiz</option>
-                      <option value="assignment">Assignment</option>
-                      <option value="project">Project</option>
-                      <option value="midterm">Midterm Exam</option>
-                      <option value="final">Final Exam</option>
+                      <optgroup label="Written Work">
+                        <option value="essay">Essay</option>
+                        <option value="assignment">Assignment</option>
+                      </optgroup>
+                      <optgroup label="Performance Task">
+                        <option value="short_quiz">Short Quiz</option>
+                        <option value="long_quiz">Long Quiz</option>
+                      </optgroup>
+                      <optgroup label="Quarterly Assessment">
+                        <option value="exam">Exam</option>
+                      </optgroup>
                     </select>
                   </div>
                   <div>
@@ -353,11 +364,11 @@ export default function CreateAssessmentButton({ subjects }: CreateAssessmentBut
                     type="text"
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    placeholder={formData.topic ? `${formData.topic} ${formData.type.charAt(0).toUpperCase() + formData.type.slice(1)}` : 'Enter assessment title'}
+                    placeholder={formData.topic ? `${formData.topic} ${typeLabels[formData.type] ?? formData.type}` : 'Enter assessment title'}
                     className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-slate-100 focus:ring-2 focus:ring-primary focus:border-transparent"
                   />
                   {!formData.title && formData.topic && (
-                    <p className="text-xs text-slate-400 mt-1">Leave blank to use "{formData.topic} {formData.type.charAt(0).toUpperCase() + formData.type.slice(1)}"</p>
+                    <p className="text-xs text-slate-400 mt-1">Leave blank to use &ldquo;{formData.topic} {typeLabels[formData.type] ?? formData.type}&rdquo;</p>
                   )}
                 </div>
               )}

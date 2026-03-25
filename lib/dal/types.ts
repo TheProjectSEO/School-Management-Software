@@ -286,6 +286,8 @@ export interface AssessmentWithDetails extends Assessment {
   requires_file_upload?: boolean;
   file_upload_instructions?: string | null;
   allowed_file_types?: string | null;
+  min_word_count?: number | null;
+  max_word_count?: number | null;
 }
 
 // Quiz submission payload

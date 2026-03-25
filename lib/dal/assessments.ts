@@ -99,6 +99,9 @@ export type SubmissionDetail = {
     full_name: string
     lrn: string
     avatar_url: string | null
+    email: string | null
+    grade_level: string | null
+    section_name: string | null
   }
   score: number | null
   ai_score?: number | null
@@ -354,23 +357,36 @@ export async function getSubmissionDetail(submissionId: string, teacherId: strin
   // Fetch student separately
   const { data: student } = await supabase
     .from('students')
-    .select('id, lrn, profile_id')
+    .select('id, lrn, profile_id, grade_level, section_id')
     .eq('id', submission.student_id)
     .single()
 
   // Fetch student profile separately
   let fullName = 'Unknown Student'
   let avatarUrl: string | null = null
+  let studentEmail: string | null = null
   if (student?.profile_id) {
     const { data: profile } = await supabase
       .from('school_profiles')
-      .select('full_name, avatar_url')
+      .select('full_name, avatar_url, email')
       .eq('id', student.profile_id)
       .single()
     if (profile) {
       fullName = profile.full_name
       avatarUrl = profile.avatar_url
+      studentEmail = profile.email || null
     }
+  }
+
+  // Fetch section name separately
+  let sectionName: string | null = null
+  if (student?.section_id) {
+    const { data: section } = await supabase
+      .from('sections')
+      .select('name')
+      .eq('id', student.section_id)
+      .single()
+    sectionName = section?.name || null
   }
 
   // Get answers flat (no FK joins)
@@ -478,7 +494,10 @@ export async function getSubmissionDetail(submissionId: string, teacherId: strin
       id: student?.id || submission.student_id,
       full_name: fullName,
       lrn: student?.lrn || '',
-      avatar_url: avatarUrl
+      avatar_url: avatarUrl,
+      email: studentEmail,
+      grade_level: student?.grade_level || null,
+      section_name: sectionName,
     },
     score: submission.score,
     ai_score: submission.ai_score ?? null,

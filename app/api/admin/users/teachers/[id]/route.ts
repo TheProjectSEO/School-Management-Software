@@ -31,6 +31,10 @@ export async function GET(
       return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
     }
 
+    if (teacher.school_id !== admin.schoolId) {
+      return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
+    }
+
     return NextResponse.json(teacher);
   } catch (error) {
     console.error("Error in GET /api/admin/users/teachers/[id]:", error);
@@ -58,6 +62,13 @@ export async function PUT(
     }
 
     const { id } = await params;
+
+    // Verify teacher belongs to admin's school before any mutation
+    const existing = await getTeacherById(id);
+    if (!existing || existing.school_id !== admin.schoolId) {
+      return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
+    }
+
     const body = await request.json();
 
     // Handle email change separately (requires admin password)
@@ -133,6 +144,13 @@ export async function PATCH(
     }
 
     const { id } = await params;
+
+    // Verify teacher belongs to admin's school before any mutation
+    const existing = await getTeacherById(id);
+    if (!existing || existing.school_id !== admin.schoolId) {
+      return NextResponse.json({ error: "Teacher not found" }, { status: 404 });
+    }
+
     const body = await request.json();
     const { isActive } = body;
 

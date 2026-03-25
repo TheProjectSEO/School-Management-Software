@@ -36,13 +36,19 @@ type CourseModule = {
 
 type AssessmentDraft = {
   title: string
-  type: 'quiz' | 'exam' | 'assignment' | 'project'
+  type: 'essay' | 'assignment' | 'short_quiz' | 'long_quiz' | 'exam'
   instructions: string
   due_date?: string
   time_limit_minutes?: number | null
   max_attempts?: number | null
   publish_now?: boolean
   lesson_id?: string
+  grading_period_id?: string
+  min_word_count?: number | null
+  max_word_count?: number | null
+  requires_file_upload?: boolean
+  file_upload_instructions?: string | null
+  allowed_file_types?: string
   questions: {
     question_text: string
     question_type: 'multiple_choice' | 'true_false' | 'short_answer'
@@ -70,6 +76,9 @@ export default function AIPlannerPage() {
     short_answer: false,
   })
   const [objectives, setObjectives] = useState('')
+  const [assessmentType, setAssessmentType] = useState<AssessmentDraft['type']>('short_quiz')
+  const [gradingPeriods, setGradingPeriods] = useState<{ id: string; name: string; is_active: boolean }[]>([])
+  const [selectedGradingPeriodId, setSelectedGradingPeriodId] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [moduleDraft, setModuleDraft] = useState<ModuleDraft | null>(null)
   const [assessmentDraft, setAssessmentDraft] = useState<AssessmentDraft | null>(null)
@@ -101,7 +110,21 @@ export default function AIPlannerPage() {
       }
     }
 
+    async function loadGradingPeriods() {
+      try {
+        const res = await authFetch('/api/teacher/grading-periods')
+        if (!res.ok) return
+        const data = await res.json()
+        setGradingPeriods(data.periods || [])
+        const active = (data.periods || []).find((p: { is_active: boolean }) => p.is_active)
+        if (active) setSelectedGradingPeriodId(active.id)
+      } catch (error) {
+        console.error('Failed to load grading periods:', error)
+      }
+    }
+
     loadSubjects()
+    loadGradingPeriods()
   }, [])
 
   useEffect(() => {
@@ -232,13 +255,14 @@ export default function AIPlannerPage() {
             : `${topic} Assessment`
           setAssessmentDraft({
             title: draftTitle,
-            type: 'quiz',
+            type: assessmentType,
             instructions: '',
             due_date: '',
             time_limit_minutes: null,
             max_attempts: 1,
             publish_now: false,
             lesson_id: baseLessonId || undefined,
+            grading_period_id: selectedGradingPeriodId || undefined,
             questions: data.questions || [],
           })
           // Pre-select the base module in the draft linker
@@ -310,6 +334,12 @@ export default function AIPlannerPage() {
           maxAttempts: assessmentDraft.max_attempts,
           publishNow: assessmentDraft.publish_now,
           questions: assessmentDraft.questions,
+          gradingPeriodId: assessmentDraft.grading_period_id || null,
+          minWordCount: assessmentDraft.min_word_count ?? null,
+          maxWordCount: assessmentDraft.max_word_count ?? null,
+          requiresFileUpload: assessmentDraft.requires_file_upload ?? false,
+          fileUploadInstructions: assessmentDraft.file_upload_instructions ?? null,
+          allowedFileTypes: assessmentDraft.allowed_file_types ?? 'any',
         }),
       })
       const data = await response.json()
@@ -492,6 +522,42 @@ export default function AIPlannerPage() {
               </div>
             </div>
 
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="text-sm font-semibold text-slate-700">Assessment Type</label>
+                <select
+                  value={assessmentType}
+                  onChange={(e) => setAssessmentType(e.target.value as AssessmentDraft['type'])}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                >
+                  <optgroup label="Written Work">
+                    <option value="essay">Essay</option>
+                    <option value="assignment">Assignment</option>
+                  </optgroup>
+                  <optgroup label="Performance Task">
+                    <option value="short_quiz">Short Quiz</option>
+                    <option value="long_quiz">Long Quiz</option>
+                  </optgroup>
+                  <optgroup label="Quarterly Assessment">
+                    <option value="exam">Exam</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-slate-700">Grading Period</label>
+                <select
+                  value={selectedGradingPeriodId}
+                  onChange={(e) => setSelectedGradingPeriodId(e.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                >
+                  <option value="">None</option>
+                  {gradingPeriods.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}{p.is_active ? ' ✓' : ''}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="mt-4 grid gap-4 md:grid-cols-3">
               <div>
                 <label className="text-sm font-semibold text-slate-700">Question Count</label>
@@ -658,10 +724,32 @@ export default function AIPlannerPage() {
                   }
                   className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
                 >
-                  <option value="quiz">Quiz</option>
-                  <option value="exam">Exam</option>
-                  <option value="assignment">Assignment</option>
-                  <option value="project">Project</option>
+                  <optgroup label="Written Work">
+                    <option value="essay">Essay</option>
+                    <option value="assignment">Assignment</option>
+                  </optgroup>
+                  <optgroup label="Performance Task">
+                    <option value="short_quiz">Short Quiz</option>
+                    <option value="long_quiz">Long Quiz</option>
+                  </optgroup>
+                  <optgroup label="Quarterly Assessment">
+                    <option value="exam">Exam</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-slate-700">Grading Period</label>
+                <select
+                  value={assessmentDraft.grading_period_id || ''}
+                  onChange={(e) =>
+                    setAssessmentDraft({ ...assessmentDraft, grading_period_id: e.target.value || undefined })
+                  }
+                  className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                >
+                  <option value="">None</option>
+                  {gradingPeriods.map((p) => (
+                    <option key={p.id} value={p.id}>{p.name}{p.is_active ? ' ✓' : ''}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -710,6 +798,87 @@ export default function AIPlannerPage() {
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 h-24"
               />
             </div>
+
+            {/* Essay: Word Count Requirement */}
+            {assessmentDraft.type === 'essay' && (
+              <div className="rounded-lg border border-slate-200 p-4 space-y-3">
+                <p className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px] text-primary">text_fields</span>
+                  Word Count Requirement
+                </p>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600">Min Words</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={assessmentDraft.min_word_count ?? ''}
+                      onChange={(e) => setAssessmentDraft({ ...assessmentDraft, min_word_count: parseInt(e.target.value) || null })}
+                      placeholder="No minimum"
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600">Max Words</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={assessmentDraft.max_word_count ?? ''}
+                      onChange={(e) => setAssessmentDraft({ ...assessmentDraft, max_word_count: parseInt(e.target.value) || null })}
+                      placeholder="No maximum"
+                      className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Assignment: File Upload */}
+            {assessmentDraft.type === 'assignment' && (
+              <div className="rounded-lg border border-slate-200 p-4 space-y-3">
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={assessmentDraft.requires_file_upload ?? false}
+                    onChange={(e) => setAssessmentDraft({ ...assessmentDraft, requires_file_upload: e.target.checked })}
+                    className="w-4 h-4 accent-primary rounded"
+                  />
+                  <span className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-primary">attach_file</span>
+                    Require file upload from students
+                  </span>
+                </label>
+                {assessmentDraft.requires_file_upload && (
+                  <>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Allowed File Types</label>
+                      <select
+                        value={assessmentDraft.allowed_file_types ?? 'any'}
+                        onChange={(e) => setAssessmentDraft({ ...assessmentDraft, allowed_file_types: e.target.value })}
+                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                      >
+                        <option value="any">Any files (images, PDF, documents, etc.)</option>
+                        <option value="images">Images only (JPG, PNG, GIF, WEBP)</option>
+                        <option value="pdf">PDF only</option>
+                        <option value="documents">Documents (PDF, DOC, DOCX)</option>
+                        <option value="images,pdf">Images and PDF</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Upload Instructions (optional)</label>
+                      <textarea
+                        value={assessmentDraft.file_upload_instructions ?? ''}
+                        onChange={(e) => setAssessmentDraft({ ...assessmentDraft, file_upload_instructions: e.target.value })}
+                        rows={2}
+                        placeholder="e.g. Upload your completed worksheet as a PDF."
+                        className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             <div className="grid gap-4 md:grid-cols-3">
               <div>
                 <label className="text-sm font-semibold text-slate-700">Due Date</label>

@@ -24,8 +24,8 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || undefined;
     const status = searchParams.get("status") || undefined;
     const department = searchParams.get("department") || undefined;
-    const page = parseInt(searchParams.get("page") || "1");
-    const pageSize = parseInt(searchParams.get("pageSize") || "20");
+    const page = Math.max(1, parseInt(searchParams.get("page") || "1"));
+    const pageSize = Math.min(100, Math.max(1, parseInt(searchParams.get("pageSize") || "20")));
 
     const result = await listTeachers({
       search,
@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
       department,
       page,
       pageSize,
+      schoolId: admin.schoolId,
     });
 
     return NextResponse.json(result);

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStudentAPI } from "@/lib/auth/requireStudentAPI";
 import { submitQuiz } from "@/lib/dal";
+import { studentHasCourseAccess } from "@/lib/dal/student";
 import type { QuizSubmissionPayload } from "@/lib/dal/types";
 import { createServiceClient } from "@/lib/supabase/service";
 
@@ -24,6 +25,27 @@ export async function POST(
         { error: "Missing required fields" },
         { status: 400 }
       );
+    }
+
+    // Verify student has access to the course this assessment belongs to
+    const supabaseCheck = createServiceClient();
+    const { data: assessment } = await supabaseCheck
+      .from("assessments")
+      .select("course_id")
+      .eq("id", assessmentId)
+      .maybeSingle();
+
+    if (!assessment) {
+      return NextResponse.json({ error: "Assessment not found" }, { status: 404 });
+    }
+
+    const hasAccess = await studentHasCourseAccess(
+      authResult.student.studentId,
+      assessment.course_id
+    );
+
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const payload: QuizSubmissionPayload = {

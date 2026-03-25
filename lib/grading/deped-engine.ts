@@ -323,6 +323,9 @@ export function checkHonors(
   generalAverage: number,
   finalGrades: number[]
 ): HonorsResult {
+  if (finalGrades.length === 0) {
+    return { status: null, qualifies: false, reason: 'No subject grades available' }
+  }
   const lowestGrade = Math.min(...finalGrades)
 
   if (lowestGrade < 85) {

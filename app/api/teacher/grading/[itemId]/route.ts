@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI'
 import { gradeSubmission, releaseSubmission } from '@/lib/dal/grading'
-import { calculateCourseGrade } from '@/lib/dal/teacher/gradebook'
+import { calculateCourseGrade, getCurrentGradingPeriod } from '@/lib/dal/teacher/gradebook'
 import { compileReportCardData, createReportCardSnapshot } from '@/lib/report-cards/generator'
 
 /**
@@ -80,12 +80,18 @@ export async function POST(
       .eq('id', submissionMeta.assessment_id)
       .single()
 
-    if (assessment?.course_id && assessment?.grading_period_id) {
+    // Resolve grading period: use the one on the assessment, or fall back to the school's current period
+    const resolvedPeriodId: string | null =
+      assessment?.grading_period_id ??
+      (await getCurrentGradingPeriod(auth.teacher.schoolId))?.id ??
+      null
+
+    if (assessment?.course_id && resolvedPeriodId) {
       // Recalculate and save course grade
       const courseGrade = await calculateCourseGrade(
         submissionMeta.student_id,
         assessment.course_id,
-        assessment.grading_period_id
+        resolvedPeriodId
       )
 
       if (release && courseGrade) {
@@ -114,7 +120,7 @@ export async function POST(
         try {
           const reportData = await compileReportCardData(
             submissionMeta.student_id,
-            assessment.grading_period_id
+            resolvedPeriodId
           )
           if (reportData) {
             await createReportCardSnapshot(
@@ -146,5 +152,9 @@ export async function POST(
     }
   }
 
-  return NextResponse.json({ success: true, released: !!release })
+  return NextResponse.json({
+    success: true,
+    released: !!release,
+    message: release ? 'Grade released and recorded' : 'Draft saved',
+  })
 }

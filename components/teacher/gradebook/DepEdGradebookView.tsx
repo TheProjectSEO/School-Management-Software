@@ -212,7 +212,7 @@ export default function DepEdGradebookView({
               variant="outline"
               size="sm"
               onClick={handleCompute}
-              disabled={loading}
+              disabled={loading || releasing}
             >
               {loading ? (
                 <span className="material-symbols-outlined text-lg mr-2 animate-spin">progress_activity</span>

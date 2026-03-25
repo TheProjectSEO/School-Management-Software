@@ -16,6 +16,7 @@ interface SubmissionReviewProps {
 export default function SubmissionReview({ submission }: SubmissionReviewProps) {
   const router = useRouter()
   const [feedback, setFeedback] = useState(submission.feedback || '')
+  const [currentStatus, setCurrentStatus] = useState(submission.status)
   const [isSaving, setIsSaving] = useState(false)
   const [isReleasing, setIsReleasing] = useState(false)
   const [isGeneratingAI, setIsGeneratingAI] = useState(false)
@@ -147,7 +148,8 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
       }
 
       const data = await response.json()
-      setSuccess(data.message || 'Grade released successfully')
+      setSuccess(data.message || 'Grade released and recorded')
+      setCurrentStatus('released')
 
       // Navigate back after success
       setTimeout(() => {
@@ -181,39 +183,67 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <Button
-            variant="outline"
-            onClick={handleSaveDraft}
-            disabled={isSaving || isReleasing}
-          >
-            {isSaving ? (
-              <>
-                <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined text-lg">save</span>
-                Save Draft
-              </>
-            )}
-          </Button>
-          <Button
-            onClick={handleReleaseGrade}
-            disabled={isSaving || isReleasing}
-          >
-            {isReleasing ? (
-              <>
-                <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Releasing...
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined text-lg">send</span>
-                Release Grade
-              </>
-            )}
-          </Button>
+          {currentStatus === 'released' ? (
+            <>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 font-medium text-sm">
+                <span className="material-symbols-outlined text-lg">check_circle</span>
+                Grade Recorded
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleReleaseGrade}
+                disabled={isSaving || isReleasing}
+              >
+                {isReleasing ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-lg">edit</span>
+                    Update Grade
+                  </>
+                )}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="outline"
+                onClick={handleSaveDraft}
+                disabled={isSaving || isReleasing}
+              >
+                {isSaving ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-lg">save</span>
+                    Save Draft
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleReleaseGrade}
+                disabled={isSaving || isReleasing}
+              >
+                {isReleasing ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Releasing...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-lg">send</span>
+                    Release Grade
+                  </>
+                )}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -233,7 +263,7 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
       <Card>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 overflow-hidden">
               {submission.student.avatar_url ? (
                 <img
                   src={submission.student.avatar_url}
@@ -250,9 +280,32 @@ export default function SubmissionReview({ submission }: SubmissionReviewProps) 
               <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
                 {submission.student.full_name}
               </h2>
-              <p className="text-slate-600 dark:text-slate-400">
-                LRN: {submission.student.lrn}
-              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600 dark:text-slate-400">
+                {submission.student.lrn && (
+                  <span className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-base">badge</span>
+                    LRN: {submission.student.lrn}
+                  </span>
+                )}
+                {submission.student.email && (
+                  <span className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-base">mail</span>
+                    {submission.student.email}
+                  </span>
+                )}
+                {submission.student.grade_level && (
+                  <span className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-base">school</span>
+                    Grade {submission.student.grade_level}
+                  </span>
+                )}
+                {submission.student.section_name && (
+                  <span className="flex items-center gap-1">
+                    <span className="material-symbols-outlined text-base">group</span>
+                    {submission.student.section_name}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <div className="text-right">

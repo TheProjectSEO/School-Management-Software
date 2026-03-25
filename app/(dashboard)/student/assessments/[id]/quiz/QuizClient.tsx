@@ -37,6 +37,8 @@ interface QuizClientProps {
   requiresFileUpload?: boolean;
   fileUploadInstructions?: string | null;
   allowedFileTypes?: string | null;
+  minWordCount?: number | null;
+  maxWordCount?: number | null;
 }
 
 export default function QuizClient({
@@ -51,6 +53,8 @@ export default function QuizClient({
   requiresFileUpload = false,
   fileUploadInstructions,
   allowedFileTypes = 'any',
+  minWordCount,
+  maxWordCount,
 }: QuizClientProps) {
   const router = useRouter();
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -273,6 +277,19 @@ export default function QuizClient({
     if (requiresFileUpload && uploadedFiles.length === 0 && !autoSubmit) {
       setError('This assignment requires at least one file upload before submitting.');
       return;
+    }
+
+    // Validate essay word count requirements
+    if (minWordCount && !autoSubmit) {
+      const essayQuestions = questions.filter(q => q.question_type === 'essay');
+      for (const q of essayQuestions) {
+        const text = answers.get(q.id)?.textAnswer ?? '';
+        const wordCount = text.trim().split(/\s+/).filter(Boolean).length;
+        if (wordCount < minWordCount) {
+          setError(`Your essay answer needs at least ${minWordCount} words. Currently: ${wordCount} words.`);
+          return;
+        }
+      }
     }
 
     if (!autoSubmit && !showConfirmDialog) {
@@ -654,29 +671,72 @@ export default function QuizClient({
             </div>
           )}
 
-          {currentQuestion.question_type === "essay" && (
-            <div>
-              <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">Write your essay answer below. Be thorough and organized.</p>
-              <textarea
-                className={`w-full p-4 rounded-xl border-2 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-base sm:text-lg transition-all resize-none ${
-                  isSubmitStarted
-                    ? "cursor-not-allowed opacity-80"
-                    : "focus:border-primary focus:ring-2 focus:ring-primary/20"
-                }`}
-                rows={8}
-                placeholder={isSubmitStarted ? "Answers are locked" : "Write your essay answer here..."}
-                value={currentAnswer?.textAnswer || ""}
-                disabled={isSubmitStarted}
-                onChange={(e) =>
-                  !isSubmitStarted && handleAnswerChange(
-                    currentQuestion.id,
-                    undefined,
-                    e.target.value
-                  )
-                }
-              />
-            </div>
-          )}
+          {currentQuestion.question_type === "essay" && (() => {
+            const essayText = currentAnswer?.textAnswer ?? '';
+            const wordCount = essayText.trim().split(/\s+/).filter(Boolean).length;
+            const belowMin = minWordCount && wordCount < minWordCount;
+            const aboveMax = maxWordCount && wordCount > maxWordCount;
+            const wordCountColor = belowMin
+              ? 'text-red-600 dark:text-red-400'
+              : aboveMax
+              ? 'text-orange-600 dark:text-orange-400'
+              : minWordCount && wordCount >= minWordCount
+              ? 'text-green-600 dark:text-green-400'
+              : 'text-slate-500 dark:text-slate-400';
+            return (
+              <div>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-2">
+                  Write your essay answer below. Be thorough and organized.
+                  {(minWordCount || maxWordCount) && (
+                    <span className="ml-2 font-medium">
+                      {minWordCount && maxWordCount
+                        ? `(${minWordCount}–${maxWordCount} words required)`
+                        : minWordCount
+                        ? `(minimum ${minWordCount} words)`
+                        : `(maximum ${maxWordCount} words)`}
+                    </span>
+                  )}
+                </p>
+                <textarea
+                  className={`w-full p-4 rounded-xl border-2 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-base sm:text-lg transition-all resize-none ${
+                    isSubmitStarted
+                      ? "cursor-not-allowed opacity-80 border-slate-200 dark:border-slate-700"
+                      : belowMin
+                      ? "border-red-300 dark:border-red-700 focus:border-red-400 focus:ring-2 focus:ring-red-200"
+                      : aboveMax
+                      ? "border-orange-300 dark:border-orange-700 focus:border-orange-400 focus:ring-2 focus:ring-orange-200"
+                      : "border-slate-200 dark:border-slate-700 focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  }`}
+                  rows={8}
+                  placeholder={isSubmitStarted ? "Answers are locked" : "Write your essay answer here..."}
+                  value={essayText}
+                  disabled={isSubmitStarted}
+                  onChange={(e) =>
+                    !isSubmitStarted && handleAnswerChange(
+                      currentQuestion.id,
+                      undefined,
+                      e.target.value
+                    )
+                  }
+                />
+                <div className={`flex items-center justify-between mt-1.5 text-sm ${wordCountColor}`}>
+                  <span className="font-medium">{wordCount} word{wordCount !== 1 ? 's' : ''}</span>
+                  {belowMin && (
+                    <span>{minWordCount! - wordCount} more word{minWordCount! - wordCount !== 1 ? 's' : ''} needed</span>
+                  )}
+                  {aboveMax && (
+                    <span>{wordCount - maxWordCount!} word{wordCount - maxWordCount! !== 1 ? 's' : ''} over limit</span>
+                  )}
+                  {!belowMin && !aboveMax && minWordCount && wordCount >= minWordCount && (
+                    <span className="flex items-center gap-1">
+                      <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                      Word count met
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </div>
 

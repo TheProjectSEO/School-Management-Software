@@ -14,6 +14,7 @@ import {
   computeClassQuarterlyGrades,
   releaseQuarterlyGrades,
 } from '@/lib/dal/deped-grades'
+import { verifyTeacherCourseAccess } from '@/lib/dal/teacher/gradebook'
 
 // GET — fetch quarterly grades for display
 export async function GET(req: NextRequest) {
@@ -26,6 +27,11 @@ export async function GET(req: NextRequest) {
 
   if (!courseId || !periodId) {
     return NextResponse.json({ error: 'courseId and periodId are required' }, { status: 400 })
+  }
+
+  const hasAccess = await verifyTeacherCourseAccess(auth.teacher.teacherId, courseId)
+  if (!hasAccess) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   const report = await getClassQuarterlyGrades(courseId, periodId)
@@ -42,13 +48,18 @@ export async function POST(req: NextRequest) {
   if (!auth.success) return auth.response
 
   const body = await req.json()
-  const { courseId, periodId, schoolId, action } = body
+  const { courseId, periodId, action } = body
 
-  if (!courseId || !periodId || !schoolId) {
+  if (!courseId || !periodId) {
     return NextResponse.json(
-      { error: 'courseId, periodId, and schoolId are required' },
+      { error: 'courseId and periodId are required' },
       { status: 400 }
     )
+  }
+
+  const hasAccess = await verifyTeacherCourseAccess(auth.teacher.teacherId, courseId)
+  if (!hasAccess) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
   if (action === 'release') {
@@ -60,12 +71,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(result, { status: result.success ? 200 : 500 })
   }
 
-  // Default: compute
+  // Default: compute — use auth schoolId, not client-supplied value
   const result = await computeClassQuarterlyGrades(
     courseId,
     periodId,
     auth.teacher.teacherId,
-    schoolId
+    auth.teacher.schoolId
   )
 
   return NextResponse.json(

@@ -243,14 +243,48 @@ export async function getGradebookData(
     return null
   }
 
-  // Get assessments for this course within the grading period
-  const { data: assessments, error: assessmentsError } = await supabase
+  // Get assessments for this course in this grading period.
+  // Primary: filter by grading_period_id (explicit link).
+  // Fallback: filter by due_date window.
+  // Final fallback: all course assessments (handles null due_dates).
+  let assessments: any[] | null = null
+  let assessmentsError: any = null
+
+  // Try grading_period_id first
+  const { data: byPeriodId, error: err1 } = await supabase
     .from('assessments')
-    .select('id, title, type, total_points, due_date')
+    .select('id, title, type, total_points, due_date, grading_period_id')
     .eq('course_id', courseId)
-    .gte('due_date', gradingPeriod.start_date)
-    .lte('due_date', gradingPeriod.end_date)
-    .order('due_date', { ascending: true })
+    .eq('grading_period_id', gradingPeriodId)
+    .order('created_at', { ascending: true })
+
+  if (err1) {
+    assessmentsError = err1
+  } else if (byPeriodId && byPeriodId.length > 0) {
+    assessments = byPeriodId
+  } else {
+    // Fallback: due_date within period window (excludes null due_dates)
+    const { data: byDate, error: err2 } = await supabase
+      .from('assessments')
+      .select('id, title, type, total_points, due_date, grading_period_id')
+      .eq('course_id', courseId)
+      .gte('due_date', gradingPeriod.start_date)
+      .lte('due_date', gradingPeriod.end_date)
+      .order('due_date', { ascending: true })
+
+    if (!err2 && byDate && byDate.length > 0) {
+      assessments = byDate
+    } else {
+      // Final fallback: all course assessments regardless of date
+      const { data: allAssessments, error: err3 } = await supabase
+        .from('assessments')
+        .select('id, title, type, total_points, due_date, grading_period_id')
+        .eq('course_id', courseId)
+        .order('created_at', { ascending: true })
+      assessments = allAssessments
+      assessmentsError = err3
+    }
+  }
 
   if (assessmentsError) {
     console.error('Error fetching assessments:', assessmentsError)
@@ -315,76 +349,88 @@ export async function getGradebookData(
   // Get grade weights
   const weightConfig = await getGradeWeights(courseId, gradingPeriodId)
 
-  // Build gradebook rows
-  const rows: GradebookRow[] = await Promise.all(
-    students.map(async (studentData: any) => {
+  const assessmentIds = (assessments || []).map((a: any) => a.id)
 
-      // Get all submissions for this student for the assessments
-      const assessmentIds = assessments?.map((a: any) => a.id) || []
-      const { data: submissions } = await supabase
+  // Batch-fetch all submissions for all students in one query (avoids N+1)
+  const { data: allSubmissions } = studentIds.length > 0 && assessmentIds.length > 0
+    ? await supabase
         .from('submissions')
-        .select('id, assessment_id, score, status')
-        .eq('student_id', studentData.id)
+        .select('id, assessment_id, score, status, student_id')
+        .in('student_id', studentIds)
         .in('assessment_id', assessmentIds)
+    : { data: [] }
 
-      // Get pending grading counts for this student's submissions
-      const submissionIds = submissions?.map(s => s.id) || []
-      let pendingCounts: Record<string, number> = {}
+  // Batch-fetch pending grading counts for all submissions
+  const allSubmissionIds = (allSubmissions || []).map((s: any) => s.id)
+  const { data: allPendingItems } = allSubmissionIds.length > 0
+    ? await supabase
+        .from('teacher_grading_queue')
+        .select('submission_id')
+        .in('submission_id', allSubmissionIds)
+        .eq('status', 'pending')
+    : { data: [] }
 
-      if (submissionIds.length > 0) {
-        const { data: pendingItems } = await supabase
-          .from('teacher_grading_queue')
-          .select('submission_id')
-          .in('submission_id', submissionIds)
-          .eq('status', 'pending')
+  const pendingCountsMap: Record<string, number> = (allPendingItems || []).reduce(
+    (acc: Record<string, number>, item: any) => {
+      acc[item.submission_id] = (acc[item.submission_id] || 0) + 1
+      return acc
+    },
+    {}
+  )
 
-        if (pendingItems) {
-          pendingCounts = pendingItems.reduce((acc: Record<string, number>, item) => {
-            acc[item.submission_id] = (acc[item.submission_id] || 0) + 1
-            return acc
-          }, {})
-        }
-      }
-
-      // Build assessment scores map
-      const assessmentScores = new Map<string, AssessmentScore>()
-      assessments?.forEach(assessment => {
-        const submission = submissions?.find(s => s.assessment_id === assessment.id)
-        assessmentScores.set(assessment.id, {
-          score: submission?.score ?? undefined,
-          max_score: assessment.total_points,
-          status: submission?.status || 'not_submitted',
-          submission_id: submission?.id,
-          pending_grading_count: submission ? (pendingCounts[submission.id] || 0) : 0,
-        })
-      })
-
-      // Get course grade if exists
-      const { data: courseGrade } = await supabase
+  // Batch-fetch all course grades
+  const { data: allCourseGrades } = studentIds.length > 0
+    ? await supabase
         .from('course_grades')
-        .select('numeric_grade, letter_grade')
-        .eq('student_id', studentData.id)
+        .select('student_id, numeric_grade, letter_grade')
+        .in('student_id', studentIds)
         .eq('course_id', courseId)
         .eq('grading_period_id', gradingPeriodId)
-        .single()
+    : { data: [] }
 
-      return {
-        student: {
-          student_id: studentData.id,
-          student_name: studentData.profile.full_name,
-          lrn: studentData.lrn,
-          profile_id: studentData.profile_id,
-        },
-        assessmentScores,
-        courseGrade: courseGrade
-          ? {
-              numeric_grade: courseGrade.numeric_grade,
-              letter_grade: courseGrade.letter_grade,
-            }
-          : undefined,
-      } as GradebookRow
-    })
+  const courseGradeMap = new Map(
+    (allCourseGrades || []).map((g: any) => [g.student_id, g])
   )
+
+  // Build gradebook rows — no async DB calls inside the map
+  const rows: GradebookRow[] = students.map((studentData: any) => {
+    const studentSubmissions = (allSubmissions || []).filter(
+      (s: any) => s.student_id === studentData.id
+    )
+
+    // Build assessment scores map
+    const assessmentScores = new Map<string, AssessmentScore>()
+    ;(assessments || []).forEach((assessment: any) => {
+      const submission = studentSubmissions.find(
+        (s: any) => s.assessment_id === assessment.id
+      )
+      assessmentScores.set(assessment.id, {
+        score: submission?.score ?? undefined,
+        max_score: assessment.total_points,
+        status: submission?.status || 'not_submitted',
+        submission_id: submission?.id,
+        pending_grading_count: submission ? (pendingCountsMap[submission.id] || 0) : 0,
+      })
+    })
+
+    const courseGrade = courseGradeMap.get(studentData.id)
+
+    return {
+      student: {
+        student_id: studentData.id,
+        student_name: studentData.profile?.full_name || 'Unknown',
+        lrn: studentData.lrn,
+        profile_id: studentData.profile_id,
+      },
+      assessmentScores,
+      courseGrade: courseGrade
+        ? {
+            numeric_grade: courseGrade.numeric_grade,
+            letter_grade: courseGrade.letter_grade,
+          }
+        : undefined,
+    } as GradebookRow
+  })
 
   return {
     course_id: course.id,
@@ -676,7 +722,7 @@ export async function releaseGrades(
 /**
  * Verify teacher has access to a course
  */
-async function verifyTeacherCourseAccess(
+export async function verifyTeacherCourseAccess(
   teacherId: string,
   courseId: string
 ): Promise<boolean> {

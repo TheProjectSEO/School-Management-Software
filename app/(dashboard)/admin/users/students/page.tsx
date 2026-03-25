@@ -112,9 +112,13 @@ export default function StudentsPage() {
       if (filters.sectionId) params.set("sectionId", filters.sectionId);
 
       const response = await authFetch(`/api/admin/users/students?${params}`);
+      if (!response.ok) {
+        console.error("Failed to fetch students:", response.status);
+        return;
+      }
       const result: PaginatedResult = await response.json();
 
-      setStudents(result.data);
+      setStudents(result.data ?? []);
       setPagination((prev) => ({
         ...prev,
         total: result.total,
@@ -130,6 +134,7 @@ export default function StudentsPage() {
   const fetchSections = useCallback(async () => {
     try {
       const response = await authFetch("/api/admin/sections");
+      if (!response.ok) return;
       const data = await response.json();
       setSections(data || []);
     } catch (error) {
@@ -137,15 +142,18 @@ export default function StudentsPage() {
     }
   }, []);
 
-  const generateNextLRN = useCallback(async () => {
+  const generateNextLRN = useCallback(async (signal: AbortSignal) => {
     try {
-      const response = await authFetch("/api/admin/users/students/next-lrn");
+      const response = await authFetch("/api/admin/users/students/next-lrn", { signal });
+      if (!response.ok || signal.aborted) return;
       const result = await response.json();
       if (result.lrn) {
         setFormData((prev) => ({ ...prev, lrn: result.lrn }));
       }
-    } catch (error) {
-      console.error("Failed to generate next LRN:", error);
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name !== "AbortError") {
+        console.error("Failed to generate next LRN:", error);
+      }
     }
   }, []);
 
@@ -158,9 +166,10 @@ export default function StudentsPage() {
   }, [fetchSections]);
 
   useEffect(() => {
-    if (showAddModal) {
-      generateNextLRN();
-    }
+    if (!showAddModal) return;
+    const controller = new AbortController();
+    generateNextLRN(controller.signal);
+    return () => controller.abort();
   }, [showAddModal, generateNextLRN]);
 
   // Debounced search - updates filters 300ms after user stops typing
@@ -204,13 +213,17 @@ export default function StudentsPage() {
         }),
       });
 
-      if (response.ok) {
+      const result = await response.json();
+
+      if (response.ok && result.success) {
         setShowDeactivateModal(false);
-        // Keep students selected so user can perform additional actions
         fetchStudents();
+      } else {
+        alert(result.error || "Failed to deactivate students");
       }
     } catch (error) {
       console.error("Failed to deactivate students:", error);
+      alert("Failed to deactivate students. Please try again.");
     } finally {
       setActionLoading(false);
     }
@@ -304,10 +317,6 @@ export default function StudentsPage() {
       return;
     }
 
-    // Debug logging
-    console.log("selectedStudents:", selectedStudents);
-    console.log("selectedStudents.length:", selectedStudents.length);
-
     if (selectedStudents.length === 0) {
       alert("No valid students selected");
       return;
@@ -319,8 +328,6 @@ export default function StudentsPage() {
       const studentIds = selectedStudents
         .filter((s) => s && s.id)
         .map((s) => s.id);
-
-      console.log("studentIds:", studentIds);
 
       if (studentIds.length === 0) {
         alert("No valid students selected");
@@ -416,7 +423,7 @@ export default function StudentsPage() {
           lrn: "",
           gradeLevel: "",
           sectionId: "",
-          phone: "",
+          phone: "+63 ",
           temporaryPassword: "",
           birthDate: "",
           gender: "",

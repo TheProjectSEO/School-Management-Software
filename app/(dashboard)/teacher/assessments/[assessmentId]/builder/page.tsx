@@ -10,7 +10,7 @@ interface Assessment {
   id: string
   title: string
   description: string
-  type: 'quiz' | 'assignment' | 'exam' | 'project' | 'midterm' | 'final'
+  type: 'essay' | 'assignment' | 'short_quiz' | 'long_quiz' | 'exam' | 'quiz' | 'project' | 'midterm' | 'final'
   course_id: string
   available_from: string | null
   due_date: string | null
@@ -24,6 +24,8 @@ interface Assessment {
   requires_file_upload?: boolean
   file_upload_instructions?: string | null
   allowed_file_types?: string | null
+  min_word_count?: number | null
+  max_word_count?: number | null
 }
 
 interface QuestionOption {
@@ -237,6 +239,8 @@ export default function AssessmentBuilderPage() {
           requires_file_upload: assessment.requires_file_upload ?? false,
           file_upload_instructions: assessment.file_upload_instructions ?? null,
           allowed_file_types: assessment.allowed_file_types ?? 'any',
+          min_word_count: assessment.min_word_count ?? null,
+          max_word_count: assessment.max_word_count ?? null,
           questions: questionsPayload,
         }),
       })
@@ -558,12 +562,17 @@ export default function AssessmentBuilderPage() {
                 onChange={e => setAssessment({ ...assessment, type: e.target.value as Assessment['type'] })}
                 className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
               >
-                <option value="quiz">Quiz</option>
-                <option value="assignment">Assignment</option>
-                <option value="exam">Exam</option>
-                <option value="project">Project</option>
-                <option value="midterm">Midterm Exam</option>
-                <option value="final">Final Exam</option>
+                <optgroup label="Written Work">
+                  <option value="essay">Essay</option>
+                  <option value="assignment">Assignment</option>
+                </optgroup>
+                <optgroup label="Performance Task">
+                  <option value="short_quiz">Short Quiz</option>
+                  <option value="long_quiz">Long Quiz</option>
+                </optgroup>
+                <optgroup label="Quarterly Assessment">
+                  <option value="exam">Exam</option>
+                </optgroup>
               </select>
             </div>
 
@@ -655,6 +664,43 @@ export default function AssessmentBuilderPage() {
                 )}
               </div>
             </div>
+
+            {/* Word Count — only for essay type */}
+            {assessment.type === 'essay' && (
+              <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-1 flex items-center gap-2">
+                  <span className="material-symbols-outlined text-primary">text_fields</span>
+                  Word Count Requirement
+                </h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">
+                  Set minimum and/or maximum word count for essay answers. Students will see a live word counter.
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Min Words</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={assessment.min_word_count ?? ''}
+                      onChange={e => setAssessment({ ...assessment, min_word_count: parseInt(e.target.value) || null })}
+                      placeholder="No minimum"
+                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">Max Words</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={assessment.max_word_count ?? ''}
+                      onChange={e => setAssessment({ ...assessment, max_word_count: parseInt(e.target.value) || null })}
+                      placeholder="No maximum"
+                      className="w-full px-4 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 text-slate-900 dark:text-white"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

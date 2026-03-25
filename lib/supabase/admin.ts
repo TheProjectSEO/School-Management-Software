@@ -186,6 +186,25 @@ export async function verifyStoredRefreshToken(
 }
 
 /**
+ * Atomically claim a refresh token by revoking it.
+ * Uses WHERE revoked_at IS NULL so only the first caller succeeds.
+ * Returns true if this caller claimed it; false if another process already did.
+ * Use this instead of revokeRefreshToken in the refresh flow to prevent race conditions.
+ */
+export async function claimRefreshToken(tokenId: string): Promise<boolean> {
+  const supabase = createAdminClient();
+
+  const { data, error } = await supabase
+    .from('refresh_tokens')
+    .update({ revoked_at: new Date().toISOString() })
+    .eq('id', tokenId)
+    .is('revoked_at', null)
+    .select('id');
+
+  return !error && Array.isArray(data) && data.length > 0;
+}
+
+/**
  * Revoke a refresh token
  */
 export async function revokeRefreshToken(tokenId: string): Promise<boolean> {

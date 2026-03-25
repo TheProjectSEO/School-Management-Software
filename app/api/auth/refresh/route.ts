@@ -7,6 +7,7 @@ import {
   getUserRole,
   getUserEmail,
   verifyStoredRefreshToken,
+  claimRefreshToken,
   revokeRefreshToken,
   storeRefreshToken,
   logAuthEvent,
@@ -42,7 +43,14 @@ async function performTokenRefresh(request: NextRequest, refreshToken: string) {
   const userId = storedToken.userId;
   const oldTokenId = storedToken.id;
 
-  // Get fresh user data (parallel — do this BEFORE revoking old token)
+  // Atomically claim the token — only one concurrent caller wins.
+  // If another tab/request already claimed it, this returns false.
+  const claimed = await claimRefreshToken(oldTokenId);
+  if (!claimed) {
+    return { error: 'Refresh token has been revoked', status: 401 };
+  }
+
+  // Get fresh user data now that we have exclusive claim
   const [roleData, email] = await Promise.all([
     getUserRole(userId),
     getUserEmail(userId),
@@ -78,12 +86,10 @@ async function performTokenRefresh(request: NextRequest, refreshToken: string) {
     school_id: roleData.schoolId,
   });
 
-  // Generate new refresh token (rotation)
+  // Generate and store new refresh token
   const newRefreshTokenId = randomUUID();
   const newRefreshToken = await generateRefreshToken(userId, newRefreshTokenId);
 
-  // Hash and store new refresh token FIRST (before revoking old)
-  // This prevents logout if DB times out between revoke and store
   const newTokenHash = createHash('sha256').update(newRefreshToken).digest('hex');
   const expiresAt = new Date();
   expiresAt.setDate(expiresAt.getDate() + 7);
@@ -96,8 +102,7 @@ async function performTokenRefresh(request: NextRequest, refreshToken: string) {
     request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || undefined
   );
 
-  // Revoke old token AFTER new one is safely stored (token rotation)
-  await revokeRefreshToken(oldTokenId);
+  // Old token already revoked by claimRefreshToken above — nothing more to do.
 
   // Log token refresh (fire-and-forget — do not await in critical path)
   logAuthEvent(

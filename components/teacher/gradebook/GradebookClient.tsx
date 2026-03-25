@@ -158,7 +158,7 @@ export default function GradebookClient({
   // Refresh DepEd rows after compute/release
   const handleDepEdRefresh = useCallback(async () => {
     try {
-      const res = await fetch(
+      const res = await authFetch(
         `/api/teacher/gradebook/deped?courseId=${gradebookData.course_id}&periodId=${currentPeriodId}`
       )
       if (res.ok) {

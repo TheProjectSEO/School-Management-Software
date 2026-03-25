@@ -58,6 +58,10 @@ export async function verifyAccessToken(token: string): Promise<AccessTokenPaylo
   try {
     const secret = getJwtSecret();
     const { payload } = await jwtVerify(token, secret);
+    // Validate required claims are present and non-empty
+    if (!payload.sub || !(payload as AccessTokenPayload).email || !(payload as AccessTokenPayload).role || !(payload as AccessTokenPayload).profile_id) {
+      return null;
+    }
     return payload as AccessTokenPayload;
   } catch {
     return null;

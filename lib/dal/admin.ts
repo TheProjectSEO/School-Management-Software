@@ -479,7 +479,7 @@ export async function listStudents(params?: {
 }): Promise<{ data: StudentListItem[]; total: number; page: number; pageSize: number; totalPages: number }> {
   try {
     const supabase = createAdminClient();
-    const { search, status, sectionId, gradeLevel, page = 1, pageSize = 20 } = params || {};
+    const { search, status, sectionId, gradeLevel, schoolId, page = 1, pageSize = 20 } = params || {};
 
     // Get ALL students first with profile data via FK join
     // We'll filter by search/status in memory since PostgREST can't handle OR on FK fields
@@ -501,6 +501,11 @@ export async function listStudents(params?: {
         )
       `)
       .order('created_at', { ascending: false });
+
+    // Always filter by school to prevent cross-tenant data leaks
+    if (schoolId) {
+      query = query.eq('school_id', schoolId);
+    }
 
     // Apply direct filters (on students table only)
     if (sectionId) {
@@ -646,7 +651,7 @@ export async function listTeachers(params?: {
 }): Promise<{ data: TeacherListItem[]; total: number; page: number; pageSize: number; totalPages: number }> {
   try {
     const supabase = createAdminClient();
-    const { search, status, page = 1, pageSize = 20 } = params || {};
+    const { search, status, schoolId, page = 1, pageSize = 20 } = params || {};
 
     let query = supabase
       .from('teacher_profiles')
@@ -663,6 +668,11 @@ export async function listTeachers(params?: {
       `
       )
       .order('created_at', { ascending: false });
+
+    // Always filter by school to prevent cross-tenant data leaks
+    if (schoolId) {
+      query = query.eq('school_id', schoolId);
+    }
 
     // Apply simple filters in SQL
     if (status === 'active') {

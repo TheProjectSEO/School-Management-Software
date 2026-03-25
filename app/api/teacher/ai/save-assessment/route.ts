@@ -36,6 +36,12 @@ export async function POST(request: NextRequest) {
       maxAttempts,
       publishNow,
       questions,
+      gradingPeriodId,
+      minWordCount,
+      maxWordCount,
+      requiresFileUpload,
+      fileUploadInstructions,
+      allowedFileTypes,
     } = body;
 
     // Server-side idempotency: prevent duplicate saves from double-clicks
@@ -86,9 +92,18 @@ export async function POST(request: NextRequest) {
       0
     );
 
+    // Derive deped_component from type
+    const resolvedType = type || 'short_quiz'
+    const depedComponent =
+      ['essay', 'assignment'].includes(resolvedType)                                         ? 'written_work' :
+      ['short_quiz', 'long_quiz', 'quiz', 'project', 'participation'].includes(resolvedType) ? 'performance_task' :
+      ['exam', 'midterm', 'final'].includes(resolvedType)                                    ? 'quarterly_assessment' :
+      'performance_task'
+
     const insertData: Record<string, unknown> = {
       title: title.trim(),
-      type: type || "quiz",
+      type: resolvedType,
+      deped_component: depedComponent,
       course_id: courseId,
       section_id: course?.section_id || null,
       school_id: schoolId,
@@ -102,7 +117,13 @@ export async function POST(request: NextRequest) {
     };
     if (lessonId) insertData.lesson_id = lessonId;
     if (moduleId) insertData.module_id = moduleId;
+    if (gradingPeriodId) insertData.grading_period_id = gradingPeriodId;
     if (idempotency_key) insertData.idempotency_key = idempotency_key;
+    if (minWordCount != null) insertData.min_word_count = minWordCount;
+    if (maxWordCount != null) insertData.max_word_count = maxWordCount;
+    if (requiresFileUpload) insertData.requires_file_upload = requiresFileUpload;
+    if (fileUploadInstructions) insertData.file_upload_instructions = fileUploadInstructions;
+    if (allowedFileTypes && allowedFileTypes !== 'any') insertData.allowed_file_types = allowedFileTypes;
 
     const { data: assessment, error: assessmentError } = await supabase
       .from("assessments")

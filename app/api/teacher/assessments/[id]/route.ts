@@ -115,6 +115,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       requires_file_upload,
       file_upload_instructions,
       allowed_file_types,
+      min_word_count,
+      max_word_count,
     } = body
 
     // First verify the assessment exists and teacher has access
@@ -161,6 +163,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         ...(requires_file_upload !== undefined && { requires_file_upload }),
         ...(file_upload_instructions !== undefined && { file_upload_instructions }),
         ...(allowed_file_types !== undefined && { allowed_file_types }),
+        ...(min_word_count !== undefined && { min_word_count }),
+        ...(max_word_count !== undefined && { max_word_count }),
         updated_at: new Date().toISOString()
       })
       .eq('id', id)

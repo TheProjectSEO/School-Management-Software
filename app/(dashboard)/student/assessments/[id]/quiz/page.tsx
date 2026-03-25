@@ -46,6 +46,8 @@ export default async function QuizPage({
       requiresFileUpload={assessment.requires_file_upload ?? false}
       fileUploadInstructions={assessment.file_upload_instructions ?? null}
       allowedFileTypes={assessment.allowed_file_types ?? 'any'}
+      minWordCount={assessment.min_word_count ?? null}
+      maxWordCount={assessment.max_word_count ?? null}
     />
   );
 }

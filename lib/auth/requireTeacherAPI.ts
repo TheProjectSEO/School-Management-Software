@@ -39,6 +39,16 @@ export async function requireTeacherAPI(): Promise<AuthResult> {
       };
     }
 
+    if (currentUser.role !== 'teacher') {
+      return {
+        success: false,
+        response: NextResponse.json(
+          { error: 'Forbidden - Teacher role required' },
+          { status: 403 }
+        ),
+      };
+    }
+
     const supabase = createServiceClient();
 
     // Use RPC to get teacher profile (bypasses RLS)

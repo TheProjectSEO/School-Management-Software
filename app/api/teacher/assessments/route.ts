@@ -98,13 +98,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Derive deped_component from type if not explicitly provided
-    const resolvedDepedComponent = deped_component ?? (
-      ['quiz', 'assignment', 'exam'].includes(type)     ? 'written_work' :
-      ['project', 'participation'].includes(type)        ? 'performance_task' :
-      ['midterm', 'final'].includes(type)                ? 'quarterly_assessment' :
+    // Derive deped_component from type, validate explicit override
+    const VALID_DEPED_COMPONENTS = ['written_work', 'performance_task', 'quarterly_assessment'] as const
+    const derivedDepedComponent =
+      ['essay', 'assignment'].includes(type)                                         ? 'written_work' :
+      ['short_quiz', 'long_quiz', 'quiz', 'project', 'participation'].includes(type) ? 'performance_task' :
+      ['exam', 'midterm', 'final'].includes(type)                                    ? 'quarterly_assessment' :
       'written_work'
-    )
+
+    const resolvedDepedComponent =
+      deped_component && VALID_DEPED_COMPONENTS.includes(deped_component as typeof VALID_DEPED_COMPONENTS[number])
+        ? deped_component
+        : derivedDepedComponent
 
     // Create assessment
     const insertData: Record<string, unknown> = {

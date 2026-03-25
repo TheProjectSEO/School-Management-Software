@@ -52,12 +52,7 @@ export default function AcademicSettingsPage() {
       { id: "2", name: "2023-2024", startDate: "2023-08-07", endDate: "2024-05-31", isCurrent: false },
       { id: "3", name: "2022-2023", startDate: "2022-08-08", endDate: "2023-06-02", isCurrent: false },
     ],
-    gradingPeriods: [
-      { id: "1", name: "First Quarter", shortName: "Q1", startDate: "2024-08-05", endDate: "2024-10-11", weight: 25, academicYearId: null },
-      { id: "2", name: "Second Quarter", shortName: "Q2", startDate: "2024-10-14", endDate: "2024-12-20", weight: 25, academicYearId: null },
-      { id: "3", name: "Third Quarter", shortName: "Q3", startDate: "2025-01-06", endDate: "2025-03-14", weight: 25, academicYearId: null },
-      { id: "4", name: "Fourth Quarter", shortName: "Q4", startDate: "2025-03-17", endDate: "2025-05-30", weight: 25, academicYearId: null },
-    ],
+    gradingPeriods: [],
     gradingScale: [
       { letter: "A", minScore: 90, maxScore: 100, description: "Excellent", color: "#22c55e" },
       { letter: "B", minScore: 80, maxScore: 89, description: "Very Good", color: "#84cc16" },

@@ -63,8 +63,8 @@ export function Sidebar({ user, showRealtimeNotifications }: SidebarProps) {
 
   return (
     <aside className={`hidden w-64 flex-col border-r border-slate-200 dark:border-slate-700 lg:flex ${theme.layout.sidebarBg}`}>
-      <div className="flex h-full flex-col justify-between p-4">
-        <div className="flex flex-col gap-6">
+      <div className="flex h-full flex-col p-4">
+        <div className="flex flex-col gap-6 flex-1 min-h-0">
           {/* Logo Section */}
           <div className="flex flex-col items-center pt-2 pb-2">
             <BrandLogo size="lg" className="mb-3" priority />
@@ -108,7 +108,7 @@ export function Sidebar({ user, showRealtimeNotifications }: SidebarProps) {
           </div>
 
           {/* Navigation */}
-          <nav className="flex flex-col gap-2 overflow-y-auto scrollbar-hide">
+          <nav className="flex flex-col gap-2 flex-1 overflow-y-auto scrollbar-hide">
             {navItems.map((item) => {
               const active = isActive(item.href);
               const navOverride = theme.nav.items[item.href];

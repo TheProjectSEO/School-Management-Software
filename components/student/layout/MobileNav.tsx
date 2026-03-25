@@ -121,7 +121,7 @@ export function MobileNav({ user, onLogout, showRealtimeNotifications }: MobileN
             className="absolute inset-0 bg-black/50"
             onClick={() => setIsOpen(false)}
           />
-          <nav className={`absolute left-0 top-0 bottom-0 w-64 p-4 overflow-y-auto ${theme.layout.mobileBg}`}>
+          <nav className={`absolute left-0 top-0 bottom-0 w-64 p-4 overflow-y-auto scrollbar-hide ${theme.layout.mobileBg}`}>
             <div className="flex flex-col gap-6">
               {/* Logo Section */}
               <div className="flex flex-col items-center justify-center pt-2 pb-2">

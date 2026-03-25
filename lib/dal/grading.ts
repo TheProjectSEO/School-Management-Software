@@ -268,12 +268,21 @@ export async function gradeSubmission(
     for (const answerScore of input.answerScores) {
       await supabase
         .from('student_answers')
-        .update({
-          points_earned: answerScore.points
-        })
+        .update({ points_earned: answerScore.points })
         .eq('id', answerScore.answerId)
     }
   }
+
+  // Mark all grading queue items for this submission as completed
+  await supabase
+    .from('teacher_grading_queue')
+    .update({
+      status: 'graded',
+      graded_by: teacherProfileId,
+      graded_at: new Date().toISOString(),
+    })
+    .eq('submission_id', submissionId)
+    .in('status', ['pending', 'in_review'])
 
   return { success: true }
 }

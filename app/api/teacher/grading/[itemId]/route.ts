@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI'
 import { gradeSubmission, releaseSubmission } from '@/lib/dal/grading'
+import { calculateCourseGrade } from '@/lib/dal/teacher/gradebook'
 
 /**
  * POST /api/teacher/grading/[itemId]
@@ -60,6 +61,30 @@ export async function POST(
     const releaseResult = await releaseSubmission(submissionId, auth.teacher.teacherId)
     if (!releaseResult.success) {
       return NextResponse.json({ error: releaseResult.error || 'Failed to release' }, { status: 500 })
+    }
+  }
+
+  // Update course grade so the gradebook reflects the new score
+  // Look up student_id, course_id, and grading_period_id from the submission
+  const { data: submissionMeta } = await supabase
+    .from('submissions')
+    .select('student_id, assessment_id')
+    .eq('id', submissionId)
+    .single()
+
+  if (submissionMeta) {
+    const { data: assessment } = await supabase
+      .from('assessments')
+      .select('course_id, grading_period_id')
+      .eq('id', submissionMeta.assessment_id)
+      .single()
+
+    if (assessment?.course_id && assessment?.grading_period_id) {
+      await calculateCourseGrade(
+        submissionMeta.student_id,
+        assessment.course_id,
+        assessment.grading_period_id
+      )
     }
   }
 

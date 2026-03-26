@@ -39,7 +39,7 @@ const securityHeaders = [
       "font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com",
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.daily.co https://daily.co https:",
       "media-src 'self' blob: https:",
-      "frame-src 'self' https://daily.co https://*.daily.co",
+      "frame-src 'self' https://daily.co https://*.daily.co https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://drive.google.com https://docs.google.com https://www.loom.com https://iframe.mediadelivery.net https://*.supabase.co",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",

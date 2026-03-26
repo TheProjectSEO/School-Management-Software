@@ -5,6 +5,7 @@ import { requireTeacherAPI } from '@/lib/auth/requireTeacherAPI';
 import { getDailyClient } from '@/lib/services/daily/client';
 import { processRecordingForSession } from '@/lib/services/daily/recordings';
 import { createLessonFromSession } from '@/lib/services/session-to-lesson';
+import { transcribeSessionRecording } from '@/lib/services/transcription';
 
 export async function POST(
   _req: NextRequest,
@@ -127,11 +128,25 @@ export async function POST(
       }
     }
 
-    // Auto-create a draft lesson from this session (non-blocking)
+    // Auto-create a draft lesson from this session
     try {
       await createLessonFromSession(sessionId);
     } catch (lessonErr) {
       console.error('[End Session] Error creating lesson from session:', lessonErr);
+    }
+
+    // Auto-transcribe the recording and push transcript into the lesson (non-blocking)
+    // Only runs if OpenAI is configured and recording was successfully stored
+    if (recordingResult?.success && process.env.OPENAI_API_KEY) {
+      transcribeSessionRecording(sessionId).then((result) => {
+        if (result.success) {
+          console.log(`[End Session] Auto-transcription done for session ${sessionId}`);
+        } else if (!result.alreadyExists) {
+          console.warn(`[End Session] Auto-transcription failed: ${result.error}`);
+        }
+      }).catch((err) => {
+        console.error('[End Session] Auto-transcription error:', err);
+      });
     }
 
     return NextResponse.json({

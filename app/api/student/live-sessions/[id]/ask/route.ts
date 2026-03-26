@@ -100,32 +100,53 @@ export async function POST(
       }
     }
 
-    const embeddingResponse = await callOpenAIEmbeddings({
-      input: [question],
-    });
+    // Try semantic chunk search first, fall back to full transcript text
+    let transcriptContext = "";
 
-    const queryEmbedding = embeddingResponse.data[0]?.embedding;
-    if (!queryEmbedding) {
-      return NextResponse.json({ error: "Failed to generate embeddings" }, { status: 500 });
-    }
+    try {
+      const embeddingResponse = await callOpenAIEmbeddings({ input: [question] });
+      const queryEmbedding = embeddingResponse.data[0]?.embedding;
 
-    const { data: chunks, error: chunkError } = await supabase.rpc(
-      "match_session_transcript_chunks",
-      {
-        query_embedding: queryEmbedding,
-        match_session: sessionId,
-        match_count: 8,
-        match_threshold: 0.7,
+      if (queryEmbedding) {
+        const { data: chunks, error: chunkError } = await supabase.rpc(
+          "match_session_transcript_chunks",
+          {
+            query_embedding: queryEmbedding,
+            match_session: sessionId,
+            match_count: 8,
+            match_threshold: 0.5,
+          }
+        );
+
+        if (chunkError) {
+          console.warn("[Ask] Chunk RPC error (will fall back to full transcript):", chunkError.message);
+        }
+
+        if (Array.isArray(chunks) && chunks.length > 0) {
+          transcriptContext = chunks.map((c: { content: string }) => c.content).join("\n\n");
+        }
       }
-    );
-
-    if (chunkError) {
-      console.error("Transcript chunk search error:", chunkError);
+    } catch (embeddingErr) {
+      console.warn("[Ask] Embedding/chunk search failed (will fall back):", embeddingErr);
     }
 
-    const transcriptContext = Array.isArray(chunks)
-      ? chunks.map((c: { content: string }) => c.content).join("\n\n")
-      : "";
+    // Fallback: use full transcript text if no chunks found
+    if (!transcriptContext) {
+      const { data: transcript } = await supabase
+        .from("session_transcripts")
+        .select("transcript_text")
+        .eq("session_id", sessionId)
+        .maybeSingle();
+
+      if (transcript?.transcript_text) {
+        // Truncate to ~6000 chars to stay within context limits
+        transcriptContext = transcript.transcript_text.slice(0, 6000);
+        if (transcript.transcript_text.length > 6000) {
+          transcriptContext += "\n\n[Transcript truncated for length]";
+        }
+        console.log(`[Ask] Using full transcript fallback for session ${sessionId} (${transcriptContext.length} chars)`);
+      }
+    }
 
     const courseName = course?.name ?? "Course";
     const subjectCode = course?.subject_code ?? "N/A";

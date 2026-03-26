@@ -1,8 +1,9 @@
 "use client";
 
 import { authFetch } from "@/lib/utils/authFetch";
+import { createClient } from "@/lib/supabase/client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import QRCodeLib from "qrcode";
 
 type QRCode = {
@@ -34,9 +35,33 @@ export default function EnrollmentQRPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [modalQr, setModalQr] = useState<QRCode | null>(null);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  const [codeInput, setCodeInput] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
+
+  const codeExists = qrCodes.some(
+    (q) => q.code.toLowerCase() === codeInput.trim().toLowerCase()
+  );
 
   useEffect(() => {
     load();
+
+    // Real-time subscription
+    const supabase = createClient();
+    const channel = supabase
+      .channel("enrollment_qr_codes_realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "enrollment_qr_codes" },
+        () => {
+          load();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function load() {
@@ -57,7 +82,7 @@ export default function EnrollmentQRPage() {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
     const payload = {
-      code: formData.get("code"),
+      code: codeInput.trim(),
       name: formData.get("name"),
       description: formData.get("description"),
       targetGradeLevels: (formData.get("grades") as string)?.split(",").map((g) => g.trim()).filter(Boolean),
@@ -73,8 +98,8 @@ export default function EnrollmentQRPage() {
       const json = await res.json();
       alert(json.error || "Failed to create QR code");
     } else {
-      event.currentTarget.reset();
-      await load();
+      formRef.current?.reset();
+      setCodeInput("");
     }
   }
 
@@ -116,15 +141,34 @@ export default function EnrollmentQRPage() {
         <p className="text-gray-600">Generate and track QR codes for application intake.</p>
       </div>
 
-      <form onSubmit={create} className="grid grid-cols-1 md:grid-cols-2 gap-4 border rounded p-4">
-        <TextInput name="code" label="Code" required placeholder="MSU-2026-GEN" />
+      <form ref={formRef} onSubmit={create} className="grid grid-cols-1 md:grid-cols-2 gap-4 border rounded p-4">
+        <label className="block text-sm font-medium text-gray-800">
+          Code
+          <input
+            name="code"
+            required
+            placeholder="MSU-2026-GEN"
+            value={codeInput}
+            onChange={(e) => setCodeInput(e.target.value)}
+            className={`mt-1 w-full rounded border px-3 py-2 focus:outline-none focus:ring focus:border-blue-500 ${
+              codeExists ? "border-red-400 bg-red-50" : "border-gray-300"
+            }`}
+          />
+          {codeExists && (
+            <p className="mt-1 text-xs text-red-600">This code already exists.</p>
+          )}
+        </label>
         <TextInput name="name" label="Name" required placeholder="2026 General Admission" />
         <TextInput name="description" label="Description" placeholder="General admissions" />
         <TextInput name="enrollmentUrl" label="Public URL (optional)" placeholder="https://example.com/apply?qr=MSU-2026-GEN" />
         <TextInput name="grades" label="Target grades (comma-separated)" placeholder="10,11,12" />
         <TextInput name="tracks" label="Tracks (comma-separated)" placeholder="STEM,ABM,HUMSS" />
         <div className="md:col-span-2">
-          <button className="px-4 py-2 rounded bg-blue-600 text-white" type="submit">
+          <button
+            className="px-4 py-2 rounded bg-blue-600 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+            type="submit"
+            disabled={codeExists}
+          >
             Create QR Code
           </button>
         </div>
